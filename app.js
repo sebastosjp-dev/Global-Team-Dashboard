@@ -478,7 +478,7 @@ function renderTabMetrics(data, tabName, filterCountry = null) {
     metricsGrid.innerHTML = '';
     let hasMetrics = false;
     const isGlobalTab = tabName && tabName.includes('Global(계약시점)');
-    const isCountryTab = tabName && filterCountry === null && !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)'].includes(tabName) && !isGlobalTab;
+    const isCountryTab = tabName && filterCountry === null && !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)', 'COLLECTION'].includes(tabName) && !isGlobalTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
         renderOrderSheetMetrics(data, filterCountry, metricsGrid, tabName);
