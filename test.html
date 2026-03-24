@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        async function run() {
+            try {
+                const res = await fetch('2026 Global Rev.01.xlsx');
+                const arrayBuffer = await res.arrayBuffer();
+                const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+                
+                const s9 = XLSX.utils.sheet_to_json(workbook.Sheets['Sheet9']);
+                const poc = XLSX.utils.sheet_to_json(workbook.Sheets['POC']);
+                
+                document.getElementById('out').innerText = JSON.stringify({
+                    sheet9_sample: s9[0],
+                    poc_sample: poc[0]
+                }, null, 2);
+            } catch (e) {
+                document.getElementById('out').innerText = e.toString();
+            }
+        }
+        window.onload = run;
+    </script>
+</head>
+<body><pre id="out">Loading...</pre></body>
+</html>

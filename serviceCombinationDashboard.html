@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Combination Analysis (Upsell Opportunities)</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Tailwind CSS (Play CDN for prototyping) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Framer Motion (UMD build) -->
+    <script src="https://unpkg.com/framer-motion@10.16.5/dist/framer-motion.js"></script>
+
+    <!-- Babel for transpiling JSX in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Dashboard Logic Container -->
+    <script src="serviceCombinationLogic.js"></script>
+
+    <style>
+        body {
+            background-color: #f8fafc; /* Tailwind slate-50 */
+            margin: 0;
+            padding: 40px;
+            font-family: 'Inter', -apple-system, sans-serif;
+        }
+
+        /* 스크롤바 커스텀 */
+        .thin-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .thin-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .thin-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // 글로벌에서 필요한 모듈 추출
+        const { useState, useEffect } = React;
+        const { motion, AnimatePresence } = window.Motion;
+        
+        // serviceCombinationLogic.js에서 주입한 순수 함수
+        const { getDashboardCardConfigs, calculateTooltipPosition } = window.DashboardLogic || {};
+
+        function ServiceCombinationAnalysis() {
+            // 카운트와 더미 유저 배열을 포함한 메타데이터
+            const cardsConfigs = getDashboardCardConfigs();
+
+            // 툴팁 관련 상태 관리 (순수 함수와 컴포넌트 라이프사이클 분리)
+            const [hoveredCard, setHoveredCard] = useState(null);
+            const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
+
+            // 마우스 추적 핸들러
+            const handleMouseMove = (e) => {
+                if (!hoveredCard) return;
+                const pos = calculateTooltipPosition(
+                    e.clientX, 
+                    e.clientY, 
+                    window.innerWidth, 
+                    window.innerHeight, 
+                    280, // Tooltip width
+                    400 // Max height estimate
+                );
+                setCursorPos(pos);
+            };
+
+            const activeData = hoveredCard ? cardsConfigs.find(c => c.id === hoveredCard) : null;
+
+            return (
+                <div className="w-full max-w-5xl mx-auto p-4 md:p-6" onMouseMove={handleMouseMove}>
+                    {/* 타이틀 및 서브타이틀 */}
+                    <div className="mb-6">
+                        <h1 className="text-2xl font-bold text-gray-900 mb-1">Service Combination Analysis (Upsell Opportunities)</h1>
+                        <p className="text-gray-500 text-sm">Select a tab to view details</p>
+                    </div>
+
+                    {/* 카드 컨테이너 */}
+                    <div className="flex flex-col md:flex-row gap-5">
+                        {cardsConfigs.map((card) => (
+                            <motion.div
+                                key={card.id}
+                                onMouseEnter={() => setHoveredCard(card.id)}
+                                onMouseLeave={() => setHoveredCard(null)}
+                                whileHover={{ scale: 1.02, y: -4 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                className="relative flex-1 bg-white rounded-xl shadow-sm hover:shadow-md cursor-pointer overflow-hidden border border-gray-200 h-40 flex flex-col justify-center"
+                            >
+                                {/* 고유 색상 보더 효과 (가속/위치 최적화) */}
+                                <div 
+                                    className="absolute left-0 top-0 bottom-0 w-1.5"
+                                    style={{ backgroundColor: card.color }}
+                                />
+                                
+                                {/* 텍스트 렌더링 영역 */}
+                                <div className="pl-6 pr-6 flex items-center justify-between w-full h-full">
+                                    <h2 className="text-gray-500 text-xs font-bold tracking-wider">
+                                        {card.title.toUpperCase()}
+                                    </h2>
+                                    <span className="text-4xl font-extrabold text-gray-900 tracking-tighter">
+                                        {card.count}
+                                    </span>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    {/* 마우스 추적 다이내믹 툴팁 */}
+                    <AnimatePresence>
+                        {hoveredCard && activeData && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                style={{
+                                    left: cursorPos.x,
+                                    top: cursorPos.y,
+                                }}
+                                className="fixed z-50 w-64 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-gray-100/50 overflow-hidden pointer-events-none"
+                            >
+                                {/* Tooltip 헤더 */}
+                                <div 
+                                    className="px-4 py-3 border-b flex justify-between items-center bg-gray-50/80"
+                                    style={{ borderTop: `4px solid ${activeData.color}` }}
+                                >
+                                    <span className="font-semibold text-gray-800 text-sm">{activeData.title}</span>
+                                    <span className="bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded-full font-bold">
+                                        {activeData.count} Users
+                                    </span>
+                                </div>
+                                
+                                {/* Tooltip 아이템 목록 (가상 스크롤 렌더링 방식) */}
+                                <div className="max-h-60 overflow-y-auto px-1 py-2 thin-scrollbar">
+                                    {activeData.users.length > 0 ? (
+                                        <ul className="space-y-0.5">
+                                            {activeData.users.map((user, idx) => (
+                                                <motion.li 
+                                                    key={user.id}
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: idx * 0.015, duration: 0.2 }}
+                                                    className="px-3 py-2 hover:bg-gray-100/80 rounded-lg text-sm text-gray-700 font-medium flex items-center transition-colors"
+                                                >
+                                                    <div 
+                                                        className="w-1.5 h-1.5 rounded-full mr-3 opacity-80"
+                                                        style={{ backgroundColor: activeData.color }}
+                                                    />
+                                                    {user.name}
+                                                </motion.li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className="p-4 text-center text-sm text-gray-400">
+                                            데이터가 없습니다.
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ServiceCombinationAnalysis />);
+    </script>
+</body>
+</html>

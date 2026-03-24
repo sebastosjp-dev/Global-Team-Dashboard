@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Business Dashboard</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* nav-sublist handled in styles.css */
+    </style>
+</head>
+
+<body>
+    <div id="drop-zone" class="active">
+        <div class="drop-content" style="border: none; background: transparent; pointer-events: none;">
+            <i class="fa-solid fa-spinner fa-spin fa-3x" style="color: #007AFF; margin-bottom: 20px;"></i>
+            <h1 style="font-size: 1.5rem; color: var(--text-primary);">Loading Dashboard Data...</h1>
+            <p style="color: var(--text-muted);">Please wait while the latest Excel files are synchronized.</p>
+        </div>
+    </div>
+
+    <div id="dashboard-container">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <img src="whatap-logo.png" alt="WhaTap Logo" class="sidebar-logo">
+                <h2 class="sidebar-team-title">GLOBAL TEAM</h2>
+                <div class="last-updated-container">
+                    <span class="last-updated-label">Last Updated:</span>
+                    <span id="last-updated-date" class="last-updated-value">--.--.----</span>
+                </div>
+            </div>
+            <nav id="sidebar-nav">
+                <!-- Dynamically populated from tabs -->
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main-content">
+            <header class="top-bar">
+                <div class="header-title">
+                    <h1 id="current-tab-title">Overview</h1>
+                    <p class="subtitle" id="current-tab-subtitle">Select a tab to view details</p>
+                </div>
+                <div class="header-actions">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" placeholder="Search data..." id="search-input">
+                    </div>
+                    <button class="btn icon-btn" id="refresh-btn" title="Refresh Data"><i
+                            class="fa-solid fa-arrows-rotate"></i></button>
+                    <button class="btn icon-btn"><i class="fa-solid fa-bell"></i></button>
+                    <div class="profile-pic">GB</div>
+                </div>
+            </header>
+
+            <div class="dashboard-scrollable">
+                <!-- Tab Specific Metrics -->
+                <div class="stats-grid hidden" id="tab-metrics-grid">
+                    <!-- Dynamic per-tab metrics will be inserted here -->
+                </div>
+
+                <!-- Data Presentation Area -->
+                <div class="data-section">
+                    <div class="section-header">
+                        <h2>Data View</h2>
+                        <div class="view-toggles">
+                            <button class="toggle active"><i class="fa-solid fa-table"></i></button>
+                            <button class="toggle"><i class="fa-solid fa-chart-bar"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="table-container glass-panel">
+                        <table id="data-table">
+                            <thead id="table-head">
+                                <!-- Dynamic Headers -->
+                            </thead>
+                            <tbody id="table-body">
+                                <!-- Dynamic Rows -->
+                            </tbody>
+                        </table>
+                        <div id="empty-state" class="hidden">
+                            <i class="fa-solid fa-database"></i>
+                            <p>No data selected or tab is empty.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
