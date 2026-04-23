@@ -48,6 +48,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     const qSums = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
     const qDeals = { Q1: [], Q2: [], Q3: [], Q4: [] };
     const tcvByCountry = {};
+    const tcvByCountryYear = {};
     const currentYear = new Date().getFullYear();
 
     /**
@@ -78,6 +79,9 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
             if (!yearlyTcv[startYear]) yearlyTcv[startYear] = { local: 0, korea: 0 };
             yearlyTcv[startYear].local += lTcv;
             yearlyTcv[startYear].korea += kTcv;
+
+            if (!tcvByCountryYear[countryName]) tcvByCountryYear[countryName] = {};
+            tcvByCountryYear[countryName][startYear] = (tcvByCountryYear[countryName][startYear] || 0) + kTcv;
 
             // Store for cumulative ARR/MRR calculation
             contractEntries.push({ startYear, arrVal, mrrVal });
@@ -116,7 +120,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     return {
         sumLocalTcv, sumKorTcv, sumArr, sumMrr, dealCount,
         yearlyTcv, yearlyArr, yearlyMrr,
-        qSums, qDeals, tcvByCountry
+        qSums, qDeals, tcvByCountry, tcvByCountryYear
     };
 }
 

@@ -251,6 +251,98 @@ export function initOrderSheetCharts(stats) {
                 </div>`;
         }
     }
+
+    // YoY KTCV growth by country grouped bar chart
+    const yoyCtx = document.getElementById('country-yoy-bar');
+    if (yoyCtx && stats.tcvByCountryYear) {
+        const COUNTRY_COLORS = {
+            'Indonesia': '#f59e0b', 'Thailand': '#3b82f6', 'Malaysia': '#10b981',
+            'USA': '#6366f1', 'Philippines': '#ef4444', 'Singapore': '#ec4899',
+            'Vietnam': '#14b8a6', 'Turkey': '#f97316', 'Other': '#94a3b8'
+        };
+        const FALLBACK = ['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899','#14b8a6'];
+
+        const thisYear = new Date().getFullYear();
+        const lastYear = thisYear - 1;
+
+        // Sort countries by this year's TCV descending
+        const countries = Object.keys(stats.tcvByCountryYear).sort((a, b) => {
+            const aVal = (stats.tcvByCountryYear[a][thisYear] || 0);
+            const bVal = (stats.tcvByCountryYear[b][thisYear] || 0);
+            return bVal - aVal;
+        });
+
+        const lastYearData = countries.map(c => stats.tcvByCountryYear[c][lastYear] || 0);
+        const thisYearData = countries.map(c => stats.tcvByCountryYear[c][thisYear] || 0);
+
+        chartRegistry.register('order-yoy-bar', new Chart(yoyCtx, {
+            type: 'bar',
+            data: {
+                labels: countries,
+                datasets: [
+                    {
+                        label: String(lastYear),
+                        data: lastYearData,
+                        backgroundColor: 'rgba(148, 163, 184, 0.5)',
+                        borderColor: '#94a3b8',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: String(thisYear),
+                        data: thisYearData,
+                        backgroundColor: countries.map((c, i) => {
+                            const col = COUNTRY_COLORS[c] || FALLBACK[i % FALLBACK.length];
+                            return col + 'CC';
+                        }),
+                        borderColor: countries.map((c, i) => COUNTRY_COLORS[c] || FALLBACK[i % FALLBACK.length]),
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { font: { size: 11 }, boxWidth: 12 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: (ctx) => {
+                                const val = ctx.parsed.y;
+                                const country = countries[ctx.dataIndex];
+                                const ly = stats.tcvByCountryYear[country][lastYear] || 0;
+                                const ty = stats.tcvByCountryYear[country][thisYear] || 0;
+                                let line = ` ${ctx.dataset.label}: $${formatCurrency(val)}`;
+                                if (ctx.datasetIndex === 1 && ly > 0) {
+                                    const growth = ((ty - ly) / ly * 100).toFixed(1);
+                                    const sign = growth >= 0 ? '+' : '';
+                                    line += `  (${sign}${growth}% YoY)`;
+                                } else if (ctx.datasetIndex === 1 && ly === 0 && ty > 0) {
+                                    line += '  (New)';
+                                }
+                                return line;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    y: {
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: { callback: v => '$' + formatCurrency(v) }
+                    }
+                }
+            }
+        }));
+    }
 }
 
 /* ═══ PIPELINE Charts ═══ */

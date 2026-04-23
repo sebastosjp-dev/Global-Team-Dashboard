@@ -454,6 +454,12 @@ export function getOrderSheetHTML(stats) {
                     <div id="country-tcv-legend" style="flex: 1;"></div>
                 </div>
             </div>
+            <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #f97316;">
+                <h3 style="color:#f97316; font-size:0.75rem; font-weight:700; margin-bottom: 12px;">YoY KTCV GROWTH BY COUNTRY</h3>
+                <div style="height: 220px; position: relative;">
+                    <canvas id="country-yoy-bar"></canvas>
+                </div>
+            </div>
         </div>
     `;
 }
