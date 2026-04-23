@@ -153,6 +153,72 @@ export function initOrderSheetCharts(stats) {
         }));
     }
 
+    // Yearly bar charts for TCV and KTCV cards
+    const yearlyBarOptions = (color) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1e293b',
+                padding: 8,
+                cornerRadius: 6,
+                callbacks: { label: (ctx) => ` $${formatCurrency(ctx.parsed.y)}` }
+            }
+        },
+        scales: {
+            x: {
+                display: true,
+                grid: { display: false },
+                border: { display: false },
+                ticks: { color: '#94a3b8', font: { size: 9, weight: '700' } }
+            },
+            y: { display: false }
+        },
+        layout: { padding: { top: 4, bottom: 0, left: 2, right: 2 } }
+    });
+
+    const tcvYears = Object.keys(stats.yearlyTcv).sort();
+    const tcvBarCtx = document.getElementById('tcv-yearly-bar');
+    if (tcvBarCtx && tcvYears.length > 0) {
+        chartRegistry.register('order-tcv-yearly', new Chart(tcvBarCtx, {
+            type: 'bar',
+            data: {
+                labels: tcvYears,
+                datasets: [{
+                    data: tcvYears.map(y => stats.yearlyTcv[y].local),
+                    backgroundColor: tcvYears.map((y, i, arr) =>
+                        i === arr.length - 1 ? 'rgba(14, 165, 233, 0.85)' : 'rgba(14, 165, 233, 0.3)'
+                    ),
+                    borderColor: '#0ea5e9',
+                    borderWidth: 1,
+                    borderRadius: 3
+                }]
+            },
+            options: yearlyBarOptions('#0ea5e9')
+        }));
+    }
+
+    const ktcvBarCtx = document.getElementById('ktcv-yearly-bar');
+    if (ktcvBarCtx && tcvYears.length > 0) {
+        chartRegistry.register('order-ktcv-yearly', new Chart(ktcvBarCtx, {
+            type: 'bar',
+            data: {
+                labels: tcvYears,
+                datasets: [{
+                    data: tcvYears.map(y => stats.yearlyTcv[y].korea),
+                    backgroundColor: tcvYears.map((y, i, arr) =>
+                        i === arr.length - 1 ? 'rgba(99, 102, 241, 0.85)' : 'rgba(99, 102, 241, 0.3)'
+                    ),
+                    borderColor: '#6366f1',
+                    borderWidth: 1,
+                    borderRadius: 3
+                }]
+            },
+            options: yearlyBarOptions('#6366f1')
+        }));
+    }
+
     // Sparklines for ARR and MRR Growth
     const sparklineOptions = {
         responsive: true,

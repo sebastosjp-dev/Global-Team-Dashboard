@@ -410,14 +410,21 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
     const currentYear = new Date().getFullYear();
     return `
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
-            <div class="stat-card" style="border-left: 5px solid #0ea5e9; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: flex-start;">
+            <div class="stat-card" style="border-left: 5px solid #0ea5e9; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px;">
                 <h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700;">ACCUMULATED TCV</h3>
                 <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">${formatCurrency(stats.sumLocalTcv)}</h2>
-                <div style="font-size: 0.75rem; color: #6B7280;">${stats.dealCount} Deals Total</div>
+                <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">${stats.dealCount} Deals Total</div>
+                <div style="flex: 1; position: relative; min-height: 70px;">
+                    <canvas id="tcv-yearly-bar"></canvas>
+                </div>
             </div>
-            <div class="stat-card" style="border-left: 5px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: flex-start;">
+            <div class="stat-card" style="border-left: 5px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px;">
                 <h3 style="color:#6366f1; font-size:0.75rem; font-weight:700;">ACCUMULATED KTCV</h3>
                 <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.sumKorTcv)}</h2>
+                <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">&nbsp;</div>
+                <div style="flex: 1; position: relative; min-height: 70px;">
+                    <canvas id="ktcv-yearly-bar"></canvas>
+                </div>
             </div>
             <div class="stat-card" style="border-left: 5px solid #8b5cf6; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; position: relative; min-height: 120px;">
                 <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px;">
