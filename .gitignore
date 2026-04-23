@@ -1,3 +1,6 @@
 ﻿*.zip
+*.xlsx
+*.xls
 node_modules/
+node_portable/
 .env

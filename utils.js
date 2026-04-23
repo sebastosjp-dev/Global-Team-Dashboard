@@ -21,12 +21,13 @@ export function parseCurrency(val) {
  * @returns {string}
  */
 export function formatCurrency(val, isKRW = false) {
-    if (!val) return '0';
+    const rounded = Math.round(val || 0);
+    if (rounded === 0) return '0';
     const locale = isKRW ? 'ko-KR' : 'en-US';
     return new Intl.NumberFormat(locale, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }).format(Math.round(val));
+    }).format(rounded);
 }
 
 /**
@@ -86,7 +87,8 @@ export function normalizeCountry(raw) {
     if (up === 'US' || up === 'USA' || up.includes('UNITED STATES') || up.includes('미국')) return 'USA';
     if (up === 'MA' || up === 'MAL' || up.includes('MALAYSIA')) return 'Malaysia';
     if (up === 'TH' || up === 'THA' || up.includes('THAILAND')) return 'Thailand';
-    if (up === 'PH' || up === 'PHI' || up.includes('PHILIPPINES')) return 'Philippines';
+    if (up === 'PH' || up === 'PHI' || up === 'PHL' || up.includes('PHILIPPINES')) return 'Philippines';
+    if (up === 'VN' || up === 'VNM' || up.includes('VIETNAM')) return 'Vietnam';
     if (up === 'TUR' || up.includes('TURKEY') || up === 'TR') return 'Turkey';
     if (up === 'SIN' || up.includes('SINGAPORE') || up === 'SGP') return 'Singapore';
     return c;
