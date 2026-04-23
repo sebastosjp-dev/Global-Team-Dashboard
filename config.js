@@ -2,6 +2,10 @@
  * config.js — Global configuration constants
  */
 
+export const AUTH = {
+    PASSWORD_ENCODED: 'MDEyNA==',  // btoa('0124')
+};
+
 // Google Sheets spreadsheet IDs
 export const DATA_SOURCES = {
     MAIN_SHEET_ID: '1GLisAXT8E8a4Pqrt_nbQHupb7QkXrztWEgK_8YwyfWg',  // 2026 Global Rev.01

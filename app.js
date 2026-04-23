@@ -7,7 +7,7 @@ import { buildSidebar } from './sidebar.js';
 import { selectKPIView } from './kpi.js';
 import { selectTrainingView } from './training.js';
 import { renderTabMetrics } from './views.js';
-import { DATA_SOURCES } from './config.js';
+import { DATA_SOURCES, AUTH } from './config.js';
 
 function sheetsExportUrl(sheetId) {
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
@@ -232,8 +232,36 @@ function renderTableData(searchTerm = "", filterCountry = null) {
    Event Listeners
    ═══════════════════════════════════════════════════════════════ */
 
+function initAuth() {
+    const overlay = document.getElementById('login-overlay');
+    const input = document.getElementById('password-input');
+    const btn = document.getElementById('login-btn');
+    const error = document.getElementById('login-error');
+
+    if (sessionStorage.getItem('auth') === AUTH.PASSWORD_ENCODED) {
+        overlay.classList.add('hidden');
+        loadLocalExcel();
+        return;
+    }
+
+    const tryLogin = () => {
+        if (btoa(input.value) === AUTH.PASSWORD_ENCODED) {
+            sessionStorage.setItem('auth', AUTH.PASSWORD_ENCODED);
+            overlay.classList.add('hidden');
+            loadLocalExcel();
+        } else {
+            error.style.display = 'block';
+            input.value = '';
+            input.focus();
+        }
+    };
+
+    btn.addEventListener('click', tryLogin);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+}
+
 window.addEventListener('load', () => {
-    loadLocalExcel();
+    initAuth();
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) refreshBtn.addEventListener('click', loadLocalExcel);
 });
