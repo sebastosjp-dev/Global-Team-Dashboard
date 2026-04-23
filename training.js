@@ -73,29 +73,22 @@ export function calculateTrainingStats(trainingData, staffNames, year = new Date
  * Renders the top metric cards with unique colors.
  */
 function renderMetricCards(displayTop, stats, staffNames) {
-    return `
-        <div style="grid-column: 1 / -1; margin-bottom: 24px;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-                ${displayTop.map((name, i) => {
-                    const s = stats[name] || { totalHours: 0, avgPerMonth: 0 };
-                    // Use index in staffNames to ensure consistent color across UI components
-                    const color = getStaffColor(staffNames.indexOf(name));
-                    return `
-                        <div class="stat-card" style="background: white; padding: 24px; border-radius: 20px; border-left: 6px solid ${color}; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">${name}</span>
-                                <i class="fa-solid fa-user-graduate" style="color: ${color}; opacity: 0.2;"></i>
-                            </div>
-                            <div style="display: flex; align-items: baseline; gap: 8px;">
-                                <h1 style="font-size: 2.2rem; font-weight: 800; color: #1e293b;">${s.totalHours} <span style="font-size: 1rem; font-weight: 500; color: #64748b;">hrs</span></h1>
-                                <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Avg: ${s.avgPerMonth.toFixed(1)}/mo</span>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
+    return displayTop.map((name) => {
+        const s = stats[name] || { totalHours: 0, avgPerMonth: 0 };
+        const color = getStaffColor(staffNames.indexOf(name));
+        return `
+            <div class="stat-card" style="background: white; padding: 24px; border-radius: 20px; border-left: 6px solid ${color}; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">${name}</span>
+                    <i class="fa-solid fa-user-graduate" style="color: ${color}; opacity: 0.2;"></i>
+                </div>
+                <div style="display: flex; align-items: baseline; gap: 8px;">
+                    <h1 style="font-size: 2.2rem; font-weight: 800; color: #1e293b;">${s.totalHours} <span style="font-size: 1rem; font-weight: 500; color: #64748b;">hrs</span></h1>
+                    <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Avg: ${s.avgPerMonth.toFixed(1)}/mo</span>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    }).join('');
 }
 
 /**
@@ -220,12 +213,34 @@ export function selectTrainingView(setCurrentTab, workbookData) {
     const trainingYear = new Date().getFullYear();
     const stats = calculateTrainingStats(trainingData, staffNames, trainingYear);
 
+    // All-time total across all years
+    let allTimeTotal = 0;
+    trainingData.forEach(row => {
+        const h = parseCurrency(row['Total Training Hours']);
+        if (!isNaN(h)) allTimeTotal += h;
+    });
+
+    // Inject total card directly into DOM first
+    const totalCard = document.createElement('div');
+    totalCard.style.cssText = 'grid-column: 1 / -1; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 28px 36px; border-radius: 20px; margin-bottom: 4px; box-shadow: 0 10px 30px rgba(15,23,42,0.3);';
+    totalCard.innerHTML = `
+        <p style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.12em; margin: 0 0 8px 0;">TOTAL ACCUMULATED TRAINING HOURS</p>
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+            <span style="font-size: 3rem; font-weight: 900; color: #ffffff; line-height: 1;">${allTimeTotal % 1 === 0 ? allTimeTotal : allTimeTotal.toFixed(1)}</span>
+            <span style="font-size: 1.2rem; font-weight: 600; color: #94a3b8;">hrs</span>
+            <span style="font-size: 0.85rem; color: #64748b; margin-left: 8px;">(${staffNames.length} staff · avg ${(allTimeTotal / (staffNames.length || 1)).toFixed(1)} hrs/person)</span>
+        </div>
+    `;
+    metricsGrid.appendChild(totalCard);
+
     // Determine Top Staff for cards
     const topStaff = ['Andy', 'Hady', 'Clarissa', 'Kamal'].filter(n => stats[n] || staffNames.includes(n));
     const displayTop = topStaff.length > 0 ? topStaff : staffNames.slice(0, 3);
 
     // Assembly of HTML
-    let html = renderMetricCards(displayTop, stats, staffNames);
+    let html = `<div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">`;
+    html += renderMetricCards(displayTop, stats, staffNames);
+    html += `</div>`;
     html += renderMonthlyTable(staffNames, stats, months, trainingYear);
     
     // Bottom Section: Comparison Chart and Activity
@@ -261,7 +276,7 @@ export function selectTrainingView(setCurrentTab, workbookData) {
         </div>
     `;
 
-    metricsGrid.innerHTML = html;
+    metricsGrid.innerHTML += html;
 
     // Initialize Charts
     setTimeout(() => {

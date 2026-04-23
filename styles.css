@@ -884,8 +884,19 @@ select:focus {
 .kpi-row td {
     padding: 10px 15px; border: 1px solid #F1F5F9;
     font-size: 0.85rem; vertical-align: middle;
+    overflow: hidden;
 }
-.kpi-objective { font-weight: 700; color: #1E293B; }
+.kpi-objective {
+    font-weight: 700; color: #1E293B;
+    cursor: text; overflow: hidden; padding: 0;
+}
+.kpi-objective:hover {
+    background: rgba(99, 102, 241, 0.04);
+}
+.kpi-objective [contenteditable]:hover {
+    background: rgba(99, 102, 241, 0.06) !important;
+    border-radius: 4px;
+}
 .kpi-indicator { color: #64748B; font-size: 0.8rem; line-height: 1.4; }
 .kpi-target-input,
 .kpi-achieve-input {

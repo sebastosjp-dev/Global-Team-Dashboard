@@ -392,6 +392,96 @@ export function getExpiringContractsStats(data) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   CHURN RISK
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Combines ORDER SHEET + CSM data to produce tiered churn risk stats.
+ * @param {Object[]} orderData  - Rows from ORDER SHEET
+ * @param {Object[]} csmData    - Rows from END USER (CSM)
+ * @returns {{ critical: Object[], warning: Object[], overdue: Object[], totalArrAtRisk: number, criticalArr: number, warningArr: number, overdueArr: number }|null}
+ */
+export function getChurnRiskStats(orderData, csmData) {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const in30 = new Date(now); in30.setDate(now.getDate() + 30);
+    const in90 = new Date(now); in90.setDate(now.getDate() + 90);
+
+    const items = [];
+
+    // --- CSM sheet (preferred: has ARR Amount, TCV Amount, Country, Status) ---
+    if (csmData && csmData.length > 0) {
+        csmData.forEach(row => {
+            const d = parseExcelDateSafe(row['End License Date']);
+            if (!d) return;
+            const daysLeft = Math.ceil((d - now) / 86400000);
+            const arr = parseCurrency(row['ARR Amount']) || 0;
+            const tcv = parseCurrency(row['TCV Amount']) || 0;
+            const name = String(row['End User'] || row['Customer'] || 'Unknown').trim();
+            if (!name || name === 'Unknown') return;
+            items.push({
+                name,
+                country: String(row['Country'] || '').trim(),
+                date: d.toISOString().split('T')[0],
+                daysLeft,
+                arr,
+                tcv,
+                status: String(row['Status'] || '').trim(),
+                source: 'csm'
+            });
+        });
+    }
+
+    // --- ORDER SHEET (supplement: adds deals not in CSM) ---
+    if (orderData && orderData.length > 0) {
+        const keys = Object.keys(orderData[0]);
+        const endKey = findContractEndKey(keys);
+        const dealNameKey = findDealNameKey(keys);
+        const arrKey = findArrKey(keys);
+        const countryKey = findCountryKey(keys);
+        const existingNames = new Set(items.map(i => i.name.toLowerCase()));
+
+        if (endKey) {
+            orderData.forEach(row => {
+                const d = parseExcelDateSafe(row[endKey]);
+                if (!d) return;
+                const daysLeft = Math.ceil((d - now) / 86400000);
+                if (daysLeft > 90) return;
+                const name = String((dealNameKey && row[dealNameKey]) || 'Unknown').trim();
+                if (!name || name === 'Unknown' || existingNames.has(name.toLowerCase())) return;
+                items.push({
+                    name,
+                    country: String((countryKey && row[countryKey]) || '').trim(),
+                    date: d.toISOString().split('T')[0],
+                    daysLeft,
+                    arr: parseCurrency(arrKey && row[arrKey]) || 0,
+                    tcv: 0,
+                    status: '',
+                    source: 'order'
+                });
+            });
+        }
+    }
+
+    if (items.length === 0) return null;
+
+    const byArr = (a, b) => b.arr - a.arr || a.daysLeft - b.daysLeft;
+
+    const overdue  = items.filter(i => i.daysLeft < 0).sort(byArr);
+    const critical = items.filter(i => i.daysLeft >= 0 && i.daysLeft <= 30).sort(byArr);
+    const warning  = items.filter(i => i.daysLeft > 30 && i.daysLeft <= 90).sort(byArr);
+
+    const sumArr = arr => arr.reduce((s, i) => s + i.arr, 0);
+    const criticalArr = sumArr(critical);
+    const warningArr  = sumArr(warning);
+    const overdueArr  = sumArr(overdue);
+
+    if (critical.length === 0 && warning.length === 0 && overdue.length === 0) return null;
+
+    return { critical, warning, overdue, criticalArr, warningArr, overdueArr, totalArrAtRisk: criticalArr + warningArr + overdueArr };
+}
+
+/* ═══════════════════════════════════════════════════════════════
    PARTNER PERFORMANCE
    ═══════════════════════════════════════════════════════════════ */
 
@@ -415,6 +505,147 @@ export function getPartnerPerformanceStats(data) {
     })).filter(p => p.tcv > 0).sort((a, b) => b.tcv - a.tcv).slice(0, 10);
 
     return stats.length > 0 ? stats : null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PARTNER ROI
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Computes win-rate and value-per-POC efficiency for each partner.
+ * @param {Object[]} pocData
+ * @param {string|null} filterCountry
+ * @returns {{ partners: Object[], avgWinRate: number }|null}
+ */
+export function getPartnerROIStats(pocData, filterCountry) {
+    if (!pocData || pocData.length === 0) return null;
+
+    const byPartner = {};
+
+    pocData.forEach(r => {
+        const keys = Object.keys(r);
+        const cKey = findCountryKey(keys);
+        const pKey = findKey(keys, k => k.toLowerCase() === 'partner');
+        const sKey = findStatusKey(keys);
+        const vKey = findEstimatedValueKey(keys);
+
+        if (filterCountry) {
+            const country = normalizeCountry(r[cKey]);
+            if (country !== filterCountry) return;
+        }
+
+        let pName = pKey ? String(r[pKey] || '').trim() : '';
+        if (!pName) pName = 'Direct/Unknown';
+
+        const status = sKey ? String(r[sKey]).trim().toLowerCase() : '';
+        const value = vKey ? parseCurrency(r[vKey]) : 0;
+
+        if (!byPartner[pName]) byPartner[pName] = { total: 0, won: 0, drop: 0, running: 0, hold: 0, wonValue: 0 };
+
+        byPartner[pName].total++;
+        if (status.includes('won')) { byPartner[pName].won++; byPartner[pName].wonValue += value; }
+        else if (status.includes('drop') || status.includes('lost')) byPartner[pName].drop++;
+        else if (status.includes('running') || status.includes('progress')) byPartner[pName].running++;
+        else if (status.includes('hold')) byPartner[pName].hold++;
+        else byPartner[pName].hold++; // others
+    });
+
+    if (Object.keys(byPartner).length === 0) return null;
+
+    // Average win rate across partners that have at least one decided POC
+    const decidedRates = Object.values(byPartner)
+        .map(p => { const d = p.won + p.drop; return d > 0 ? p.won / d : null; })
+        .filter(r => r !== null);
+    const avgWinRate = decidedRates.length > 0
+        ? Math.round(decidedRates.reduce((s, r) => s + r, 0) / decidedRates.length * 100)
+        : 0;
+
+    const partners = Object.entries(byPartner).map(([name, p]) => {
+        const decided = p.won + p.drop;
+        const winRate = decided > 0 ? Math.round(p.won / decided * 100) : null;
+        const valuePerPoc = p.total > 0 ? Math.round(p.wonValue / p.total) : 0;
+        let efficiency = 'normal';
+        if (winRate !== null && decided >= 2) {
+            if (winRate >= avgWinRate + 10) efficiency = 'efficient';
+            else if (winRate <= avgWinRate - 15 && p.total >= 3) efficiency = 'low-win';
+        }
+        return { name, ...p, decided, winRate, valuePerPoc, efficiency };
+    }).filter(p => p.total > 0).sort((a, b) => b.total - a.total || b.wonValue - a.wonValue);
+
+    return partners.length > 0 ? { partners, avgWinRate } : null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PIPELINE COVERAGE
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Computes quarterly pipeline coverage ratio vs. last-year TCV as benchmark.
+ * @param {Object[]} pData   - PIPELINE rows
+ * @param {Object[]} orderData - ORDER SHEET rows
+ * @returns {Object|null}
+ */
+export function getPipelineCoverageStats(pData, orderData) {
+    if (!pData || pData.length === 0) return null;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentQ = Math.floor(now.getMonth() / 3) + 1;
+
+    const bookedByQ    = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+    const lastYearByQ  = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+
+    if (orderData && orderData.length > 0) {
+        const oKeys = Object.keys(orderData[0]);
+        const tcvKey   = findKorTcvKey(oKeys);
+        const startKey = findContractStartKey(oKeys);
+        orderData.forEach(row => {
+            const d   = parseExcelDateSafe(row[startKey]);
+            const tcv = parseCurrency(row[tcvKey]);
+            if (!d || !tcv) return;
+            const yr  = d.getFullYear();
+            const qId = `Q${Math.floor(d.getMonth() / 3) + 1}`;
+            if (yr === currentYear)     bookedByQ[qId]   += tcv;
+            else if (yr === currentYear - 1) lastYearByQ[qId] += tcv;
+        });
+    }
+
+    const weightedByQ = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+    const rawByQ      = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+    const countByQ    = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+
+    pData.forEach(r => {
+        const keys    = Object.keys(r);
+        const qKey    = findKey(keys, k => k.toLowerCase() === 'quarter', k => k.toLowerCase().includes('qtr'), k => k.toLowerCase() === 'q');
+        const wAmtKey = findKey(keys, k => (k.toUpperCase().includes('WEIGHTED') && k.toUpperCase().includes('KOR TCV')) || k === 'Weighted Amount');
+        const amtKey  = findKey(keys, k => (k.toUpperCase().includes('KOR TCV') && k.toUpperCase().includes('USD')) || k === 'Amount');
+        if (!qKey || !r[qKey]) return;
+        const qRaw = String(r[qKey]).toUpperCase().trim();
+        const qId  = qRaw.includes('Q1') ? 'Q1' : qRaw.includes('Q2') ? 'Q2' : qRaw.includes('Q3') ? 'Q3' : qRaw.includes('Q4') ? 'Q4' : null;
+        if (!qId) return;
+        weightedByQ[qId] += parseCurrency(wAmtKey && r[wAmtKey]) || 0;
+        rawByQ[qId]      += parseCurrency(amtKey  && r[amtKey])  || 0;
+        countByQ[qId]++;
+    });
+
+    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'].map((q, i) => {
+        const qNum     = i + 1;
+        const isPast   = qNum < currentQ;
+        const isCurrent = qNum === currentQ;
+        const target   = lastYearByQ[q];
+        const booked   = bookedByQ[q];
+        const weighted = weightedByQ[q];
+        const effective = isPast ? booked : booked + weighted;
+        const coverage = target > 0 ? Math.round(effective / target * 100) : null;
+        return { q, qNum, isPast, isCurrent, target, booked, weighted, raw: rawByQ[q], count: countByQ[q], effective, coverage };
+    });
+
+    const totalWeighted = Object.values(weightedByQ).reduce((s, v) => s + v, 0);
+    const totalBooked   = Object.values(bookedByQ).reduce((s, v) => s + v, 0);
+    const totalTarget   = Object.values(lastYearByQ).reduce((s, v) => s + v, 0);
+    const annualCoverage = totalTarget > 0 ? Math.round((totalBooked + totalWeighted) / totalTarget * 100) : null;
+
+    return { quarters, currentQ, totalWeighted, totalBooked, totalTarget, annualCoverage };
 }
 
 /* ═══════════════════════════════════════════════════════════════

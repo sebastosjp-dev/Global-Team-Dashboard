@@ -17,7 +17,8 @@ import {
     getPartnerPerformanceStats, getPocStats, getEventStats,
     getCountrySpecificStats, getServiceAnalysisStats,
     getCollectionStats, getDetailedCollectionAnalysis,
-    getTcvArrStats
+    getTcvArrStats, getChurnRiskStats,
+    getPartnerROIStats, getPipelineCoverageStats
 } from './services.js';
 import {
     getOrderSheetHTML, getPipelineHTML, getPartnerHTML,
@@ -25,7 +26,8 @@ import {
     getPartnerPerformanceHTML, getPocHTML, getEventHTML,
     getCountrySpecificHTML, getServiceAnalysisHTML,
     getRenewalHTML, getKPIHTML, getCollectionHTML,
-    getTcvArrHTML
+    getTcvArrHTML, getChurnRiskHTML,
+    getPartnerROIHTML, getPipelineCoverageHTML
 } from './ui.js';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -51,19 +53,21 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
         _renderOrderSheet(data, filterCountry, metricsGrid, tabName, workbookData);
-        _renderExpiringContracts(data, metricsGrid);
+        _renderChurnRisk(data, workbookData, metricsGrid);
         hasMetrics = true;
     }
 
     if (tabName === 'PIPELINE' && workbookData['PIPELINE']) {
         _renderPipeline(workbookData, filterCountry, tabName, metricsGrid, searchInput);
+        _renderPipelineCoverage(workbookData, filterCountry, metricsGrid);
         hasMetrics = true;
     }
 
     if ((tabName === 'PARTNER' || isCountryTab) && data && data.length > 0) {
-        _renderPartner(data, filterCountry, tabName, metricsGrid, workbookData, searchInput);
-        _renderGenericCountry(data, filterCountry, metricsGrid, tabName);
-        _renderPartnerTopPerformer(data, metricsGrid);
+        try { _renderPartner(data, filterCountry, tabName, metricsGrid, workbookData, searchInput); } catch(e) { console.error('_renderPartner', e); }
+        try { _renderGenericCountry(data, filterCountry, metricsGrid, tabName); } catch(e) { console.error('_renderGenericCountry', e); }
+        try { _renderPartnerTopPerformer(data, metricsGrid); } catch(e) { console.error('_renderPartnerTopPerformer', e); }
+        try { _renderPartnerROI(workbookData, filterCountry, metricsGrid); } catch(e) { console.error('_renderPartnerROI', e); }
         hasMetrics = true;
     }
 
@@ -245,12 +249,52 @@ function _renderGenericCountry(data, filterCountry, metricsGrid, tabName) {
     metricsGrid.appendChild(div.firstElementChild);
 }
 
-function _renderExpiringContracts(data, metricsGrid) {
-    const stats = getExpiringContractsStats(data);
+function _renderPartnerROI(workbookData, filterCountry, metricsGrid) {
+    const pocData = workbookData['POC'] || [];
+    console.log('[PartnerROI] pocData rows:', pocData.length);
+    if (pocData.length > 0) console.log('[PartnerROI] sample keys:', Object.keys(pocData[0]).join(', '));
+
+    const stats = getPartnerROIStats(pocData, filterCountry);
+    console.log('[PartnerROI] stats:', stats);
+    if (!stats) {
+        console.warn('[PartnerROI] getPartnerROIStats returned null — nothing to render');
+        return;
+    }
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    try {
+        container.innerHTML = getPartnerROIHTML(stats);
+    } catch (e) {
+        console.error('[PartnerROI] getPartnerROIHTML threw:', e);
+        return;
+    }
+    metricsGrid.appendChild(container);
+    console.log('[PartnerROI] rendered OK, partners:', stats.partners.length);
+}
+
+function _renderPipelineCoverage(workbookData, filterCountry, metricsGrid) {
+    const pData = filterCountry
+        ? (workbookData['PIPELINE'] || []).filter(r => isCountryMatch(r, filterCountry))
+        : workbookData['PIPELINE'] || [];
+    const oData = filterCountry
+        ? (workbookData['ORDER SHEET'] || []).filter(r => isCountryMatch(r, filterCountry))
+        : workbookData['ORDER SHEET'] || [];
+    const stats = getPipelineCoverageStats(pData, oData);
     if (!stats) return;
     const container = document.createElement('div');
     container.style.gridColumn = '1 / -1';
-    container.innerHTML = getExpiringContractsHTML(stats);
+    container.style.marginTop = '12px';
+    container.innerHTML = getPipelineCoverageHTML(stats);
+    metricsGrid.appendChild(container);
+}
+
+function _renderChurnRisk(orderData, workbookData, metricsGrid) {
+    const csmData = workbookData['END USER (CSM)'] || [];
+    const stats = getChurnRiskStats(orderData, csmData);
+    if (!stats) return;
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    container.innerHTML = getChurnRiskHTML(stats);
     metricsGrid.appendChild(container);
 }
 

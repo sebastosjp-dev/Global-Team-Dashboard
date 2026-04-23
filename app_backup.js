@@ -883,6 +883,7 @@ function getPipelineStats(pData) {
     let pipelineByCountry = {};
     let pipelineByQuarter = { 'Q1': {}, 'Q2': {}, 'Q3': {}, 'Q4': {} };
     const pipelineInfluxData = Array(12).fill(0).map(() => ({ count: 0, amount: 0, weighted: 0, value: 0, accounts: [] }));
+    const currentYear = new Date().getFullYear().toString();
 
     pData.forEach(r => {
         const keys = Object.keys(r);
@@ -894,9 +895,22 @@ function getPipelineStats(pData) {
         const amt = parseCurrency(r[amtRaw] || r['Amount']);
         const wAmt = parseCurrency(r[wAmtRaw] || r['Weighted Amount']);
 
-        if (!pipelineByCountry[c]) pipelineByCountry[c] = { amount: 0, weighted: 0 };
+        if (!pipelineByCountry[c]) pipelineByCountry[c] = { amount: 0, weighted: 0, tcv: 0 };
         pipelineByCountry[c].amount += amt;
         pipelineByCountry[c].weighted += wAmt;
+
+        const dKey = keys.find(k => k.toLowerCase().includes('date') || k.toLowerCase().includes('start'));
+        let year = 'Unknown';
+        let d = null;
+        if (dKey && r[dKey]) {
+            if (r[dKey] instanceof Date) d = r[dKey];
+            else if (typeof r[dKey] === 'number' && r[dKey] > 40000) d = new Date(Math.round((r[dKey] - 25569) * 86400 * 1000));
+            else {
+                const parsed = new Date(r[dKey]);
+                if (!isNaN(parsed.getTime())) d = parsed;
+            }
+            if (d) year = d.getFullYear().toString();
+        }
 
         const qKey = keys.find(k => k.toLowerCase() === 'quarter' || k.toLowerCase().includes('qtr') || k.toLowerCase() === 'q');
         if (qKey && r[qKey]) {
@@ -908,30 +922,26 @@ function getPipelineStats(pData) {
             else if (qRaw.includes('Q4')) qMatch = 'Q4';
 
             if (qMatch) {
-                if (!pipelineByQuarter[qMatch][c]) pipelineByQuarter[qMatch][c] = { amount: 0, weighted: 0 };
+                if (!pipelineByQuarter[qMatch][c]) {
+                    pipelineByQuarter[qMatch][c] = { amount: 0, weighted: 0, tcv: 0 };
+                }
                 pipelineByQuarter[qMatch][c].amount += amt;
                 pipelineByQuarter[qMatch][c].weighted += wAmt;
+                if (year === currentYear) {
+                    pipelineByQuarter[qMatch][c].tcv += amt;
+                    pipelineByCountry[c].tcv += amt;
+                }
             }
         }
 
-        const dKey = keys.find(k => k.toLowerCase().includes('date') || k.toLowerCase().includes('start'));
-        if (dKey && r[dKey]) {
-            let d = null;
-            if (r[dKey] instanceof Date) d = r[dKey];
-            else if (typeof r[dKey] === 'number' && r[dKey] > 40000) d = new Date(Math.round((r[dKey] - 25569) * 86400 * 1000));
-            else {
-                const parsed = new Date(r[dKey]);
-                if (!isNaN(parsed.getTime())) d = parsed;
-            }
-            if (d && d.getFullYear() === 2026) {
-                const m = d.getMonth();
-                pipelineInfluxData[m].count++;
-                pipelineInfluxData[m].amount += amt;
-                pipelineInfluxData[m].weighted += wAmt;
-                pipelineInfluxData[m].value += amt;
-                const nKey = keys.find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('customer') || k.toLowerCase().includes('end user'));
-                if (nKey) pipelineInfluxData[m].accounts.push(String(r[nKey]).trim());
-            }
+        if (year === currentYear && d) {
+            const m = d.getMonth();
+            pipelineInfluxData[m].count++;
+            pipelineInfluxData[m].amount += amt;
+            pipelineInfluxData[m].weighted += wAmt;
+            pipelineInfluxData[m].value += amt;
+            const nKey = keys.find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('customer') || k.toLowerCase().includes('end user'));
+            if (nKey) pipelineInfluxData[m].accounts.push(String(r[nKey]).trim());
         }
     });
 
@@ -942,11 +952,13 @@ function getPipelineStats(pData) {
         sortedPipeline: Object.entries(pipelineByCountry).sort((a, b) => b[1].amount - a[1].amount),
         sortedQuarterly: Object.entries(pipelineByQuarter).sort((a, b) => a[0].localeCompare(b[0])),
         globalTotalAmount: Object.values(pipelineByCountry).reduce((acc, curr) => acc + curr.amount, 0),
-        globalTotalWeighted: Object.values(pipelineByCountry).reduce((acc, curr) => acc + curr.weighted, 0)
+        globalTotalWeighted: Object.values(pipelineByCountry).reduce((acc, curr) => acc + curr.weighted, 0),
+        globalTotalTcv: Object.values(pipelineByCountry).reduce((acc, curr) => acc + (curr.tcv || 0), 0)
     };
 }
 
 function getPipelineHTML(stats, filterCountry, tabName) {
+    const currentYear = new Date().getFullYear().toString();
     const pipelineItemsHtml = stats.sortedPipeline.map(([country, values]) => `
         <div style="display: flex; flex-direction: column; padding: 10px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid #10b981;">
             <span style="font-weight: 700; color: #374151; font-size: 0.8rem; margin-bottom: 6px;">${filterCountry ? 'Total Summary' : country}</span>
@@ -954,9 +966,13 @@ function getPipelineHTML(stats, filterCountry, tabName) {
                 <span style="color: var(--text-muted);">Amount</span>
                 <span style="color: #34C759; font-weight: 600;">$${formatCurrency(values.amount)}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 2px;">
                 <span style="color: var(--text-muted);">Weighted</span>
                 <span style="color: #007AFF; font-weight: 600;">$${formatCurrency(values.weighted)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem;">
+                <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
+                <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
             </div>
         </div>
     `).join('');
@@ -965,6 +981,7 @@ function getPipelineHTML(stats, filterCountry, tabName) {
         const countryEntries = Object.entries(countries);
         const qTotalAmount = countryEntries.reduce((acc, curr) => acc + curr[1].amount, 0);
         const qTotalWeighted = countryEntries.reduce((acc, curr) => acc + curr[1].weighted, 0);
+        const qTotalTcv = countryEntries.reduce((acc, curr) => acc + (curr[1].tcv || 0), 0);
 
         const countryBreakdown = countryEntries
             .sort(sortCountriesByAmount)
@@ -977,9 +994,13 @@ function getPipelineHTML(stats, filterCountry, tabName) {
                         <span style="color: var(--text-muted);">Amount</span>
                         <span style="color: #34C759;">$${formatCurrency(values.amount)}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
                         <span style="color: var(--text-muted);">Weighted</span>
                         <span style="color: #007AFF;">$${formatCurrency(values.weighted)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem;">
+                        <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
+                        <span style="color: #ef4444;">$${formatCurrency(values.tcv || 0)}</span>
                     </div>
                 </div>
             `).join('');
@@ -996,6 +1017,10 @@ function getPipelineHTML(stats, filterCountry, tabName) {
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px;">
                             <span style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total Weighted</span>
                             <span style="font-size: 0.95rem; color: #34C759; font-weight: 800;">$${formatCurrency(qTotalWeighted)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.65rem; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em;">TCV (${currentYear})</span>
+                            <span style="font-size: 0.95rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
                         </div>
                     </div>
                 </div>
@@ -1039,6 +1064,10 @@ function getPipelineHTML(stats, filterCountry, tabName) {
                         <span style="font-size: 0.75rem; color: #007AFF; text-transform: uppercase; letter-spacing: 0.05em;">Total Weighted</span>
                         <h2 style="font-size: 1.4rem; font-weight: 800; color: #111827; margin: 0;">US$ ${formatCurrency(stats.globalTotalWeighted)}</h2>
                     </div>
+                    <div>
+                        <span style="font-size: 0.75rem; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em;">TCV (${currentYear})</span>
+                        <h2 style="font-size: 1.4rem; font-weight: 800; color: #ef4444; margin: 0;">US$ ${formatCurrency(stats.globalTotalTcv)}</h2>
+                    </div>
                 </div>
             </div>
 
@@ -1056,8 +1085,8 @@ function getPipelineHTML(stats, filterCountry, tabName) {
 
             <div style="border-top: 1px solid #E5E7EB; pt: 20px; margin-top: 4px; padding-top: 16px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                    <div class="stat-icon" style="width: 36px; height: 36px; font-size: 1rem; background: rgba(20, 184, 166, 0.15); color: #14b8a6;"><i class="fa-solid fa-calendar-quarter"></i></div>
-                    <h2 style="font-size: 1rem; font-weight: 600; color: #111827;">Pipeline by Quarter (Expected Close)</h2>
+                    <div class="stat-icon" style="width: 36px; height: 36px; font-size: 1rem; background: rgba(20, 184, 166, 0.15); color: #14b8a6;"><i class="fa-solid fa-globe"></i></div>
+                    <h2 style="font-size: 1rem; font-weight: 600; color: #111827;">${new Date().getFullYear()} Pipeline Quarter</h2>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
                     ${quarterlyItemsHtml}

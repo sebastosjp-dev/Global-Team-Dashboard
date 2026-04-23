@@ -941,12 +941,21 @@ export function initTcvArrChart(stats) {
     if (!stats || !stats.items || stats.items.length === 0) return;
     chartRegistry.destroyTag('tcvarr');
 
-    const displayItems = stats.items.slice(0, 25);
+    // Top 15 by TCV, then sort by ARR ratio descending (healthiest at top)
+    const topItems = stats.items.slice(0, 15);
+    const displayItems = [...topItems].sort((a, b) => (b.recurringPct || 0) - (a.recurringPct || 0));
     const labels = displayItems.map(i => _truncateLabel(i.name, 28));
-    const tcvData = displayItems.map(i => i.tcv);
-    const arrData = displayItems.map(i => i.arr);
+    const ratioData = displayItems.map(i => Math.min(i.recurringPct || 0, 100));
 
-    const chartHeight = Math.max(400, displayItems.length * 38);
+    const barColors = ratioData.map(r =>
+        r >= 80 ? '#059669' : r >= 60 ? '#2563eb' : r >= 40 ? '#d97706' : '#dc2626'
+    );
+
+    const avgRatio = ratioData.length > 0
+        ? ratioData.reduce((s, r) => s + r, 0) / ratioData.length
+        : 0;
+
+    const chartHeight = Math.max(350, displayItems.length * 44);
     const container = document.getElementById('tcvarr-chart-container');
     if (container) container.style.height = chartHeight + 'px';
 
@@ -957,42 +966,22 @@ export function initTcvArrChart(stats) {
         type: 'bar',
         data: {
             labels,
-            datasets: [
-                {
-                    label: 'KOR TCV (USD)',
-                    data: tcvData,
-                    backgroundColor: 'rgba(30, 64, 175, 0.78)',
-                    borderColor: '#1e40af',
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barPercentage: 0.75,
-                    categoryPercentage: 0.7
-                },
-                {
-                    label: 'KOR ARR (USD)',
-                    data: arrData,
-                    backgroundColor: 'rgba(34, 197, 94, 0.72)',
-                    borderColor: '#16a34a',
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barPercentage: 0.75,
-                    categoryPercentage: 0.7
-                }
-            ]
+            datasets: [{
+                label: 'ARR Ratio (%)',
+                data: ratioData,
+                backgroundColor: barColors,
+                borderWidth: 0,
+                borderRadius: 6,
+                barPercentage: 0.65,
+                categoryPercentage: 0.75
+            }]
         },
         options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 20,
-                        font: { size: 12, family: "'Inter', sans-serif", weight: '600' }
-                    }
-                },
+                legend: { display: false },
                 tooltip: {
                     backgroundColor: '#FFFFFF',
                     titleColor: '#111827',
@@ -1005,31 +994,34 @@ export function initTcvArrChart(stats) {
                     bodyFont: { size: 12 },
                     callbacks: {
                         title(ctx) {
-                            const idx = ctx[0].dataIndex;
-                            return displayItems[idx].name;
+                            return displayItems[ctx[0].dataIndex].name;
                         },
                         label(ctx) {
-                            return ` ${ctx.dataset.label}: $${formatCurrency(ctx.raw)}`;
+                            const item = displayItems[ctx[0].dataIndex];
+                            return ` ARR Ratio: ${(item.recurringPct || 0).toFixed(1)}%`;
                         },
                         afterBody(ctx) {
-                            const idx = ctx[0].dataIndex;
-                            const item = displayItems[idx];
-                            const lines = [''];
-                            lines.push(`Gap (TCV - ARR): $${formatCurrency(item.gap)}`);
-                            lines.push(`Gap %: ${item.gapPct.toFixed(1)}%`);
-                            lines.push(item.isPerpetual ? '⚡ Perpetual License (one-time)' : '🔄 Recurring Revenue');
-                            return lines;
+                            const item = displayItems[ctx[0].dataIndex];
+                            return [
+                                '',
+                                `TCV: $${formatCurrency(item.tcv)}`,
+                                `ARR: $${formatCurrency(item.arr)}`,
+                                `Gap: $${formatCurrency(item.gap)}`,
+                                item.isPerpetual ? '⚡ Perpetual License' : '🔄 Recurring Revenue'
+                            ];
                         }
                     }
                 }
             },
             scales: {
                 x: {
+                    min: 0,
+                    max: 100,
                     grid: { color: 'rgba(0,0,0,0.04)' },
                     ticks: {
                         color: '#6B7280',
                         font: { size: 10 },
-                        callback: v => '$' + formatCurrency(v)
+                        callback: v => v + '%'
                     }
                 },
                 y: {
@@ -1045,24 +1037,45 @@ export function initTcvArrChart(stats) {
         plugins: [{
             id: 'tcvArrDataLabels',
             afterDatasetsDraw(chart) {
-                const { ctx } = chart;
-                ctx.save();
-                chart.data.datasets.forEach((dataset, dsIdx) => {
-                    const meta = chart.getDatasetMeta(dsIdx);
-                    meta.data.forEach((bar, idx) => {
-                        const value = dataset.data[idx];
-                        if (value > 0) {
-                            const { x, y } = bar.tooltipPosition();
-                            ctx.fillStyle = dsIdx === 0 ? '#1e40af' : '#16a34a';
-                            ctx.font = 'bold 9px "Inter", sans-serif';
-                            ctx.textAlign = 'left';
-                            ctx.textBaseline = 'middle';
-                            const label = '$' + _shortCurrency(value);
-                            ctx.fillText(label, x + 6, y);
-                        }
-                    });
+                const { ctx: c, scales } = chart;
+                c.save();
+
+                // Percentage label on each bar
+                const meta = chart.getDatasetMeta(0);
+                meta.data.forEach((bar, idx) => {
+                    const value = ratioData[idx];
+                    const { x, y } = bar.tooltipPosition();
+                    const color = value >= 80 ? '#059669' : value >= 60 ? '#2563eb' : value >= 40 ? '#d97706' : '#dc2626';
+                    c.fillStyle = color;
+                    c.font = 'bold 10px "Inter", sans-serif';
+                    c.textAlign = 'left';
+                    c.textBaseline = 'middle';
+                    c.fillText(`${value.toFixed(0)}%`, x + 6, y);
                 });
-                ctx.restore();
+
+                // Average reference line
+                if (avgRatio > 0 && scales.x && scales.y) {
+                    const avgX = scales.x.getPixelForValue(avgRatio);
+                    const topY = scales.y.top;
+                    const bottomY = scales.y.bottom;
+
+                    c.strokeStyle = '#94a3b8';
+                    c.lineWidth = 1.5;
+                    c.setLineDash([5, 5]);
+                    c.beginPath();
+                    c.moveTo(avgX, topY);
+                    c.lineTo(avgX, bottomY);
+                    c.stroke();
+                    c.setLineDash([]);
+
+                    c.fillStyle = '#64748b';
+                    c.font = 'bold 9px "Inter", sans-serif';
+                    c.textAlign = 'center';
+                    c.textBaseline = 'bottom';
+                    c.fillText(`Avg ${avgRatio.toFixed(0)}%`, avgX, topY - 2);
+                }
+
+                c.restore();
             }
         }]
     });

@@ -1,7 +1,7 @@
 /**
  * ui.js - HTML template generators for dashboard components
  */
-import { formatCurrency, parseCurrency, sortCountriesByAmount } from './utils.js';
+import { formatCurrency, parseCurrency, sortCountriesByAmount, sortCountriesByCount } from './utils.js';
 import { CONFIG } from './config.js';
 /**
  * @deprecated Styles now live in styles.css. Kept as no-op for backward compat.
@@ -452,7 +452,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 <h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin-bottom: 8px;">YEARLY TCV GROWTH</h3>
                 <div style="height:160px; position:relative;"><canvas id="tcv-growth-chart"></canvas></div>
             </div>
-            ${!filterCountry ? `
+            ${(!filterCountry || filterCountry === 'All') ? `
             <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #6366f1;">
                 <h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin-bottom: 12px;">ACCUMULATED KTCV / COUNTRY</h3>
                 <div style="display: flex; gap: 32px; align-items: center;">
@@ -462,12 +462,13 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                     <div id="country-tcv-legend" style="flex: 1;"></div>
                 </div>
             </div>` : ''}
+            ${(!filterCountry || filterCountry === 'All') ? `
             <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #f97316;">
                 <h3 style="color:#f97316; font-size:0.75rem; font-weight:700; margin-bottom: 12px;">YoY KTCV GROWTH BY COUNTRY</h3>
                 <div style="height: 220px; position: relative;">
                     <canvas id="country-yoy-bar"></canvas>
                 </div>
-            </div>
+            </div>` : ''}
         </div>
     `;
 }
@@ -996,7 +997,7 @@ export function getGenericCountryHTML(stats, filterCountry) {
 
     let yearlyHtml = '';
     stats.sortedYears.forEach(y => {
-        const items = Object.entries(stats.yearlyCounts[y]).sort(sortCountriesByCount).map(([c, count]) => `
+        const items = Object.entries(stats.yearlyCounts[y]).sort((a, b) => b[1] - a[1]).map(([c, count]) => `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #F9FAFB;">
                 <span style="font-size:0.75rem; color:#6B7280;">${filterCountry ? 'Deals' : c}</span>
                 <span style="font-size:0.75rem; font-weight:600; color:#374151;">${count}</span>
@@ -1048,6 +1049,252 @@ export function getExpiringContractsHTML(stats) {
                 ${items}
             </div>
             ${stats.length > 5 ? `<div style="text-align: center; font-size: 0.75rem; color: #ef4444; margin-top: 12px; font-weight: 600; cursor: pointer; padding: 8px; border-radius: 8px; background: rgba(239, 68, 68, 0.05);"><i class="fa-solid fa-plus-circle"></i> View ${stats.length - 5} more expiring contracts</div>` : ''}
+        </div>
+    `;
+}
+
+/* ─── Churn Risk Alert ─── */
+export function getChurnRiskHTML(stats) {
+    if (!stats) return '';
+
+    const { critical, warning, overdue, criticalArr, warningArr, overdueArr, totalArrAtRisk } = stats;
+
+    function fmtArr(v) { return v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${Math.round(v)}`; }
+    function daysLabel(d) {
+        if (d < 0) return `D+${Math.abs(d)}`;
+        if (d === 0) return 'D-Day';
+        return `D-${d}`;
+    }
+
+    function buildRows(list, tier) {
+        const cfg = {
+            critical: { bg: 'rgba(239,68,68,0.07)', border: '#ef4444', badgeBg: 'rgba(239,68,68,0.12)', badgeColor: '#b91c1c', badgeText: 'CRITICAL', dayColor: '#dc2626' },
+            warning:  { bg: 'rgba(245,158,11,0.07)', border: '#f59e0b', badgeBg: 'rgba(245,158,11,0.12)', badgeColor: '#92400e', badgeText: 'RENEW SOON', dayColor: '#d97706' },
+            overdue:  { bg: 'rgba(107,114,128,0.07)', border: '#9ca3af', badgeBg: 'rgba(107,114,128,0.1)', badgeColor: '#4b5563', badgeText: 'OVERDUE', dayColor: '#6b7280' },
+        }[tier];
+
+        return list.slice(0, 5).map(d => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:${cfg.bg}; border-radius:8px; border-left:3px solid ${cfg.border}; margin-bottom:6px; transition:transform 0.15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='translateX(0)'">
+                <div style="display:flex; flex-direction:column; gap:3px; min-width:0; flex:1;">
+                    <span style="font-size:0.82rem; font-weight:700; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${d.name}</span>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        ${d.country ? `<span style="font-size:0.68rem; color:#6b7280;"><i class="fa-solid fa-location-dot"></i> ${d.country}</span>` : ''}
+                        <span style="font-size:0.7rem; font-weight:700; color:${cfg.dayColor};">${daysLabel(d.daysLeft)}</span>
+                        <span style="font-size:0.68rem; color:#6b7280;"><i class="fa-regular fa-calendar-alt"></i> ${d.date}</span>
+                    </div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; margin-left:10px; flex-shrink:0;">
+                    ${d.arr > 0 ? `<span style="font-size:0.78rem; font-weight:800; color:#111827;">${fmtArr(d.arr)} <span style="font-size:0.62rem; font-weight:600; color:#6b7280;">ARR</span></span>` : ''}
+                    <span style="font-size:0.6rem; font-weight:800; color:${cfg.badgeColor}; background:${cfg.badgeBg}; padding:2px 7px; border-radius:5px; letter-spacing:0.05em;">${cfg.badgeText}</span>
+                </div>
+            </div>
+        `).join('') + (list.length > 5 ? `<div style="text-align:center; font-size:0.7rem; color:#9ca3af; padding:6px; font-weight:600;">+ ${list.length - 5} more</div>` : '');
+    }
+
+    const sections = [];
+    if (critical.length > 0) sections.push({ tier: 'critical', list: critical, label: 'Critical — Within 30 Days', icon: 'fa-circle-exclamation', color: '#ef4444', arr: criticalArr });
+    if (warning.length > 0)  sections.push({ tier: 'warning',  list: warning,  label: 'Renew Soon — 30–90 Days',    icon: 'fa-clock',             color: '#f59e0b', arr: warningArr });
+    if (overdue.length > 0)  sections.push({ tier: 'overdue',  list: overdue,  label: 'Overdue — Revenue Leak',      icon: 'fa-triangle-exclamation', color: '#9ca3af', arr: overdueArr });
+
+    const sectionsHTML = sections.map(s => `
+        <div style="flex:1; min-width:260px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <i class="fa-solid ${s.icon}" style="color:${s.color}; font-size:0.85rem;"></i>
+                <span style="font-size:0.72rem; font-weight:800; color:${s.color}; text-transform:uppercase; letter-spacing:0.06em;">${s.label}</span>
+                ${s.arr > 0 ? `<span style="margin-left:auto; font-size:0.7rem; font-weight:700; color:#374151;">${fmtArr(s.arr)} ARR</span>` : ''}
+            </div>
+            ${buildRows(s.list, s.tier)}
+        </div>
+    `).join('');
+
+    const pillCritical = critical.length > 0 ? `<span style="background:rgba(239,68,68,0.1); color:#b91c1c; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;"><i class="fa-solid fa-circle-exclamation"></i> ${critical.length} Critical</span>` : '';
+    const pillWarning  = warning.length  > 0 ? `<span style="background:rgba(245,158,11,0.1); color:#92400e; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;"><i class="fa-solid fa-clock"></i> ${warning.length} Renew Soon</span>` : '';
+    const pillOverdue  = overdue.length  > 0 ? `<span style="background:rgba(107,114,128,0.1); color:#4b5563; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;"><i class="fa-solid fa-triangle-exclamation"></i> ${overdue.length} Overdue</span>` : '';
+
+    return `
+        <div class="stat-card" style="padding:22px; border:1px solid rgba(239,68,68,0.18); background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(239,68,68,0.06);">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; border-bottom:1px solid #fef2f2; padding-bottom:14px; flex-wrap:wrap; row-gap:8px;">
+                <div style="background:rgba(239,68,68,0.1); color:#ef4444; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-shield-halved" style="font-size:1rem;"></i></div>
+                <div>
+                    <h3 style="margin:0; font-size:0.72rem; color:#ef4444; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">CHURN RISK ALERT</h3>
+                    <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827;">Contract Renewal Monitor</h2>
+                </div>
+                <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    ${pillCritical}${pillWarning}${pillOverdue}
+                    ${totalArrAtRisk > 0 ? `<span style="background:#fef3c7; color:#92400e; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px; border:1px solid #fde68a;"><i class="fa-solid fa-dollar-sign"></i> ${fmtArr(totalArrAtRisk)} ARR at Risk</span>` : ''}
+                </div>
+            </div>
+            <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+                ${sectionsHTML}
+            </div>
+        </div>
+    `;
+}
+
+/* ─── Partner ROI ─── */
+export function getPartnerROIHTML(stats) {
+    if (!stats || !stats.partners || stats.partners.length === 0) return '';
+    const { partners, avgWinRate } = stats;
+
+    function fmtK(v) { return v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : v > 0 ? `$${v}` : '–'; }
+
+    const efficiencyBadge = (e, wr) => {
+        if (e === 'efficient') return `<span style="background:#dcfce7; color:#15803d; font-size:0.6rem; font-weight:800; padding:2px 8px; border-radius:12px; letter-spacing:0.05em;">EFFICIENT</span>`;
+        if (e === 'low-win')   return `<span style="background:#fee2e2; color:#b91c1c; font-size:0.6rem; font-weight:800; padding:2px 8px; border-radius:12px; letter-spacing:0.05em;">LOW WIN RATE</span>`;
+        return '';
+    };
+
+    const rows = partners.map((p, i) => {
+        const wrColor = p.winRate === null ? '#9ca3af' : p.winRate >= avgWinRate ? '#15803d' : p.winRate >= avgWinRate - 15 ? '#d97706' : '#dc2626';
+        const barPct = p.total > 0 ? Math.round(p.won / p.total * 100) : 0;
+        return `
+        <tr style="border-bottom:1px solid #f3f4f6; background:${i % 2 === 0 ? '#fff' : '#fafafa'}; transition:background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${i % 2 === 0 ? '#fff' : '#fafafa'}'">
+            <td style="padding:10px 12px; font-weight:700; color:#111827; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                ${p.name}
+                <div style="margin-top:3px;">${efficiencyBadge(p.efficiency)}</div>
+            </td>
+            <td style="padding:10px 12px; text-align:center; font-weight:700; color:#374151;">${p.total}</td>
+            <td style="padding:10px 12px; text-align:center;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <div style="flex:1; height:6px; background:#f3f4f6; border-radius:3px; overflow:hidden;">
+                        <div style="height:100%; width:${barPct}%; background:#10b981; border-radius:3px;"></div>
+                    </div>
+                    <span style="font-weight:700; color:#10b981; font-size:0.78rem; min-width:20px;">${p.won}</span>
+                </div>
+            </td>
+            <td style="padding:10px 12px; text-align:center; font-weight:600; color:#ef4444;">${p.drop}</td>
+            <td style="padding:10px 12px; text-align:center; font-weight:600; color:#f59e0b;">${p.running}</td>
+            <td style="padding:10px 12px; text-align:center;">
+                ${p.winRate !== null
+                    ? `<span style="font-weight:800; color:${wrColor};">${p.winRate}%</span>`
+                    : '<span style="color:#9ca3af; font-size:0.75rem;">–</span>'}
+            </td>
+            <td style="padding:10px 12px; text-align:right; font-weight:700; color:#111827;">${fmtK(p.wonValue)}</td>
+            <td style="padding:10px 12px; text-align:right; color:#6b7280; font-size:0.78rem;">${fmtK(p.valuePerPoc)}</td>
+        </tr>`;
+    }).join('');
+
+    const effCount = partners.filter(p => p.efficiency === 'efficient').length;
+    const lowCount = partners.filter(p => p.efficiency === 'low-win').length;
+
+    return `
+        <div class="stat-card" style="padding:22px; background:#fff; border:1px solid #f3f4f6; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; border-bottom:1px solid #f3f4f6; padding-bottom:14px; flex-wrap:wrap; row-gap:8px;">
+                <div style="background:rgba(99,102,241,0.1); color:#6366f1; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-chart-bar" style="font-size:1rem;"></i></div>
+                <div>
+                    <h3 style="margin:0; font-size:0.72rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">PARTNER ROI</h3>
+                    <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827;">POC Efficiency by Partner</h2>
+                </div>
+                <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="background:#f0fdf4; color:#15803d; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;">${effCount} Efficient</span>
+                    ${lowCount > 0 ? `<span style="background:#fef2f2; color:#b91c1c; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;">${lowCount} Low Win Rate</span>` : ''}
+                    <span style="background:#f3f4f6; color:#374151; font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:20px;">Avg Win Rate: ${avgWinRate}%</span>
+                </div>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; min-width:700px;">
+                    <thead>
+                        <tr style="background:#f9fafb; text-align:left;">
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Partner</th>
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#6b7280; font-weight:700; text-transform:uppercase; text-align:center;">Total POCs</th>
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#10b981; font-weight:700; text-transform:uppercase;">Won</th>
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#ef4444; font-weight:700; text-transform:uppercase; text-align:center;">Drop</th>
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#f59e0b; font-weight:700; text-transform:uppercase; text-align:center;">Running</th>
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#6b7280; font-weight:700; text-transform:uppercase; text-align:center;">Win Rate</th>
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#6b7280; font-weight:700; text-transform:uppercase; text-align:right;">Won Value</th>
+                            <th style="padding:8px 12px; font-size:0.68rem; color:#6b7280; font-weight:700; text-transform:uppercase; text-align:right;">Value / POC</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <div style="margin-top:12px; padding:8px 12px; background:#f9fafb; border-radius:8px; font-size:0.7rem; color:#6b7280;">
+                <i class="fa-solid fa-circle-info" style="color:#6366f1;"></i>
+                <strong>Efficient</strong>: Win rate ≥${avgWinRate + 10}% &nbsp;·&nbsp;
+                <strong>Low Win Rate</strong>: Win rate ≤${Math.max(0, avgWinRate - 15)}% with ≥3 POCs &nbsp;·&nbsp;
+                <strong>Value/POC</strong>: Won value ÷ total POC attempts
+            </div>
+        </div>
+    `;
+}
+
+/* ─── Pipeline Coverage Ratio ─── */
+export function getPipelineCoverageHTML(stats) {
+    if (!stats) return '';
+    const { quarters, currentQ, totalWeighted, totalBooked, totalTarget, annualCoverage } = stats;
+
+    function fmtM(v) {
+        if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+        if (v >= 1000)      return `$${(v / 1000).toFixed(1)}K`;
+        return v > 0 ? `$${Math.round(v)}` : '–';
+    }
+
+    function coverageColor(pct) {
+        if (pct === null) return '#9ca3af';
+        if (pct >= 150) return '#059669';
+        if (pct >= 100) return '#10b981';
+        if (pct >= 70)  return '#f59e0b';
+        return '#ef4444';
+    }
+    function coverageBg(pct) {
+        if (pct === null) return '#f3f4f6';
+        if (pct >= 150) return '#d1fae5';
+        if (pct >= 100) return '#ecfdf5';
+        if (pct >= 70)  return '#fef3c7';
+        return '#fee2e2';
+    }
+
+    const quarterCards = quarters.map(q => {
+        const color = coverageColor(q.coverage);
+        const bg    = coverageBg(q.coverage);
+        const label = q.isCurrent ? `${q.q} ← Now` : q.q;
+        const pctDisplay = q.coverage !== null ? `${q.coverage}%` : 'N/A';
+        const barW = q.coverage !== null ? Math.min(100, q.coverage) : 0;
+        const ringColor = q.isCurrent ? '#6366f1' : '#e5e7eb';
+
+        return `
+        <div style="flex:1; min-width:130px; background:${q.isCurrent ? '#f5f3ff' : '#fafafa'}; border:${q.isCurrent ? '2px solid #6366f1' : '1px solid #e5e7eb'}; border-radius:12px; padding:14px 16px; position:relative;">
+            <div style="font-size:0.72rem; font-weight:800; color:${q.isCurrent ? '#6366f1' : '#9ca3af'}; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">${label}</div>
+            <div style="font-size:2rem; font-weight:900; color:${color}; line-height:1; margin-bottom:4px;">${pctDisplay}</div>
+            <div style="height:5px; background:#e5e7eb; border-radius:3px; margin-bottom:8px; overflow:hidden;">
+                <div style="height:100%; width:${barW}%; background:${color}; border-radius:3px; transition:width 0.6s;"></div>
+            </div>
+            <div style="font-size:0.65rem; color:#6b7280; line-height:1.5;">
+                ${q.target > 0 ? `<div>Target (LY): <strong>${fmtM(q.target)}</strong></div>` : '<div style="color:#9ca3af;">No LY baseline</div>'}
+                ${q.booked > 0 ? `<div>Booked: <strong style="color:#10b981;">${fmtM(q.booked)}</strong></div>` : ''}
+                ${!q.isPast && q.weighted > 0 ? `<div>Pipeline: <strong style="color:#6366f1;">${fmtM(q.weighted)}</strong></div>` : ''}
+                ${!q.isPast && q.count > 0 ? `<div style="color:#9ca3af;">${q.count} deals in pipeline</div>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    const annualColor = coverageColor(annualCoverage);
+
+    return `
+        <div class="stat-card" style="padding:22px; background:#fff; border:1px solid #ede9fe; border-radius:14px; box-shadow:0 2px 10px rgba(99,102,241,0.07);">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px; border-bottom:1px solid #f5f3ff; padding-bottom:14px; flex-wrap:wrap; row-gap:8px;">
+                <div style="background:rgba(99,102,241,0.1); color:#6366f1; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-bullseye" style="font-size:1rem;"></i></div>
+                <div>
+                    <h3 style="margin:0; font-size:0.72rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">PIPELINE COVERAGE RATIO</h3>
+                    <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827;">Quarterly Target vs. Pipeline</h2>
+                </div>
+                <div style="margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    ${annualCoverage !== null ? `
+                    <div style="text-align:right;">
+                        <div style="font-size:0.65rem; color:#6b7280; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Annual Coverage</div>
+                        <div style="font-size:1.4rem; font-weight:900; color:${annualColor}; line-height:1;">${annualCoverage}%</div>
+                    </div>` : ''}
+                </div>
+            </div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+                ${quarterCards}
+            </div>
+            <div style="padding:10px 14px; background:#f5f3ff; border-radius:8px; font-size:0.7rem; color:#6b7280; display:flex; flex-wrap:wrap; gap:16px;">
+                <span><i class="fa-solid fa-circle" style="color:#10b981; font-size:0.5rem;"></i> <strong>Booked TCV</strong> = closed deals this quarter</span>
+                <span><i class="fa-solid fa-circle" style="color:#6366f1; font-size:0.5rem;"></i> <strong>Pipeline</strong> = weighted pipeline in PIPELINE sheet</span>
+                <span><i class="fa-solid fa-circle" style="color:#9ca3af; font-size:0.5rem;"></i> <strong>Target</strong> = same quarter last year (YoY baseline)</span>
+                <span><strong style="color:#059669;">≥150%</strong> Strong &nbsp;·&nbsp; <strong style="color:#10b981;">≥100%</strong> On track &nbsp;·&nbsp; <strong style="color:#f59e0b;">≥70%</strong> Watch &nbsp;·&nbsp; <strong style="color:#ef4444;">&lt;70%</strong> At Risk</span>
+            </div>
         </div>
     `;
 }
@@ -1273,11 +1520,15 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear()) {
         return `
             <tr class="kpi-row" data-cat="${catId}" data-obj="${objId}">
                 ${catCellHtml}
-                <td class="kpi-objective">
-                    <div contenteditable="true" onblur="this.style.background='transparent'; window.updateKPIObjectiveName(this, ${catId}, ${objId})" style="outline: none; min-height: 1.5em; width: 100%; transition: all 0.2s; cursor: text;" onfocus="this.style.background='rgba(0,0,0,0.02)';" title="Click to edit">${obj.name}</div>
+                <td class="kpi-objective" style="padding: 0 10px;">
+                    <div style="height: 52px; overflow: hidden; display: flex; align-items: center;">
+                        <div contenteditable="true" onblur="this.style.background='transparent'; this.style.borderColor='transparent'; this.style.boxShadow='none'; window.updateKPIObjectiveName(this, ${catId}, ${objId})" style="outline: none; width: 100%; min-width: 0; padding: 4px 6px; border: 1px dashed transparent; border-radius: 4px; transition: background 0.2s, border-color 0.2s; cursor: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onfocus="this.style.background='#FFF'; this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)';" onmouseenter="if(document.activeElement!==this){this.style.borderColor='#CBD5E1';}" onmouseleave="if(document.activeElement!==this){this.style.borderColor='transparent';}" title="Click to edit">${obj.name}</div>
+                    </div>
                 </td>
-                <td class="kpi-indicator" style="padding: 10px 15px;">
-                    <div contenteditable="true" onblur="this.style.background='transparent'; window.updateKPIText(this, 'kpis', ${catId}, ${objId})" style="outline: none; min-height: 1.5em; width: 100%; transition: all 0.2s; cursor: text;" onfocus="this.style.background='rgba(0,0,0,0.02)';" title="Click to edit">${obj.kpis || ''}</div>
+                <td class="kpi-indicator" style="padding: 0 15px;">
+                    <div style="height: 52px; overflow: hidden; display: flex; align-items: center;">
+                        <div contenteditable="true" onblur="this.style.background='transparent'; window.updateKPIText(this, 'kpis', ${catId}, ${objId})" style="outline: none; width: 100%; min-width: 0; transition: all 0.2s; cursor: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onfocus="this.style.background='rgba(0,0,0,0.02)'; this.style.whiteSpace='normal'; this.style.overflow='visible';" onblur="this.style.whiteSpace='nowrap'; this.style.overflow='hidden'; this.style.background='transparent'; window.updateKPIText(this, 'kpis', ${catId}, ${objId});" title="Click to edit">${obj.kpis || ''}</div>
+                    </div>
                 </td>
                 ${obj.targets.map((t, i) => `
                     <td style="background: rgba(16, 185, 129, 0.05);">
@@ -1329,7 +1580,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear()) {
                 <thead class="kpi-header">
                     <tr>
                         <th rowspan="2" style="width: 50px;">CAT.</th>
-                        <th rowspan="2" style="width: 150px;">STRATEGIC OBJECTIVES</th>
+                        <th rowspan="2" style="width: 220px;">STRATEGIC OBJECTIVES</th>
                         <th rowspan="2">KEY PERFORMANCE INDICATORS</th>
                         <th colspan="4">TARGETS (${currentKPIYear})</th>
                         <th rowspan="2" style="width: 70px;">WEIGHT</th>
@@ -1395,7 +1646,7 @@ export function getTcvArrHTML(stats, filters = {}) {
     /* ── KPI Summary Cards ── */
     const kpiHtml = `
         <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px;">
-            <div class="stat-card" style="background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(30,64,175,0.3);">
+            <div class="stat-card" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(15,23,42,0.30);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                     <div style="width:38px; height:38px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-file-invoice-dollar" style="font-size:1rem;"></i></div>
@@ -1404,7 +1655,7 @@ export function getTcvArrHTML(stats, filters = {}) {
                 <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">$${formatCurrency(stats.totalTcv)}</h2>
                 <div style="font-size:0.7rem; margin-top:8px; opacity:0.75;">${stats.accountCount} accounts</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #047857 0%, #059669 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(5,150,105,0.3);">
+            <div class="stat-card" style="background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(30,58,138,0.25);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                     <div style="width:38px; height:38px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-arrows-rotate" style="font-size:1rem;"></i></div>
@@ -1413,7 +1664,7 @@ export function getTcvArrHTML(stats, filters = {}) {
                 <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">$${formatCurrency(stats.totalArr)}</h2>
                 <div style="font-size:0.7rem; margin-top:8px; opacity:0.75;">${arrPct}% of TCV is recurring</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(124,58,237,0.3);">
+            <div class="stat-card" style="background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(37,99,235,0.25);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                     <div style="width:38px; height:38px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-chart-column" style="font-size:1rem;"></i></div>
@@ -1422,35 +1673,15 @@ export function getTcvArrHTML(stats, filters = {}) {
                 <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">$${formatCurrency(stats.totalGap)}</h2>
                 <div style="font-size:0.7rem; margin-top:8px; opacity:0.75;">${gapPct}% one-time revenue</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(3,105,161,0.3);">
+            <div class="stat-card" style="background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(14,165,233,0.25);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.08); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                     <div style="width:38px; height:38px; background:rgba(255,255,255,0.18); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-building" style="font-size:1rem; color:white;"></i></div>
                     <h3 style="font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity:0.9; margin:0; color:white;">Account Mix</h3>
                 </div>
                 <div style="display:flex; gap:14px; margin-top:6px; align-items:baseline;">
-                    <div><h2 style="font-size:1.5rem; font-weight:800; margin:0; color:#86efac;">${stats.recurringCount}</h2><span style="font-size:0.65rem; opacity:0.85; color:white;">Recurring</span></div>
+                    <div><h2 style="font-size:1.5rem; font-weight:800; margin:0; color:#bfdbfe;">${stats.recurringCount}</h2><span style="font-size:0.65rem; opacity:0.85; color:white;">Recurring</span></div>
                     <div><h2 style="font-size:1.5rem; font-weight:800; margin:0; color:#fde68a;">${stats.perpetualCount}</h2><span style="font-size:0.65rem; opacity:0.85; color:white;">Perpetual</span></div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    /* ── Strategic Insight Banner ── */
-    const insightHtml = `
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
-            <div style="background: #eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:14px 18px; display:flex; align-items:flex-start; gap:12px;">
-                <div style="width:32px; height:32px; background:#1e40af; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px;"><i class="fa-solid fa-equals" style="color:white; font-size:0.8rem;"></i></div>
-                <div>
-                    <h4 style="margin:0 0 4px 0; font-size:0.82rem; font-weight:700; color:#1e40af;">Narrow Gap = Stable Recurring</h4>
-                    <p style="margin:0; font-size:0.72rem; color:#3b82f6; line-height:1.4;">When TCV (Blue) and ARR (Green) bars are close, the account has high recurring revenue — predictable and stable for next year.</p>
-                </div>
-            </div>
-            <div style="background: #fefce8; border:1px solid #fde68a; border-radius:12px; padding:14px 18px; display:flex; align-items:flex-start; gap:12px;">
-                <div style="width:32px; height:32px; background:#d97706; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px;"><i class="fa-solid fa-triangle-exclamation" style="color:white; font-size:0.8rem;"></i></div>
-                <div>
-                    <h4 style="margin:0 0 4px 0; font-size:0.82rem; font-weight:700; color:#92400e;">Wide Gap = One-Time Heavy</h4>
-                    <p style="margin:0; font-size:0.72rem; color:#a16207; line-height:1.4;">When TCV is high but ARR is low/zero, it signals a one-time license or setup fee that won't repeat next year.</p>
                 </div>
             </div>
         </div>
@@ -1459,14 +1690,16 @@ export function getTcvArrHTML(stats, filters = {}) {
     /* ── Chart Container ── */
     const chartHtml = `
         <div class="stat-card" style="background:#FFF; padding:20px; margin-bottom:20px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); border:1px solid #F1F5F9; border-radius:14px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
                 <h3 style="font-size:1.05rem; font-weight:800; color:#111827; margin:0; display:flex; align-items:center; gap:10px;">
-                    <i class="fa-solid fa-chart-bar" style="color:#1e40af;"></i> TCV vs ARR by End User
-                    <span style="background:#eff6ff; color:#1e40af; font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:12px;">${stats.items.length > 25 ? 'Top 25' : stats.items.length + ' accounts'}</span>
+                    <i class="fa-solid fa-circle-half-stroke" style="color:#1e40af;"></i> ARR Recurring Rate by Account
+                    <span style="background:#eff6ff; color:#1e40af; font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:12px;">${stats.items.length > 15 ? 'Top 15 by TCV' : stats.items.length + ' accounts'}</span>
                 </h3>
-                <div style="display:flex; gap:12px; align-items:center;">
-                    <span style="display:flex; align-items:center; gap:5px; font-size:0.72rem; color:#64748b;"><span style="width:10px; height:10px; background:rgba(30,64,175,0.78); border-radius:2px; display:inline-block;"></span> TCV</span>
-                    <span style="display:flex; align-items:center; gap:5px; font-size:0.72rem; color:#64748b;"><span style="width:10px; height:10px; background:rgba(34,197,94,0.72); border-radius:2px; display:inline-block;"></span> ARR</span>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <span style="display:flex; align-items:center; gap:4px; font-size:0.7rem; color:#64748b;"><span style="width:10px; height:10px; background:#059669; border-radius:2px; display:inline-block;"></span>≥80% Healthy</span>
+                    <span style="display:flex; align-items:center; gap:4px; font-size:0.7rem; color:#64748b;"><span style="width:10px; height:10px; background:#2563eb; border-radius:2px; display:inline-block;"></span>60–79%</span>
+                    <span style="display:flex; align-items:center; gap:4px; font-size:0.7rem; color:#64748b;"><span style="width:10px; height:10px; background:#d97706; border-radius:2px; display:inline-block;"></span>40–59%</span>
+                    <span style="display:flex; align-items:center; gap:4px; font-size:0.7rem; color:#64748b;"><span style="width:10px; height:10px; background:#dc2626; border-radius:2px; display:inline-block;"></span>&lt;40% Risk</span>
                 </div>
             </div>
             <div id="tcvarr-chart-container" style="position:relative; width:100%; min-height:400px;">
@@ -1488,11 +1721,11 @@ export function getTcvArrHTML(stats, filters = {}) {
             <td style="padding:10px 12px; font-weight:700; color:#1e293b; font-size:0.82rem; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.name}</td>
             <td style="padding:10px 12px; font-size:0.75rem; color:#64748b;">${item.country}</td>
             <td style="padding:10px 12px; text-align:right; font-weight:800; color:#1e40af; font-size:0.85rem;">$${formatCurrency(item.tcv)}</td>
-            <td style="padding:10px 12px; text-align:right; font-weight:800; color:#16a34a; font-size:0.85rem;">$${formatCurrency(item.arr)}</td>
+            <td style="padding:10px 12px; text-align:right; font-weight:800; color:#2563eb; font-size:0.85rem;">$${formatCurrency(item.arr)}</td>
             <td style="padding:10px 12px; text-align:right; font-weight:700; color:${gapColor}; font-size:0.82rem;">$${formatCurrency(item.gap)}</td>
             <td style="padding:10px 12px; text-align:center;">
                 <div style="width:60px; background:#f1f5f9; border-radius:10px; height:8px; overflow:hidden; display:inline-block; vertical-align:middle;" title="Recurring %: ${arrFill.toFixed(1)}%">
-                    <div style="width:${Math.min(arrFill, 100)}%; height:100%; background: linear-gradient(90deg, #22c55e, #16a34a); border-radius:10px; transition: width 0.4s;"></div>
+                    <div style="width:${Math.min(arrFill, 100)}%; height:100%; background: linear-gradient(90deg, #3b82f6, #1e40af); border-radius:10px; transition: width 0.4s;"></div>
                 </div>
                 <span style="font-size:0.68rem; color:${gapColor}; font-weight:700; margin-left:4px;">${item.gapPct.toFixed(0)}%</span>
             </td>
@@ -1501,29 +1734,32 @@ export function getTcvArrHTML(stats, filters = {}) {
     }).join('');
 
     const tableHtml = `
-        <div class="stat-card" style="background:#FFF; padding:18px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); border:1px solid #F1F5F9; border-radius:14px;">
+        <div class="stat-card" style="background:#FFF; padding:18px; margin-bottom:20px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); border:1px solid #F1F5F9; border-radius:14px;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
                 <h3 style="font-size:1rem; font-weight:800; color:#111827; margin:0; display:flex; align-items:center; gap:8px;">
-                    <i class="fa-solid fa-table-list" style="color:#6366f1;"></i> Revenue Mix Detail
+                    <i class="fa-solid fa-table-list" style="color:#1e40af;"></i> Revenue Mix Detail
                     <span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:700; padding:2px 10px; border-radius:12px;">Sorted by TCV ↓</span>
                 </h3>
+                <button id="tcvarr-table-toggle" onclick="(function(){const el=document.getElementById('tcvarr-table-body');const btn=document.getElementById('tcvarr-table-toggle');const hidden=el.style.display==='none';el.style.display=hidden?'block':'none';btn.textContent=hidden?'Hide Details':'Show Details';})()" style="background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; padding:5px 14px; border-radius:8px; font-size:0.75rem; font-weight:600; cursor:pointer;">Hide Details</button>
             </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; min-width:900px;">
-                    <thead>
-                        <tr style="background:#F8FAFC; text-align:left; border-bottom:2px solid #E2E8F0;">
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; width:40px;">#</th>
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">End User</th>
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Country</th>
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">KOR TCV (USD)</th>
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#16a34a; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">KOR ARR (USD)</th>
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">GAP</th>
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:center;">ARR RATIO</th>
-                            <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:center;">TYPE</th>
-                        </tr>
-                    </thead>
-                    <tbody>${tableRows}</tbody>
-                </table>
+            <div id="tcvarr-table-body">
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; min-width:900px;">
+                        <thead>
+                            <tr style="background:#F8FAFC; text-align:left; border-bottom:2px solid #E2E8F0;">
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; width:40px;">#</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">End User</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Country</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">KOR TCV (USD)</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">KOR ARR (USD)</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">GAP</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:center;">ARR RATIO</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:center;">TYPE</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
@@ -1533,7 +1769,7 @@ export function getTcvArrHTML(stats, filters = {}) {
 
     const segmentationHtml = _buildAccountSegmentationHTML(stats);
 
-    return filterHtml + kpiHtml + insightHtml + chartHtml + strategicInsightsHtml + tableHtml + segmentationHtml;
+    return filterHtml + kpiHtml + chartHtml + tableHtml + strategicInsightsHtml + segmentationHtml;
 }
 
 /**
