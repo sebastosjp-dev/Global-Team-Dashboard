@@ -174,7 +174,7 @@ export function initOrderSheetCharts(stats) {
             type: 'line',
             data: {
                 labels: mrrYears,
-                datasets: [{ 
+                datasets: [{
                     data: mrrYears.map(y => stats.yearlyMrr[y]),
                     borderColor: '#a855f7',
                     backgroundColor: 'rgba(168, 85, 247, 0.1)',
@@ -183,6 +183,73 @@ export function initOrderSheetCharts(stats) {
             },
             options: sparklineOptions
         }));
+    }
+
+    // Country TCV donut chart
+    const donutCtx = document.getElementById('country-tcv-donut');
+    if (donutCtx && stats.tcvByCountry) {
+        const COUNTRY_COLORS = {
+            'Indonesia': '#f59e0b', 'Thailand': '#3b82f6', 'Malaysia': '#10b981',
+            'USA': '#6366f1', 'Philippines': '#ef4444', 'Singapore': '#ec4899',
+            'Vietnam': '#14b8a6', 'Turkey': '#f97316', 'Other': '#94a3b8'
+        };
+        const FALLBACK = ['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899','#14b8a6'];
+
+        const sorted = Object.entries(stats.tcvByCountry)
+            .filter(([, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1]);
+
+        const labels = sorted.map(([k]) => k);
+        const values = sorted.map(([, v]) => v);
+        const total = values.reduce((s, v) => s + v, 0);
+        const colors = labels.map((l, i) => COUNTRY_COLORS[l] || FALLBACK[i % FALLBACK.length]);
+
+        chartRegistry.register('order-country-donut', new Chart(donutCtx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverBorderWidth: 3 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#94a3b8',
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                                return ` $${formatCurrency(ctx.parsed)}  (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        }));
+
+        const legendEl = document.getElementById('country-tcv-legend');
+        if (legendEl) {
+            legendEl.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px;">
+                    ${sorted.map(([country, tcv], i) => {
+                        const pct = total > 0 ? ((tcv / total) * 100).toFixed(1) : 0;
+                        const color = COUNTRY_COLORS[country] || FALLBACK[i % FALLBACK.length];
+                        return `
+                            <div style="display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:8px; background:#f9fafb; border-left:3px solid ${color};">
+                                <div style="width:8px; height:8px; border-radius:50%; background:${color}; flex-shrink:0;"></div>
+                                <span style="flex:1; font-size:0.75rem; font-weight:600; color:#374151;">${country}</span>
+                                <span style="font-size:0.72rem; color:#6b7280;">$${formatCurrency(tcv)}</span>
+                                <span style="font-size:0.72rem; font-weight:800; color:${color}; min-width:36px; text-align:right;">${pct}%</span>
+                            </div>`;
+                    }).join('')}
+                </div>`;
+        }
     }
 }
 

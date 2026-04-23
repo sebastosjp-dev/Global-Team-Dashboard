@@ -445,6 +445,15 @@ export function getOrderSheetHTML(stats) {
                 <h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin-bottom: 8px;">YEARLY TCV GROWTH</h3>
                 <div style="height:160px; position:relative;"><canvas id="tcv-growth-chart"></canvas></div>
             </div>
+            <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #6366f1;">
+                <h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin-bottom: 12px;">REVENUE BY COUNTRY (KOR TCV)</h3>
+                <div style="display: flex; gap: 32px; align-items: center;">
+                    <div style="position: relative; width: 180px; height: 180px; flex-shrink: 0;">
+                        <canvas id="country-tcv-donut"></canvas>
+                    </div>
+                    <div id="country-tcv-legend" style="flex: 1;"></div>
+                </div>
+            </div>
         </div>
     `;
 }

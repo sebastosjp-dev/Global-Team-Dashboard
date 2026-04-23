@@ -39,6 +39,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     const mrrKey = findMrrKey(keys);
     const startDateKey = findContractStartKey(keys);
     const dealNameKey = findDealNameKey(keys);
+    const countryKey = findCountryKey(keys);
 
     let sumLocalTcv = 0, sumKorTcv = 0, sumArr = 0, sumMrr = 0, dealCount = 0;
     const yearlyTcv = {};
@@ -46,6 +47,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     const yearlyMrr = {};
     const qSums = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
     const qDeals = { Q1: [], Q2: [], Q3: [], Q4: [] };
+    const tcvByCountry = {};
     const currentYear = new Date().getFullYear();
 
     /**
@@ -66,6 +68,9 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
         sumArr += arrVal;
         sumMrr += mrrVal;
         dealCount++;
+
+        const countryName = countryKey ? (normalizeCountry(row[countryKey]) || 'Other') : 'Other';
+        tcvByCountry[countryName] = (tcvByCountry[countryName] || 0) + kTcv;
 
         const d = parseExcelDateSafe(row[startDateKey]);
         if (d) {
@@ -108,10 +113,10 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
         sumMrr = yearlyMrr[currentYear] || sumMrr;
     }
 
-    return { 
-        sumLocalTcv, sumKorTcv, sumArr, sumMrr, dealCount, 
-        yearlyTcv, yearlyArr, yearlyMrr, 
-        qSums, qDeals 
+    return {
+        sumLocalTcv, sumKorTcv, sumArr, sumMrr, dealCount,
+        yearlyTcv, yearlyArr, yearlyMrr,
+        qSums, qDeals, tcvByCountry
     };
 }
 
