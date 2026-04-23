@@ -40,23 +40,49 @@ export function initOrderSheetCharts(stats) {
     chartRegistry.destroyTag('order');
     const barCtx = document.getElementById('quarterly-tcv-bar');
     if (barCtx) {
+        const currentYear = new Date().getFullYear();
+        const lastYear = currentYear - 1;
+        const ly = stats.lastYearQSums || { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+
         chartRegistry.register('order-quarterly', new Chart(barCtx, {
             type: 'bar',
             data: {
                 labels: ['Q1', 'Q2', 'Q3', 'Q4'],
-                datasets: [{
-                    label: 'KOR TCV',
-                    data: [stats.qSums.Q1, stats.qSums.Q2, stats.qSums.Q3, stats.qSums.Q4],
-                    backgroundColor: 'rgba(245, 158, 11, 0.6)',
-                    borderColor: '#f59e0b',
-                    borderWidth: 1,
-                    borderRadius: 6
-                }]
+                datasets: [
+                    {
+                        label: String(currentYear),
+                        data: [stats.qSums.Q1, stats.qSums.Q2, stats.qSums.Q3, stats.qSums.Q4],
+                        backgroundColor: 'rgba(245, 158, 11, 0.6)',
+                        borderColor: '#f59e0b',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        order: 2
+                    },
+                    {
+                        label: String(lastYear),
+                        data: [ly.Q1, ly.Q2, ly.Q3, ly.Q4],
+                        type: 'line',
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 4],
+                        pointBackgroundColor: '#6366f1',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: false,
+                        tension: 0.3,
+                        order: 1
+                    }
+                ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { font: { size: 11 }, boxWidth: 12 }
+                    },
                     tooltip: {
                         backgroundColor: '#1e293b',
                         titleColor: '#f59e0b',
@@ -65,16 +91,24 @@ export function initOrderSheetCharts(stats) {
                         cornerRadius: 8,
                         callbacks: {
                             label: function (context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                label += '$' + formatCurrency(context.parsed.y);
+                                let label = ` ${context.dataset.label}: $${formatCurrency(context.parsed.y)}`;
+                                if (context.datasetIndex === 0) {
+                                    const q = context.label;
+                                    const lyVal = ly[q] || 0;
+                                    const tyVal = stats.qSums[q] || 0;
+                                    if (lyVal > 0) {
+                                        const growth = ((tyVal - lyVal) / lyVal * 100).toFixed(1);
+                                        const sign = growth >= 0 ? '+' : '';
+                                        label += `  (${sign}${growth}% YoY)`;
+                                    }
+                                }
                                 return label;
                             },
                             afterBody: function (context) {
+                                if (context[0].datasetIndex !== 0) return '';
                                 const q = context[0].label;
                                 const deals = stats.qDeals[q] || [];
                                 if (deals.length === 0) return '';
-                                // Sort by TCV descending and take top 10
                                 const sorted = [...deals].sort((a, b) => b.tcv - a.tcv).slice(0, 10);
                                 const lines = ['', '--- Top Deals ---'];
                                 sorted.forEach(d => {

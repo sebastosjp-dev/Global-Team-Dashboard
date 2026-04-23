@@ -47,6 +47,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     const yearlyMrr = {};
     const qSums = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
     const qDeals = { Q1: [], Q2: [], Q3: [], Q4: [] };
+    const lastYearQSums = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
     const tcvByCountry = {};
     const tcvByCountryYear = {};
     const currentYear = new Date().getFullYear();
@@ -86,13 +87,13 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
             // Store for cumulative ARR/MRR calculation
             contractEntries.push({ startYear, arrVal, mrrVal });
 
+            const qId = `Q${Math.floor(d.getMonth() / 3) + 1}`;
             if (startYear === currentYear) {
-                const qId = `Q${Math.floor(d.getMonth() / 3) + 1}`;
                 qSums[qId] += kTcv;
-
-                // Collect deal info for tooltip
                 const name = dealNameKey ? String(row[dealNameKey] || 'N/A').trim() : 'N/A';
                 qDeals[qId].push({ name, tcv: kTcv });
+            } else if (startYear === currentYear - 1) {
+                lastYearQSums[qId] += kTcv;
             }
         }
     });
@@ -120,7 +121,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     return {
         sumLocalTcv, sumKorTcv, sumArr, sumMrr, dealCount,
         yearlyTcv, yearlyArr, yearlyMrr,
-        qSums, qDeals, tcvByCountry, tcvByCountryYear
+        qSums, qDeals, lastYearQSums, tcvByCountry, tcvByCountryYear
     };
 }
 
