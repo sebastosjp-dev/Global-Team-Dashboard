@@ -2,11 +2,10 @@
  * config.js — Global configuration constants
  */
 
-// Google Drive file IDs — replace with your actual file IDs after uploading to Drive
-// To get the ID: Share link looks like https://drive.google.com/file/d/FILE_ID/view
+// Google Sheets spreadsheet IDs
 export const DATA_SOURCES = {
-    MAIN_FILE_ID: 'YOUR_MAIN_FILE_ID_HERE',      // 2026 Global Rev.01.xlsx
-    MRR_FILE_ID: 'YOUR_MRR_FILE_ID_HERE',         // Global MRR ARR.xlsx
+    MAIN_SHEET_ID: '1GLisAXT8E8a4Pqrt_nbQHupb7QkXrztWEgK_8YwyfWg',  // 2026 Global Rev.01
+    MRR_SHEET_ID:  '1CJpEY65WBfQoSCwfBVfC4KT7Q2IQaJyXXjcsoxGZFlM',  // Global MRR ARR
 };
 
 export const CONFIG = {

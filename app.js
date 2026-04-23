@@ -9,6 +9,10 @@ import { selectTrainingView } from './training.js';
 import { renderTabMetrics } from './views.js';
 import { DATA_SOURCES } from './config.js';
 
+function sheetsExportUrl(sheetId) {
+    return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Application State
    ═══════════════════════════════════════════════════════════════ */
@@ -52,18 +56,14 @@ function updateLastUpdatedDate() {
 /**
  * Fetch Excel files from local server and process.
  */
-function driveUrl(fileId) {
-    return `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
-}
-
 async function loadLocalExcel() {
     try {
         const btn = document.getElementById('refresh-btn');
         if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
         const [resMain, resMrr] = await Promise.all([
-            fetch(driveUrl(DATA_SOURCES.MAIN_FILE_ID)),
-            fetch(driveUrl(DATA_SOURCES.MRR_FILE_ID)).catch(() => null)
+            fetch(sheetsExportUrl(DATA_SOURCES.MAIN_SHEET_ID)),
+            fetch(sheetsExportUrl(DATA_SOURCES.MRR_SHEET_ID)).catch(() => null)
         ]);
 
         if (!resMain.ok) throw new Error(`Failed to fetch main file. Server returned ${resMain.status}`);
