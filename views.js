@@ -179,7 +179,7 @@ function _renderOrderSheet(data, filterCountry, metricsGrid, tabName, workbookDa
     const stats = getOrderSheetStats(data, filterCountry, tabName, workbookData);
     const container = document.createElement('div');
     container.style.gridColumn = '1 / -1';
-    container.innerHTML = getOrderSheetHTML(stats);
+    container.innerHTML = getOrderSheetHTML(stats, filterCountry);
     metricsGrid.appendChild(container);
     setTimeout(() => initOrderSheetCharts(stats), 120);
 }
