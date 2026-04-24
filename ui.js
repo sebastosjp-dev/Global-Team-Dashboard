@@ -1007,13 +1007,21 @@ export function getGenericCountryHTML(stats, filterCountry) {
     });
 
     return `
-        <div class="stat-card" style="padding:20px; background:#FFF; border:1px solid #F3F4F6; max-width:400px; display:block; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <div class="stat-card" style="padding:20px; background:#FFF; border:1px solid #F3F4F6; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #F3F4F6;">
                 <div class="stat-icon" style="background:rgba(99,102,241,0.1); color:#6366f1; width:36px; height:36px; font-size:1rem;"><i class="fa-solid fa-handshake"></i></div>
                 <div class="stat-details"><h3 style="margin:0; font-size:0.8rem; color:#6B7280;">CLOSED DEALS</h3><h2 style="margin:0; font-size:0.95rem; font-weight:700; color:#111827;">Summary by Country/Year</h2></div>
             </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px;">${totalHtml}</div>
-            <div style="max-height:220px; overflow-y:auto; margin-top:12px; padding-right:4px;">${yearlyHtml}</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start;">
+                <div>
+                    <h4 style="font-size:0.7rem; font-weight:800; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 10px;">By Country</h4>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px;">${totalHtml}</div>
+                </div>
+                <div style="border-left:1px solid #F3F4F6; padding-left:24px;">
+                    <h4 style="font-size:0.7rem; font-weight:800; color:#6B7280; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 4px;">Year over Year</h4>
+                    <div style="max-height:260px; overflow-y:auto; padding-right:4px;">${yearlyHtml}</div>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -1301,7 +1309,7 @@ export function getPipelineCoverageHTML(stats) {
 
 export function getPartnerPerformanceHTML() {
     return `
-        <div class="stat-card" style="padding: 24px; background: #FFFFFF; border: 1px solid #F3F4F6; grid-column: 1 / -1; margin-bottom: 24px;">
+        <div class="stat-card" style="padding: 24px; background: #FFFFFF; border: 1px solid #F3F4F6;">
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid #F3F4F6; padding-bottom: 16px;">
                 <div class="stat-icon" style="background: rgba(0,122,255,0.1); color: #007AFF; width: 36px; height: 36px;"><i class="fa-solid fa-ranking-star"></i></div>
                 <div>

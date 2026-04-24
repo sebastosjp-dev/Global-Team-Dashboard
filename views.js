@@ -21,7 +21,7 @@ import {
     getPartnerROIStats, getPipelineCoverageStats
 } from './services.js';
 import {
-    getOrderSheetHTML, getPipelineHTML, getPartnerHTML,
+                                                getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
     getGenericCountryHTML, getExpiringContractsHTML,
     getPartnerPerformanceHTML, getPocHTML, getEventHTML,
     getCountrySpecificHTML, getServiceAnalysisHTML,
@@ -65,9 +65,10 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if ((tabName === 'PARTNER' || isCountryTab) && data && data.length > 0) {
         try { _renderPartner(data, filterCountry, tabName, metricsGrid, workbookData, searchInput); } catch(e) { console.error('_renderPartner', e); }
-        try { _renderGenericCountry(data, filterCountry, metricsGrid, tabName); } catch(e) { console.error('_renderGenericCountry', e); }
         try { _renderPartnerTopPerformer(data, metricsGrid); } catch(e) { console.error('_renderPartnerTopPerformer', e); }
         try { _renderPartnerROI(workbookData, filterCountry, metricsGrid); } catch(e) { console.error('_renderPartnerROI', e); }
+        try { _renderGenericCountry(data, filterCountry, metricsGrid, tabName); } catch(e) { console.error('_renderGenericCountry', e); }
+        try { _renderPartnerNetworkDetails(data, filterCountry, metricsGrid, workbookData); } catch(e) { console.error('_renderPartnerNetworkDetails', e); }
         hasMetrics = true;
     }
 
@@ -236,17 +237,27 @@ function _renderPartner(data, filterCountry, tabName, metricsGrid, workbookData,
                 }));
             });
         }
-        initPartnerCharts(stats, filterCountry);
     }, 100);
+}
+
+function _renderPartnerNetworkDetails(data, filterCountry, metricsGrid, workbookData) {
+    if (!data || data.length === 0) return;
+    const stats = getPartnerStats(data, filterCountry, workbookData);
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    container.innerHTML = getPartnerNetworkDetailsHTML(stats, filterCountry);
+    metricsGrid.appendChild(container);
+    setTimeout(() => { initPartnerCharts(stats, filterCountry); }, 100);
 }
 
 function _renderGenericCountry(data, filterCountry, metricsGrid, tabName) {
     if (data.length === 0 || tabName === 'EVENT') return;
     const stats = getGenericCountryStats(data, filterCountry);
     if (!stats) return;
-    const div = document.createElement('div');
-    div.innerHTML = getGenericCountryHTML(stats, filterCountry);
-    metricsGrid.appendChild(div.firstElementChild);
+    const wrapper = document.createElement('div');
+    wrapper.style.gridColumn = '1 / -1';
+    wrapper.innerHTML = getGenericCountryHTML(stats, filterCountry);
+    metricsGrid.appendChild(wrapper);
 }
 
 function _renderPartnerROI(workbookData, filterCountry, metricsGrid) {
