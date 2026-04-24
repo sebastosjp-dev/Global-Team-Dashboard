@@ -202,14 +202,14 @@ function renderTableData(searchTerm = "", filterCountry = null) {
         dataTable.classList.add('hidden');
     } else {
         if (dataSection) {
-            if (currentTab === 'PARTNER') {
+            if (currentTab === 'PARTNER' || currentTab === 'POC') {
                 dataSection.classList.add('hidden');
             } else {
                 dataSection.classList.remove('hidden');
             }
         }
         emptyState.classList.add('hidden');
-        if (currentTab === 'PARTNER') {
+        if (currentTab === 'PARTNER' || currentTab === 'POC') {
             dataTable.classList.add('hidden');
         } else {
             dataTable.classList.remove('hidden');

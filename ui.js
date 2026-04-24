@@ -147,6 +147,32 @@ window.hidePocTooltip = function () {
     }
 };
 
+window.copyDecisionList = function () {
+    const table = document.getElementById('decision-required-table');
+    if (!table) return;
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const lines = rows.map(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        const name = cells[1]?.innerText?.trim() || '';
+        const partner = cells[2]?.innerText?.trim() || '';
+        const country = cells[3]?.innerText?.trim() || '';
+        const status = cells[4]?.innerText?.trim() || '';
+        const startDate = cells[5]?.innerText?.trim() || '';
+        const elapsed = cells[6]?.innerText?.trim() || '';
+        return `${name} | ${partner} | ${country} | ${status} | Start: ${startDate} | Elapsed: ${elapsed}`;
+    });
+    const text = `Decision Required POCs (2+ months)\n${'='.repeat(50)}\n${lines.join('\n')}`;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('button[onclick="copyDecisionList()"]');
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            btn.style.background = '#34C759';
+            setTimeout(() => { btn.innerHTML = original; btn.style.background = '#A855F7'; }, 2000);
+        }
+    });
+};
+
 window.selectQuarter = function (element) {
     const quarter = element.getAttribute('data-q');
     const deals = JSON.parse(element.getAttribute('data-deals'));
@@ -890,31 +916,6 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
         </tr>
     `).join('');
 
-    const groupedListsHtml = stats.sortedCountries.map(country => {
-        const partners = stats.partnerGroups[country];
-        const partnerItemsHtml = partners.slice(0, 10).map(p => {
-            const name = p[stats.pNameKey] || 'N/A';
-            return `
-                <div style="padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; border: 1px solid #F3F4F6;">
-                    <div style="color: #111827; font-weight: 600; font-size: 0.85rem;">${name}</div>
-                    <div style="color: #6B7280; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${Object.values(p)[1] || ''}</div>
-                </div>
-            `;
-        }).join('') + (partners.length > 10 ? `<div style="text-align: center; color: #9CA3AF; font-size: 0.7rem; padding-top: 4px;">+ ${partners.length - 10} more</div>` : '');
-
-        return `
-            <div style="background: #F9FAFB; border: 1px solid #F3F4F6; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E5E7EB; padding-bottom: 6px;">
-                    <h3 style="color: #111827; font-size: 0.9rem; font-weight: 700; margin: 0;">${country}</h3>
-                    <span style="background: rgba(0,122,255,0.1); color: #007AFF; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 10px;">${partners.length}</span>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr; gap: 6px;">
-                    ${partnerItemsHtml}
-                </div>
-            </div>
-        `;
-    }).join('');
-
     return `
         <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px;">
             ${globalCardHtml}
@@ -960,6 +961,36 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
             </div>
         </div>
 
+    `;
+}
+
+export function getPartnerNetworkDetailsHTML(stats, filterCountry) {
+    const groupedListsHtml = stats.sortedCountries.map(country => {
+        const partners = stats.partnerGroups[country];
+        const partnerItemsHtml = partners.slice(0, 10).map(p => {
+            const name = p[stats.pNameKey] || 'N/A';
+            return `
+                <div style="padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; border: 1px solid #F3F4F6;">
+                    <div style="color: #111827; font-weight: 600; font-size: 0.85rem;">${name}</div>
+                    <div style="color: #6B7280; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${Object.values(p)[1] || ''}</div>
+                </div>
+            `;
+        }).join('') + (partners.length > 10 ? `<div style="text-align: center; color: #9CA3AF; font-size: 0.7rem; padding-top: 4px;">+ ${partners.length - 10} more</div>` : '');
+
+        return `
+            <div style="background: #F9FAFB; border: 1px solid #F3F4F6; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E5E7EB; padding-bottom: 6px;">
+                    <h3 style="color: #111827; font-size: 0.9rem; font-weight: 700; margin: 0;">${country}</h3>
+                    <span style="background: rgba(0,122,255,0.1); color: #007AFF; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 10px;">${partners.length}</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr; gap: 6px;">
+                    ${partnerItemsHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
         <div style="grid-column: 1 / -1; margin-bottom: 24px;">
             <div style="padding: 20px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 20px; display: flex; flex-direction: column; gap: 20px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -1186,7 +1217,7 @@ export function getPartnerROIHTML(stats) {
     const lowCount = partners.filter(p => p.efficiency === 'low-win').length;
 
     return `
-        <div class="stat-card" style="padding:22px; background:#fff; border:1px solid #f3f4f6; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div class="stat-card" style="padding:22px; background:#fff; border:1px solid #f3f4f6; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.04); display:block;">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; border-bottom:1px solid #f3f4f6; padding-bottom:14px; flex-wrap:wrap; row-gap:8px;">
                 <div style="background:rgba(99,102,241,0.1); color:#6366f1; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-chart-bar" style="font-size:1rem;"></i></div>
                 <div>
@@ -1199,8 +1230,8 @@ export function getPartnerROIHTML(stats) {
                     <span style="background:#f3f4f6; color:#374151; font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:20px;">Avg Win Rate: ${avgWinRate}%</span>
                 </div>
             </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; min-width:700px;">
+            <div>
+                <table style="width:100%; border-collapse:collapse;">
                     <thead>
                         <tr style="background:#f9fafb; text-align:left;">
                             <th style="padding:8px 12px; font-size:0.68rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Partner</th>
@@ -1350,8 +1381,8 @@ export function getPocHTML(stats, filters, uniqueValues) {
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; margin-bottom: 30px;">
             <div class="stat-card highlight-card" style="background: #EBF4FF; border: 1px solid rgba(0,122,255,0.2); padding: 24px; border-left: 5px solid #007AFF; cursor: pointer; transition: all 0.2s;"
-                 onmouseover="showPocTooltip(event, this, '#007AFF')" 
-                 onmouseout="hidePocTooltip()" 
+                 onmouseover="showPocTooltip(event, this, '#007AFF')"
+                 onmouseout="hidePocTooltip()"
                  data-title="Running POCs"
                  data-names="${encodeURIComponent(JSON.stringify(stats.runningNames))}">
                 <div class="stat-icon" style="background: rgba(0, 122, 255, 0.15); color: #007AFF; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-play"></i></div>
@@ -1361,8 +1392,8 @@ export function getPocHTML(stats, filters, uniqueValues) {
                 </div>
             </div>
             <div class="stat-card highlight-card" style="background: #FFF9ED; border: 1px solid rgba(245,158,11,0.2); padding: 24px; border-left: 5px solid #F59E0B; cursor: pointer; transition: all 0.2s;"
-                 onmouseover="showPocTooltip(event, this, '#F59E0B')" 
-                 onmouseout="hidePocTooltip()" 
+                 onmouseover="showPocTooltip(event, this, '#F59E0B')"
+                 onmouseout="hidePocTooltip()"
                  data-title="Hold POCs"
                  data-names="${encodeURIComponent(JSON.stringify(stats.holdNames))}">
                 <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-pause"></i></div>
@@ -1372,14 +1403,26 @@ export function getPocHTML(stats, filters, uniqueValues) {
                 </div>
             </div>
             <div class="stat-card highlight-card" style="background: #FFF5F5; border: 1px solid rgba(255,59,48,0.2); padding: 24px; border-left: 5px solid #ef4444; cursor: pointer; transition: all 0.2s;"
-                 onmouseover="showPocTooltip(event, this, '#ef4444')" 
-                 onmouseout="hidePocTooltip()" 
+                 onmouseover="showPocTooltip(event, this, '#ef4444')"
+                 onmouseout="hidePocTooltip()"
                  data-title="Long-term (100+) POCs"
                  data-names="${encodeURIComponent(JSON.stringify(stats.staledRunningList.map(r => r.name)))}">
                 <div class="stat-icon" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-hourglass-half"></i></div>
                 <div>
                     <h3 style="color: #FF3B30; font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Long-term (100+)</h3>
                     <h2 style="color: #111827; font-size: 2.2rem; font-weight: 800; margin: 0;">${stats.staledRunningList.length} <span style="font-size: 1rem; font-weight: 400; opacity: 0.7;">Companies</span></h2>
+                </div>
+            </div>
+            <div class="stat-card highlight-card" style="background: #FDF2FF; border: 1px solid rgba(168,85,247,0.25); padding: 24px; border-left: 5px solid #A855F7; cursor: pointer; transition: all 0.2s;"
+                 onmouseover="showPocTooltip(event, this, '#A855F7')"
+                 onmouseout="hidePocTooltip()"
+                 data-title="Decision Required (2+ Months)"
+                 data-names="${encodeURIComponent(JSON.stringify(stats.overTwoMonthsNames))}">
+                <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #A855F7; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div>
+                    <h3 style="color: #A855F7; font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Decision Required</h3>
+                    <h2 style="color: #111827; font-size: 2.2rem; font-weight: 800; margin: 0;">${stats.overTwoMonthsList.length} <span style="font-size: 1rem; font-weight: 400; opacity: 0.7;">Companies</span></h2>
+                    <p style="color: #7C3AED; font-size: 0.72rem; margin: 4px 0 0; font-weight: 500;">2+ months since start</p>
                 </div>
             </div>
         </div>
@@ -1424,37 +1467,80 @@ export function getPocHTML(stats, filters, uniqueValues) {
             </div>
         </div>
 
+        ${(() => {
+            const onTrack = stats.runningList.filter(r => r.daysSinceStart != null && r.daysSinceStart <= 60).sort((a, b) => (a.daysSinceStart || 0) - (b.daysSinceStart || 0));
+            const overdue = stats.runningList.filter(r => r.daysSinceStart == null || r.daysSinceStart > 60).sort((a, b) => (b.daysSinceStart || 0) - (a.daysSinceStart || 0));
+            const allRows = [...onTrack, ...overdue];
+            const thStyle = `padding: 10px 14px; color: #6B7280; font-weight: 600; font-size: 0.78rem; white-space: nowrap;`;
+            const renderRow = (r, i, isDecision) => `
+                <tr style="border-bottom: 1px solid ${isDecision ? 'rgba(168,85,247,0.12)' : '#E5E7EB'}; background: ${isDecision ? (i % 2 === 0 ? 'rgba(168,85,247,0.03)' : 'transparent') : (i % 2 === 0 ? '#FAFAFA' : 'transparent')};">
+                    <td style="padding: 11px 14px; color: #9CA3AF; font-weight: 500; font-size: 0.78rem;">${i + 1}</td>
+                    <td style="padding: 11px 14px; font-weight: 600; color: #111827; font-size: 0.8rem;">
+                        ${r.name}
+                        ${isDecision ? '<span style="background: rgba(168,85,247,0.15); color: #A855F7; font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 6px; vertical-align: middle;">DECISION</span>' : ''}
+                    </td>
+                    <td style="padding: 11px 14px; color: #374151; font-size: 0.8rem;">${r.partner}</td>
+                    <td style="padding: 11px 14px; color: #374151; font-size: 0.8rem;">${r.country}</td>
+                    <td style="padding: 11px 14px; text-align: center;">
+                        <span style="background: ${r.statusColor}20; color: ${r.statusColor}; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 0.7rem; text-transform: uppercase;">${r.status}</span>
+                    </td>
+                    <td style="padding: 11px 14px; text-align: center; color: #374151; font-size: 0.78rem;">${r.startDate || '-'}</td>
+                    <td style="padding: 11px 14px; text-align: center;">
+                        <span style="background: ${isDecision ? 'rgba(168,85,247,0.12)' : 'rgba(52,199,89,0.12)'}; color: ${isDecision ? '#7C3AED' : '#16a34a'}; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 0.78rem;">${r.daysSinceStart != null ? r.daysSinceStart + 'd' : '-'}</span>
+                    </td>
+                    <td style="padding: 11px 14px; text-align: center;">
+                        <span style="color: ${r.days >= 100 ? '#FF3B30' : (r.days >= 60 ? '#FF9500' : '#34C759')}; font-weight: 700; font-size: 0.8rem;">${r.days}</span>
+                    </td>
+                    <td style="padding: 11px 14px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6B7280; font-size: 0.78rem;">${r.notes || '-'}</td>
+                </tr>`;
+            return `
         <div class="stat-card highlight-card" style="padding: 24px; display: block;">
-            <h3 style="font-size: 1.05rem; font-weight: 600; margin-bottom: 20px;">Priority Follow-up List</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #111827; margin: 0;">All Running POCs</h3>
+                    <p style="font-size: 0.75rem; color: #6B7280; margin: 4px 0 0;">
+                        <span style="color: #16a34a; font-weight: 600;">${onTrack.length} on track</span>
+                        <span style="margin: 0 8px; color: #D1D5DB;">|</span>
+                        <span style="color: #A855F7; font-weight: 600;">${overdue.length} decision required (2+ months)</span>
+                    </p>
+                </div>
+                <button onclick="copyDecisionList()" style="background: #A855F7; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-copy"></i> Copy Decision List
+                </button>
+            </div>
             <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
-                    <thead><tr style="background: #F3F4F6;">
-                        <th style="padding: 12px;">POC Name</th>
-                        <th style="padding: 12px;">Partner</th>
-                        <th style="padding: 12px; text-align: center;">Status</th>
-                        <th style="padding: 12px; text-align: center;">W.Days</th>
-                        <th style="padding: 12px;">Notes</th>
-                    </tr></thead>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;" id="decision-required-table">
+                    <thead>
+                        <tr style="background: #F3F4F6; border-bottom: 2px solid #E5E7EB;">
+                            <th style="${thStyle}">#</th>
+                            <th style="${thStyle}">POC Name</th>
+                            <th style="${thStyle}">Partner</th>
+                            <th style="${thStyle}">Country</th>
+                            <th style="${thStyle} text-align: center;">Status</th>
+                            <th style="${thStyle} text-align: center;">Start Date</th>
+                            <th style="${thStyle} text-align: center;">Days Elapsed</th>
+                            <th style="${thStyle} text-align: center;">W.Days</th>
+                            <th style="${thStyle}">Notes</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        ${stats.runningList.slice(0, 15).map(r => `
-                            <tr style="border-bottom: 1px solid #E5E7EB;">
-                                <td style="padding: 12px; font-weight: 500;">${r.name}</td>
-                                <td style="padding: 12px;">${r.partner}</td>
-                                <td style="padding: 12px; text-align: center;">
-                                    <span style="background: ${r.statusColor}20; color: ${r.statusColor}; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 0.7rem; text-transform: uppercase;">${r.status}</span>
-                                </td>
-                                <td style="padding: 12px; text-align: center;">
-                                    <span style="color: ${r.days >= 100 ? '#FF3B30' : (r.days >= 60 ? '#FF9500' : '#34C759')}; font-weight: 700;">${r.days}</span>
-                                </td>
-                                <td style="padding: 12px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${r.notes || '-'}</td>
-                            </tr>
-                        `).join('')}
+                        ${onTrack.length > 0 ? `
+                        <tr><td colspan="9" style="padding: 8px 14px; background: rgba(52,199,89,0.06); border-bottom: 1px solid rgba(52,199,89,0.2);">
+                            <span style="font-size: 0.72rem; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.05em;"><i class="fa-solid fa-circle-check" style="margin-right: 5px;"></i>On Track — Within 60 Days (${onTrack.length})</span>
+                        </td></tr>
+                        ${onTrack.map((r, i) => renderRow(r, i + 1, false)).join('')}
+                        ` : ''}
+                        ${overdue.length > 0 ? `
+                        <tr><td colspan="9" style="padding: 8px 14px; background: rgba(168,85,247,0.07); border-top: 2px solid rgba(168,85,247,0.2); border-bottom: 1px solid rgba(168,85,247,0.2);">
+                            <span style="font-size: 0.72rem; font-weight: 700; color: #7C3AED; text-transform: uppercase; letter-spacing: 0.05em;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 5px;"></i>Decision Required — Over 60 Days, Oldest First (${overdue.length})</span>
+                        </td></tr>
+                        ${overdue.map((r, i) => renderRow(r, i + 1, true)).join('')}
+                        ` : ''}
                     </tbody>
                 </table>
             </div>
-
-
-        </div>
+        </div>`;
+        })()}
     `;
 }
 
@@ -1511,77 +1597,163 @@ export function getCountrySpecificHTML(stats, countryName) {
     `;
 }
 
-export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear()) {
+export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), isAdmin = true, currentUser = 'admin', availableUsers = []) {
     if (!kpiData || !kpiData.categories) return '<p>No KPI data found.</p>';
 
-    const renderRow = (catId, objId, obj, catCellHtml = '') => {
-        const calculateRate = (targets, achievements) => {
-            const sumT = targets.reduce((a, b) => a + b, 0);
-            const sumA = achievements.reduce((a, b) => a + b, 0);
-            if (sumT === 0) return achievements.some(v => v > 0) ? 100 : 0;
-            return Math.min(200, Math.round((sumA / sumT) * 100)); // Allow over 100%
-        };
+    const getSubItems = (obj) => {
+        const si = obj.subItems;
+        if (si && si.length >= 3 && typeof si[0] === 'object') return si;
+        return [{ name: "", achievements: [0,0,0,0] }, { name: "", achievements: [0,0,0,0] }, { name: "", achievements: [0,0,0,0] }];
+    };
 
-        const rate = calculateRate(obj.targets, obj.achievements);
+    const computeTotalAch = (subItems) =>
+        [0,1,2,3].map(q => subItems.reduce((s, si) => s + ((si.achievements?.[q]) || 0), 0));
+
+    const calculateRateFromSubs = (targets, subItems) => {
+        const totalAch = computeTotalAch(subItems);
+        const sumT = targets.reduce((a, b) => a + b, 0);
+        const sumA = totalAch.reduce((a, b) => a + b, 0);
+        if (sumT === 0) return sumA > 0 ? 100 : 0;
+        return Math.min(200, Math.round((sumA / sumT) * 100));
+    };
+
+    const renderRow = (catId, objId, obj, catCellHtml = '') => {
+        const subItems = getSubItems(obj);
+        const totalAch = computeTotalAch(subItems);
+        const rate = calculateRateFromSubs(obj.targets, subItems);
         const rateColor = rate >= 100 ? '#10B981' : (rate >= 70 ? '#F59E0B' : '#EF4444');
 
-        return `
-            <tr class="kpi-row" data-cat="${catId}" data-obj="${objId}">
+        const roAttr = isAdmin ? '' : 'readonly';
+        const roStyle = isAdmin ? '' : 'cursor:default; opacity:0.75;';
+
+        const mainRow = `
+            <tr class="kpi-row kpi-main-row" data-cat="${catId}" data-obj="${objId}">
                 ${catCellHtml}
                 <td class="kpi-objective" style="padding: 0 10px;">
-                    <div style="height: 52px; overflow: hidden; display: flex; align-items: center;">
-                        <div contenteditable="true" onblur="this.style.background='transparent'; this.style.borderColor='transparent'; this.style.boxShadow='none'; window.updateKPIObjectiveName(this, ${catId}, ${objId})" style="outline: none; width: 100%; min-width: 0; padding: 4px 6px; border: 1px dashed transparent; border-radius: 4px; transition: background 0.2s, border-color 0.2s; cursor: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onfocus="this.style.background='#FFF'; this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)';" onmouseenter="if(document.activeElement!==this){this.style.borderColor='#CBD5E1';}" onmouseleave="if(document.activeElement!==this){this.style.borderColor='transparent';}" title="Click to edit">${obj.name}</div>
+                    <div style="height: 44px; overflow: hidden; display: flex; align-items: center;">
+                        <div ${isAdmin ? `contenteditable="true" onblur="this.style.background='transparent'; this.style.borderColor='transparent'; this.style.boxShadow='none'; window.updateKPIObjectiveName(this, ${catId}, ${objId})" onfocus="this.style.background='#FFF'; this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)';" onmouseenter="if(document.activeElement!==this){this.style.borderColor='#CBD5E1';}" onmouseleave="if(document.activeElement!==this){this.style.borderColor='transparent';}"` : ''}
+                             style="outline: none; width: 100%; min-width: 0; padding: 4px 6px; border: 1px dashed transparent; border-radius: 4px; transition: background 0.2s, border-color 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; ${isAdmin ? 'cursor:text;' : ''}"
+                             title="${isAdmin ? 'Click to edit' : ''}">${obj.name}</div>
                     </div>
                 </td>
                 <td class="kpi-indicator" style="padding: 0 15px;">
-                    <div style="height: 52px; overflow: hidden; display: flex; align-items: center;">
-                        <div contenteditable="true" onblur="this.style.background='transparent'; window.updateKPIText(this, 'kpis', ${catId}, ${objId})" style="outline: none; width: 100%; min-width: 0; transition: all 0.2s; cursor: text; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onfocus="this.style.background='rgba(0,0,0,0.02)'; this.style.whiteSpace='normal'; this.style.overflow='visible';" onblur="this.style.whiteSpace='nowrap'; this.style.overflow='hidden'; this.style.background='transparent'; window.updateKPIText(this, 'kpis', ${catId}, ${objId});" title="Click to edit">${obj.kpis || ''}</div>
+                    <div style="height: 44px; overflow: hidden; display: flex; align-items: center;">
+                        <div ${isAdmin ? `contenteditable="true" onfocus="this.style.background='rgba(0,0,0,0.02)'; this.style.whiteSpace='normal'; this.style.overflow='visible';" onblur="this.style.whiteSpace='nowrap'; this.style.overflow='hidden'; this.style.background='transparent'; window.updateKPIText(this, 'kpis', ${catId}, ${objId});"` : ''}
+                             style="outline: none; width: 100%; min-width: 0; transition: all 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ${isAdmin ? 'cursor:text;' : ''}"
+                        >${obj.kpis || ''}</div>
                     </div>
                 </td>
                 ${obj.targets.map((t, i) => `
                     <td style="background: rgba(16, 185, 129, 0.05);">
-                        <input type="text" class="kpi-target-input" data-idx="${i}" value="${formatCurrency(t)}" onchange="window.updateKPICell(this, 'targets', ${catId}, ${objId}, ${i})">
+                        <input type="text" class="kpi-target-input" data-idx="${i}" value="${formatCurrency(t)}"
+                               ${isAdmin ? `onchange="window.updateKPICell(this, 'targets', ${catId}, ${objId}, ${i})"` : 'readonly'}
+                               style="${roStyle}">
                     </td>
                 `).join('')}
                 <td class="kpi-weight" style="padding: 4px;">
                     <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                        <input type="number" style="width: 50px; text-align: right; border: 1px solid transparent; background: rgba(0,0,0,0.02); padding: 6px; border-radius: 6px; font-weight: 700; color: inherit; transition: all 0.2s; outline: none;" onfocus="this.style.background='#FFF'; this.style.borderColor='#6366f1';" onblur="this.style.background='rgba(0,0,0,0.02)'; this.style.borderColor='transparent';" onchange="window.updateKPINumber(this, 'weight', ${catId}, ${objId})" value="${obj.weight || 0}">%
+                        <input type="number" style="width: 50px; text-align: right; border: 1px solid transparent; background: rgba(0,0,0,0.02); padding: 6px; border-radius: 6px; font-weight: 700; color: inherit; transition: all 0.2s; outline: none; ${roStyle}"
+                               ${isAdmin ? `onfocus="this.style.background='#FFF'; this.style.borderColor='#6366f1';" onblur="this.style.background='rgba(0,0,0,0.02)'; this.style.borderColor='transparent';" onchange="window.updateKPINumber(this, 'weight', ${catId}, ${objId})"` : 'readonly'}
+                               value="${obj.weight || 0}">%
                     </div>
                 </td>
                 <td class="kpi-rate" style="color: ${rateColor}">${rate}%</td>
             </tr>
-            <tr class="kpi-row" data-cat="${catId}" data-obj="${objId}">
-                <td colspan="2" style="text-align: right; font-weight: 700; color: #64748B; background: #F8FAFC;">Achievement</td>
-                ${obj.achievements.map((a, i) => `
-                    <td style="background: rgba(99, 102, 241, 0.05);">
-                        <input type="text" class="kpi-achieve-input" data-idx="${i}" value="${formatCurrency(a)}" onchange="window.updateKPICell(this, 'achievements', ${catId}, ${objId}, ${i})">
+        `;
+
+        const subItemRows = subItems.slice(0, 3).map((sub, subIdx) => `
+            <tr class="kpi-subitem-row" data-cat="${catId}" data-obj="${objId}">
+                <td class="kpi-subitem-cell">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="kpi-subitem-num">${subIdx + 1}.</span>
+                        <div class="kpi-subitem-input" ${isAdmin ? `contenteditable="true" data-placeholder="Enter detail..." onfocus="this.style.borderColor='#6366f1'; this.style.background='#FFF';" onblur="this.style.borderColor='transparent'; this.style.background='transparent'; window.updateKPISubItem(this, ${catId}, ${objId}, ${subIdx});"` : ''}
+                             style="${!isAdmin ? 'cursor:default; color:#374151;' : ''}"
+                        >${sub.name || (isAdmin ? '' : '—')}</div>
+                    </div>
+                </td>
+                <td class="kpi-subitem-empty"></td>
+                ${[0,1,2,3].map(qi => `
+                    <td style="background: rgba(99,102,241,0.04); padding: 4px;">
+                        <input type="text" class="kpi-achieve-input" value="${formatCurrency(sub.achievements?.[qi] || 0)}"
+                               ${!isAdmin ? `onchange="window.updateKPISubItemAchievement(this, ${catId}, ${objId}, ${subIdx}, ${qi})"` : 'readonly'}
+                               style="${isAdmin ? 'cursor:default; opacity:0.5;' : ''}">
                     </td>
                 `).join('')}
-                <td colspan="2" style="background: #F8FAFC;"></td>
+                <td colspan="2" class="kpi-subitem-empty"></td>
+            </tr>
+        `).join('');
+
+        const achievementRow = `
+            <tr class="kpi-achieve-row kpi-row" data-cat="${catId}" data-obj="${objId}">
+                <td colspan="2" style="text-align: right; font-weight: 700; color: #6366f1; background: rgba(99,102,241,0.06); padding: 6px 15px; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; border-top: 2px solid rgba(99,102,241,0.2);">
+                    <i class="fa-solid fa-sigma" style="margin-right: 5px;"></i>Achievement (Total)
+                </td>
+                ${totalAch.map(a => `
+                    <td style="background: rgba(99,102,241,0.10); border-top: 2px solid rgba(99,102,241,0.2); padding: 6px 10px;">
+                        <input type="text" class="kpi-achieve-input" value="${formatCurrency(a)}" readonly
+                               style="background: transparent; font-weight: 700; color: #4338CA; cursor: default;">
+                    </td>
+                `).join('')}
+                <td colspan="2" style="background: rgba(99,102,241,0.06); border-top: 2px solid rgba(99,102,241,0.2);"></td>
             </tr>
         `;
+
+        return mainRow + subItemRows + achievementRow;
     };
 
     let tableBody = '';
+    let totalWeight = 0;
+    let totalWeightedRate = 0;
+
     kpiData.categories.forEach((cat, catIdx) => {
+        const rowsPerObj = 5; // 1 main + 3 sub-items + 1 achievement
         cat.objectives.forEach((obj, objIdx) => {
-            const catCellHtml = objIdx === 0 ? `<td rowspan="${cat.objectives.length * 2}" class="kpi-cat-cell" style="background: ${cat.color}"><div contenteditable="true" onblur="this.style.background='transparent'; window.updateKPICategoryName(this, ${catIdx})" style="outline: none; min-height: 1.5em; width: 100%; text-align: center; transition: all 0.2s; cursor: text;" onfocus="this.style.background='rgba(255,255,255,0.2)';" title="Click to edit">${cat.name}</div></td>` : '';
+            const catCellHtml = objIdx === 0
+                ? `<td rowspan="${cat.objectives.length * rowsPerObj}" class="kpi-cat-cell" style="background: ${cat.color}"><div contenteditable="true" onblur="this.style.background='transparent'; window.updateKPICategoryName(this, ${catIdx})" style="outline: none; min-height: 1.5em; width: 100%; text-align: center; transition: all 0.2s; cursor: text;" onfocus="this.style.background='rgba(255,255,255,0.2)';" title="Click to edit">${cat.name}</div></td>`
+                : '';
             tableBody += renderRow(catIdx, objIdx, obj, catCellHtml);
+            const subItems = getSubItems(obj);
+            const rate = calculateRateFromSubs(obj.targets, subItems);
+            totalWeight += (obj.weight || 0);
+            totalWeightedRate += rate * (obj.weight || 0) / 100;
         });
     });
 
+    const totalRateColor = totalWeightedRate >= 100 ? '#10B981' : (totalWeightedRate >= 70 ? '#F59E0B' : '#EF4444');
+    const weightGap = Math.abs(totalWeight - 100);
+    const weightWarning = weightGap > 0.1
+        ? `<span style="color:#FCA5A5; font-size:0.72rem; font-weight:600; margin-left:8px;">(합계: ${Math.round(totalWeight)}% — 100%가 되어야 합니다)</span>`
+        : '';
+
+    const modeLabel = isAdmin
+        ? `<span style="background:#fef3c7; color:#92400e; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px; border:1px solid #fde68a;">🔐 Admin</span>`
+        : `<span style="background:#ede9fe; color:#5b21b6; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px; border:1px solid #ddd6fe;">👤 ${currentUser}</span>`;
+
+    const userOptions = [
+        `<option value="admin" ${isAdmin ? 'selected' : ''}>🔐 Admin (구조·목표 설정)</option>`,
+        ...availableUsers.map(u => `<option value="${u}" ${!isAdmin && currentUser === u ? 'selected' : ''}>👤 ${u}</option>`)
+    ].join('');
+
     return `
         <div class="kpi-container">
-            <div class="kpi-actions">
+            <div class="kpi-actions" style="flex-wrap: wrap; gap: 10px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <label style="font-size: 0.85rem; font-weight: 700; color: #64748B;">Target Year:</label>
-                    <select id="kpi-year-select" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #CBD5E1; font-weight: 700; font-family: inherit; font-size: 0.95rem; background: #FFF; outline: none; cursor: pointer; color: #1E293B;" onchange="window.changeKPIYear(this.value)">
+                    <label style="font-size: 0.85rem; font-weight: 700; color: #64748B;">Year:</label>
+                    <select id="kpi-year-select" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #CBD5E1; font-weight: 700; font-family: inherit; font-size: 0.9rem; background: #FFF; outline: none; cursor: pointer; color: #1E293B;" onchange="window.changeKPIYear(this.value)">
                         ${[2026, 2027, 2028, 2029, 2030].map(y => `<option value="${y}" ${currentKPIYear === y ? 'selected' : ''}>${y}</option>`).join('')}
                     </select>
                 </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 0.85rem; font-weight: 700; color: #64748B;">Mode:</label>
+                    <select onchange="window.switchKPIMode(this.value)" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #CBD5E1; font-weight: 600; font-family: inherit; font-size: 0.88rem; background: #FFF; outline: none; cursor: pointer; color: #1E293B; min-width: 180px;">
+                        ${userOptions}
+                    </select>
+                    <button onclick="window.addKPIUser()" title="Add new team member" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #CBD5E1; background: #F8FAFC; font-size: 0.82rem; font-weight: 700; cursor: pointer; color: #475569;">+ Member</button>
+                    ${modeLabel}
+                </div>
                 <div style="flex-grow: 1;"></div>
-                <button class="btn-kpi btn-reset" onclick="window.resetKPIData()"><i class="fa-solid fa-undo"></i> Reset to Default</button>
-                <button class="btn-kpi btn-export" onclick="window.exportKPIData()"><i class="fa-solid fa-download"></i> Export JSON</button>
+                ${isAdmin ? `<button class="btn-kpi btn-reset" onclick="window.resetKPIData()"><i class="fa-solid fa-undo"></i> Reset</button>` : ''}
+                <button class="btn-kpi btn-export" onclick="window.exportKPIData()"><i class="fa-solid fa-download"></i> Export</button>
                 <button class="btn-kpi btn-save" onclick="window.saveKPIData()"><i class="fa-solid fa-save"></i> Save Changes</button>
             </div>
             <table class="kpi-table" style="table-layout: fixed; width: 100%;">
@@ -1590,7 +1762,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear()) {
                         <th rowspan="2" style="width: 50px;">CAT.</th>
                         <th rowspan="2" style="width: 220px;">STRATEGIC OBJECTIVES</th>
                         <th rowspan="2">KEY PERFORMANCE INDICATORS</th>
-                        <th colspan="4">TARGETS (${currentKPIYear})</th>
+                        <th colspan="4">TARGET / ACHIEVEMENT (${currentKPIYear})</th>
                         <th rowspan="2" style="width: 70px;">WEIGHT</th>
                         <th rowspan="2" style="width: 90px;">RATE</th>
                     </tr>
@@ -1604,10 +1776,19 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear()) {
                 <tbody>
                     ${tableBody}
                 </tbody>
+                <tfoot>
+                    <tr style="background: #1E293B; color: white;">
+                        <td colspan="7" style="text-align: right; padding: 12px 16px; font-weight: 700; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase;">
+                            TOTAL WEIGHT${weightWarning}
+                        </td>
+                        <td style="text-align: center; font-size: 1.05rem; font-weight: 800; padding: 12px; color: ${weightGap > 0.1 ? '#FCA5A5' : '#86EFAC'};">${Math.round(totalWeight)}%</td>
+                        <td style="text-align: center; font-size: 1.05rem; font-weight: 800; color: ${totalRateColor}; padding: 12px;">${Math.round(totalWeightedRate)}%</td>
+                    </tr>
+                </tfoot>
             </table>
             <div style="margin-top: 20px; padding: 15px; background: rgba(99,102,241,0.05); border-radius: 12px; border-left: 4px solid #6366f1;">
                 <p style="margin: 0; font-size: 0.8rem; color: #4F46E5; font-weight: 600;">
-                    <i class="fa-solid fa-circle-info"></i> Tip: Click on any achievement or target value to update it manually. Click 'Save Changes' to persist updates.
+                    <i class="fa-solid fa-circle-info"></i> 각 항목의 세부 내용(1~3번)과 분기별 Target/Achievement를 입력 후 'Save Changes'를 클릭하세요. 최종 RATE는 각 항목 가중치(Weight) 기준으로 자동 계산됩니다. (모든 Weight 합계 = 100%)
                 </p>
             </div>
         </div>

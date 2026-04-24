@@ -517,6 +517,7 @@ p {
     padding: 16px 24px 80px;
     overflow-y: auto;
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -912,6 +913,32 @@ select:focus {
 }
 .kpi-weight { text-align: center; font-weight: 700; color: #64748B; }
 .kpi-rate { text-align: center; font-weight: 800; color: #ef4444; font-size: 1rem; }
+
+.kpi-subitem-row td { border: 1px solid #F1F5F9; vertical-align: middle; }
+.kpi-subitem-cell {
+    padding: 4px 10px 4px 24px !important;
+    background: #FAFBFD;
+}
+.kpi-subitem-num {
+    color: #94A3B8; font-weight: 700; font-size: 0.75rem;
+    min-width: 18px; flex-shrink: 0;
+}
+.kpi-subitem-input {
+    outline: none; flex: 1;
+    font-size: 0.8rem; color: #475569;
+    padding: 3px 6px;
+    border: 1px dashed transparent; border-radius: 4px;
+    cursor: text; min-height: 1.4em;
+    transition: border-color 0.2s, background 0.2s;
+}
+.kpi-subitem-input:hover { border-color: #CBD5E1; }
+.kpi-subitem-input[data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: #CBD5E1; font-style: italic; pointer-events: none;
+}
+.kpi-subitem-empty {
+    background: #FAFBFD; border: 1px solid #F1F5F9;
+}
 
 .kpi-actions {
     display: flex; gap: 12px;

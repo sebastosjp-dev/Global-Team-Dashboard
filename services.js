@@ -692,7 +692,7 @@ export function getPocStats(data, filters, workbookData) {
 
     let s = {
         longTermCount: 0, midTermCount: 0, normalCount: 0,
-        runningList: [], staledRunningList: [], runningNames: [],
+        runningList: [], staledRunningList: [], overTwoMonthsList: [], runningNames: [], overTwoMonthsNames: [],
         partnerRunDays: {},
         statusStats: { won: 0, drop: 0, running: 0, hold: 0, others: 0 },
         totalWonDays: 0, wonCountForStats: 0,
@@ -722,6 +722,8 @@ export function getPocStats(data, filters, workbookData) {
         const pEndDate = parseExcelDateSafe(r[peKey]);
         const analysisYear = new Date().getFullYear();
         const now = new Date();
+        const twoMonthsAgo = new Date(now);
+        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
         const isActuallyWon = notesStr.includes('won') && pEndDate && pEndDate.getFullYear() === analysisYear && pEndDate <= now;
 
         if (isActuallyWon) {
@@ -743,6 +745,13 @@ export function getPocStats(data, filters, workbookData) {
 
         const isWon = curStatus.includes('won') || curStatus.includes('complete') || isActuallyWon;
 
+        const startValKey = findPocStartKey(allKeys);
+        const startVal = r[startValKey];
+        const startDateObj = startVal ? parseExcelDateSafe(startVal) : null;
+        const daysSinceStart = startDateObj ? Math.floor((now - startDateObj) / (1000 * 60 * 60 * 24)) : null;
+        const isOverTwoMonths = startDateObj ? startDateObj <= twoMonthsAgo : false;
+        const startDateDisplay = startDateObj ? startDateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+
         if (!isWon && (curStatus.includes('running') || curStatus.includes('progress') || runningDays >= 100)) {
             let statusLabel = 'Running';
             let statusColor = '#007AFF';
@@ -761,14 +770,16 @@ export function getPocStats(data, filters, workbookData) {
                 statusColor,
                 notes: r._s9 && r._s9[findKey(s9Keys, k => k.toLowerCase().includes('notes'))] || '',
                 techComm: r[findKey(allKeys, k => k.toLowerCase().includes('technical comment'), k => k.toLowerCase().includes('report'))] || '',
-                isStalled: runningDays >= 100
+                isStalled: runningDays >= 100,
+                startDate: startDateDisplay,
+                daysSinceStart,
+                isOverTwoMonths
             };
             s.runningList.push(entry);
             if (runningDays >= 100) s.staledRunningList.push(entry);
+            if (isOverTwoMonths) { s.overTwoMonthsList.push(entry); s.overTwoMonthsNames.push(entry.name); }
         }
 
-        const startValKey = findPocStartKey(allKeys);
-        const startVal = r[startValKey];
         const estValKey = findEstimatedValueKey(allKeys);
         const wValKey = findWeightedValueKey(allKeys);
         const estVal = parseCurrency(r[estValKey] || 0);
