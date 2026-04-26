@@ -252,13 +252,14 @@ window.selectQuarter = function (element) {
 export function getServiceAnalysisHTML(stats, filterCountry = 'All') {
     injectServiceAnalysisStyles();
 
+    /* ── Country selector ── */
     let html = `
-        <div class="stat-card" style="display:flex; align-items:center; gap:12px; padding: 10px 16px; background: #FFFFFF; border: 1px solid rgba(99, 102, 241, 0.2); border-left: 4px solid #6366f1; margin-bottom: 20px;">
-            <label style="font-size:0.8rem; color:#6366f1; font-weight:700; text-transform: uppercase;"><i class="fa-solid fa-earth-americas" style="margin-right: 8px;"></i>Select Country</label>
-            <select id="csm-filter-country" style="background:#F9FAFB; color:#111827; border:1px solid #334155; padding:6px 12px; border-radius:8px; width: 200px; font-size: 0.85rem;">
+        <div class="stat-card" style="display:flex; align-items:center; gap:12px; padding:10px 16px; background:#FFFFFF; border:1px solid rgba(99,102,241,0.2); border-left:4px solid #6366f1; margin-bottom:20px;">
+            <label style="font-size:0.8rem; color:#6366f1; font-weight:700; text-transform:uppercase;"><i class="fa-solid fa-earth-americas" style="margin-right:8px;"></i>Select Country</label>
+            <select id="csm-filter-country" style="background:#F9FAFB; color:#111827; border:1px solid #334155; padding:6px 12px; border-radius:8px; width:200px; font-size:0.85rem;">
                 ${['All', ...CONFIG.COUNTRIES].map(c => `<option value="${c}" ${(filterCountry || 'All') === c ? 'selected' : ''}>${c}</option>`).join('')}
             </select>
-            <span style="font-size: 0.72rem; color: #64748b; margin-left: auto;">Metrics for ${filterCountry || 'All Regions'}</span>
+            <span style="font-size:0.72rem; color:#64748b; margin-left:auto;">Metrics for ${filterCountry || 'All Regions'}</span>
         </div>
     `;
 
@@ -266,125 +267,287 @@ export function getServiceAnalysisHTML(stats, filterCountry = 'All') {
         return html + '<p style="padding:40px; text-align:center; color:#6B7280;">No active service data found for the selected country.</p>';
     }
 
-    /* ── Customer Overview Section ── */
+    /* ══════════════════════════════════════
+       SECTION 1 — Health Overview (5 KPI cards)
+       ══════════════════════════════════════ */
+    const healthTotal = stats.healthGreen + stats.healthYellow + stats.healthRed;
+    const healthGreenPct = healthTotal > 0 ? Math.round((stats.healthGreen / healthTotal) * 100) : 0;
+    const retentionColor = stats.arrRetentionRate >= 90 ? '#059669' : stats.arrRetentionRate >= 75 ? '#d97706' : '#dc2626';
+    const churnColor = stats.churnRate <= 5 ? '#059669' : stats.churnRate <= 15 ? '#d97706' : '#dc2626';
+
     html += `
-        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
-            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding:20px; border-radius:16px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.25);">
-                <div style="position:absolute; top:-20px; right:-20px; width:100px; height:100px; background:rgba(255,255,255,0.08); border-radius:50%;"></div>
-                <div style="position:absolute; bottom:-30px; right:30px; width:60px; height:60px; background:rgba(255,255,255,0.05); border-radius:50%;"></div>
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-                    <div style="width:44px; height:44px; background:rgba(255,255,255,0.15); border-radius:12px; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
-                        <i class="fa-solid fa-users" style="font-size:1.2rem;"></i>
-                    </div>
-                    <div>
-                        <h3 style="font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity:0.85; margin:0;">Total End Users</h3>
-                    </div>
-                </div>
-                <h2 style="font-size:2.4rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">${stats.totalEndUsers}</h2>
-                <div style="display:flex; gap:16px; margin-top:12px; font-size:0.78rem;">
-                    <span style="display:flex; align-items:center; gap:4px;"><span style="width:8px; height:8px; background:#34d399; border-radius:50%; display:inline-block;"></span> Active: ${stats.activeCount}</span>
-                    <span style="display:flex; align-items:center; gap:4px;"><span style="width:8px; height:8px; background:rgba(255,255,255,0.4); border-radius:50%; display:inline-block;"></span> Inactive: ${stats.inactiveCount}</span>
+        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <div style="width:4px; height:18px; background:#6366f1; border-radius:2px;"></div>
+            <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">① Health Overview</span>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:20px;">
+            <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid #6366f1; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:6px;">Customer Portfolio</div>
+                <div style="font-size:1.8rem; font-weight:800; color:#111827; line-height:1;">${stats.totalEndUsers}</div>
+                <div style="display:flex; gap:10px; margin-top:8px; font-size:0.75rem;">
+                    <span style="color:#059669;">Active ${stats.activeCount}</span>
+                    <span style="color:#9ca3af;">Inactive ${stats.inactiveCount}</span>
                 </div>
             </div>
-
-            <div class="stat-card" style="background: linear-gradient(135deg, ${stats.criticalCount > 0 ? '#f43f5e 0%, #e11d48 100%' : stats.expiringCount > 0 ? '#f59e0b 0%, #d97706 100%' : '#10b981 0%, #059669 100%'}); padding:20px; border-radius:16px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 24px ${stats.criticalCount > 0 ? 'rgba(244, 63, 94, 0.25)' : stats.expiringCount > 0 ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)'};">
-                <div style="position:absolute; top:-20px; right:-20px; width:100px; height:100px; background:rgba(255,255,255,0.08); border-radius:50%;"></div>
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-                    <div style="width:44px; height:44px; background:rgba(255,255,255,0.15); border-radius:12px; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
-                        <i class="fa-solid fa-clock-rotate-left" style="font-size:1.2rem;"></i>
-                    </div>
-                    <div>
-                        <h3 style="font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity:0.85; margin:0;">Expiring Within 6 Months</h3>
-                    </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid ${stats.healthRed > 0 ? '#ef4444' : stats.healthYellow > 0 ? '#f59e0b' : '#10b981'}; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:6px;">Health Score</div>
+                <div style="font-size:1.8rem; font-weight:800; color:#111827; line-height:1;">${healthGreenPct}<span style="font-size:1rem; font-weight:600; color:#6b7280;">%</span></div>
+                <div style="display:flex; gap:8px; margin-top:8px; font-size:0.72rem;">
+                    <span style="color:#059669; background:#f0fdf4; padding:2px 7px; border-radius:10px;">✓ ${stats.healthGreen}</span>
+                    <span style="color:#d97706; background:#fffbeb; padding:2px 7px; border-radius:10px;">⚠ ${stats.healthYellow}</span>
+                    <span style="color:#dc2626; background:#fef2f2; padding:2px 7px; border-radius:10px;">✕ ${stats.healthRed}</span>
                 </div>
-                <h2 style="font-size:2.4rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">${stats.expiringCount}</h2>
-                <div style="display:flex; gap:12px; margin-top:12px; font-size:0.75rem; flex-wrap:wrap;">
-                    <span style="display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.15); padding:3px 10px; border-radius:20px;"><span style="width:7px; height:7px; background:#fef2f2; border-radius:50%; display:inline-block; box-shadow:0 0 4px rgba(255,255,255,0.5);"></span> ≤30d: ${stats.criticalCount}</span>
-                    <span style="display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.15); padding:3px 10px; border-radius:20px;"><span style="width:7px; height:7px; background:#fef9c3; border-radius:50%; display:inline-block;"></span> ≤90d: ${stats.warningCount}</span>
-                    <span style="display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.15); padding:3px 10px; border-radius:20px;"><span style="width:7px; height:7px; background:#d1fae5; border-radius:50%; display:inline-block;"></span> ≤180d: ${stats.normalExpCount}</span>
-                </div>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid ${retentionColor}; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:6px;">ARR Retention</div>
+                <div style="font-size:1.8rem; font-weight:800; color:${retentionColor}; line-height:1;">${stats.arrRetentionRate}<span style="font-size:1rem; font-weight:600;">%</span></div>
+                <div style="margin-top:8px; font-size:0.72rem; color:#6b7280;">Active ARR: $${formatCurrency(stats.activeArr)}</div>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid ${churnColor}; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:6px;">Churn Rate</div>
+                <div style="font-size:1.8rem; font-weight:800; color:${churnColor}; line-height:1;">${stats.churnRate}<span style="font-size:1rem; font-weight:600;">%</span></div>
+                <div style="margin-top:8px; font-size:0.72rem; color:#6b7280;">ARR at Risk: $${formatCurrency(stats.atRiskArr)}</div>
             </div>
         </div>
     `;
 
-    /* ── Expiring Customers Table ── */
-    if (stats.expiringCustomers.length > 0) {
-        const expiringRows = stats.expiringCustomers.map((c, i) => {
-            const urgencyColors = { critical: { bg: 'rgba(244,63,94,0.08)', text: '#e11d48', badge: '#fecdd3' }, warning: { bg: 'rgba(245,158,11,0.06)', text: '#d97706', badge: '#fef3c7' }, normal: { bg: 'transparent', text: '#374151', badge: '#d1fae5' } };
-            const uc = urgencyColors[c.urgency];
-            return `<tr style="border-bottom:1px solid #F3F4F6; background:${uc.bg}; transition:background 0.2s;">
-                <td style="padding:10px 12px; font-weight:700; color:#1e293b; font-size:0.82rem;">${c.name}</td>
-                <td style="padding:10px 12px; color:#4b5563; font-size:0.8rem;">${c.country}</td>
-                <td style="padding:10px 12px;"><span style="padding:3px 10px; border-radius:12px; font-size:0.68rem; font-weight:700; background:${c.status === 'Active' ? 'rgba(16,185,129,0.1)' : 'rgba(107,114,128,0.1)'}; color:${c.status === 'Active' ? '#059669' : '#6b7280'}; text-transform:uppercase;">${c.status}</span></td>
-                <td style="padding:10px 12px; font-family:monospace; font-size:0.78rem; color:#64748b;">${c.startDateStr}</td>
-                <td style="padding:10px 12px; font-family:monospace; font-size:0.78rem; font-weight:600; color:#1e293b;">${c.endDateStr}</td>
-                <td style="padding:10px 12px;"><span style="font-weight:800; color:${uc.text}; font-size:0.82rem; padding:3px 10px; border-radius:8px; background:${uc.badge};">${c.dDay}</span></td>
-                <td style="padding:10px 12px; font-weight:600; color:#1e293b; text-align:right; font-size:0.8rem;">$${formatCurrency(c.tcv)}</td>
-                <td style="padding:10px 12px; font-weight:600; color:#6366f1; text-align:right; font-size:0.8rem;">$${formatCurrency(c.arr)}</td>
-                <td style="padding:10px 12px; font-size:0.75rem; color:#64748b; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.services}</td>
-            </tr>`;
-        }).join('');
+    /* ══════════════════════════════════════
+       SECTION 2 — Health Score Detail
+       ══════════════════════════════════════ */
+    const atRiskRows = stats.atRiskCustomers.slice(0, 12).map(c => {
+        const scoreColor = c.healthColor === 'red' ? '#dc2626' : '#d97706';
+        const scoreBg = c.healthColor === 'red' ? '#fef2f2' : '#fffbeb';
+        const badgeText = c.healthColor === 'red' ? 'Critical' : 'At Risk';
+        const reasonStr = c.reasons.join(' · ') || 'Single service';
+        return `<tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:9px 10px; font-weight:600; font-size:0.8rem; color:#111827;">${c.name}</td>
+            <td style="padding:9px 10px; font-size:0.78rem; color:#6b7280;">${c.country}</td>
+            <td style="padding:9px 10px; text-align:center;">
+                <span style="display:inline-block; width:36px; height:36px; border-radius:50%; background:${scoreBg}; color:${scoreColor}; font-weight:800; font-size:0.85rem; line-height:36px; text-align:center;">${c.score}</span>
+            </td>
+            <td style="padding:9px 10px;"><span style="background:${scoreBg}; color:${scoreColor}; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:10px; text-transform:uppercase;">${badgeText}</span></td>
+            <td style="padding:9px 10px; font-size:0.75rem; color:#6b7280;">${reasonStr}</td>
+            <td style="padding:9px 10px; text-align:right; font-weight:600; font-size:0.78rem; color:#374151;">$${formatCurrency(c.arr)}</td>
+        </tr>`;
+    }).join('');
 
-        html += `
-        <div class="stat-card" style="background:#FFF; padding:16px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.06); border:1px solid #F3F4F6; border-radius:12px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-                <h3 style="font-size:1rem; font-weight:800; color:#111827; margin:0; display:flex; align-items:center; gap:8px;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> Licenses Expiring Within 6 Months
-                    <span style="background:#fef3c7; color:#92400e; font-size:0.7rem; font-weight:700; padding:2px 10px; border-radius:12px;">${stats.expiringCount} customers</span>
-                </h3>
+    html += `
+        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <div style="width:4px; height:18px; background:#ef4444; border-radius:2px;"></div>
+            <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">② Customer Health Detail</span>
+        </div>
+        <div style="display:grid; grid-template-columns: 280px 1fr; gap:16px; margin-bottom:20px;">
+            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                <div style="font-size:0.8rem; font-weight:700; color:#374151; margin-bottom:12px;">Health Distribution</div>
+                <div style="height:200px; width:100%; position:relative;"><canvas id="health-score-donut"></canvas></div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-top:12px; width:100%;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+                        <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; background:#10b981; border-radius:2px; display:inline-block;"></span>Healthy</span>
+                        <span style="font-weight:700; color:#059669;">${stats.healthGreen} customers</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+                        <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; background:#f59e0b; border-radius:2px; display:inline-block;"></span>At Risk</span>
+                        <span style="font-weight:700; color:#d97706;">${stats.healthYellow} customers</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+                        <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; background:#ef4444; border-radius:2px; display:inline-block;"></span>Critical</span>
+                        <span style="font-weight:700; color:#dc2626;">${stats.healthRed} customers</span>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.85rem; font-weight:700; color:#111827; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> At-Risk Customers
+                    <span style="font-size:0.7rem; background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:10px; font-weight:700;">${stats.atRiskCustomers.length} need attention</span>
+                </div>
+                ${atRiskRows.length > 0 ? `
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                        <thead><tr style="background:#f9fafb; text-align:left;">
+                            <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Customer</th>
+                            <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Country</th>
+                            <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:center;">Score</th>
+                            <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Risk Level</th>
+                            <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Reason</th>
+                            <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">ARR</th>
+                        </tr></thead>
+                        <tbody>${atRiskRows}</tbody>
+                    </table>
+                </div>` : '<p style="color:#9ca3af; text-align:center; padding:24px; font-size:0.85rem;">All customers are healthy!</p>'}
+            </div>
+        </div>
+    `;
+
+    /* ══════════════════════════════════════
+       SECTION 3 — Churn & Renewal Risk
+       ══════════════════════════════════════ */
+    const renewalBarTotal = stats.expiringCount || 1;
+    const renewalRows = stats.expiringCustomers.map(c => {
+        const urgencyColors = {
+            critical: { bg: 'rgba(244,63,94,0.06)', text: '#e11d48', badge: '#fecdd3' },
+            warning: { bg: 'rgba(245,158,11,0.06)', text: '#d97706', badge: '#fef3c7' },
+            normal: { bg: 'transparent', text: '#374151', badge: '#d1fae5' }
+        };
+        const uc = urgencyColors[c.urgency];
+        return `<tr style="border-bottom:1px solid #f3f4f6; background:${uc.bg};">
+            <td style="padding:9px 12px; font-weight:600; font-size:0.8rem; color:#111827;">${c.name}</td>
+            <td style="padding:9px 12px; font-size:0.78rem; color:#6b7280;">${c.country}</td>
+            <td style="padding:9px 12px;"><span style="padding:2px 8px; border-radius:10px; font-size:0.68rem; font-weight:700; background:${c.status === 'Active' ? 'rgba(16,185,129,0.1)' : 'rgba(107,114,128,0.1)'}; color:${c.status === 'Active' ? '#059669' : '#6b7280'}; text-transform:uppercase;">${c.status}</span></td>
+            <td style="padding:9px 12px; font-family:monospace; font-size:0.78rem; color:#1e293b; font-weight:600;">${c.endDateStr}</td>
+            <td style="padding:9px 12px;"><span style="font-weight:800; color:${uc.text}; font-size:0.82rem; padding:3px 10px; border-radius:8px; background:${uc.badge};">${c.dDay}</span></td>
+            <td style="padding:9px 12px; text-align:right; font-weight:600; font-size:0.78rem; color:#374151;">$${formatCurrency(c.tcv)}</td>
+            <td style="padding:9px 12px; text-align:right; font-weight:600; font-size:0.78rem; color:#6366f1;">$${formatCurrency(c.arr)}</td>
+            <td style="padding:9px 12px; font-size:0.75rem; color:#6b7280; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.services}</td>
+        </tr>`;
+    }).join('');
+
+    html += `
+        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <div style="width:4px; height:18px; background:#f59e0b; border-radius:2px;"></div>
+            <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">③ Churn & Renewal Risk</span>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; margin-bottom:16px;">
+            <div class="stat-card" style="background:#FFF; padding:16px; border-left:4px solid #ef4444; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Critical ≤30d</div>
+                <div style="font-size:2rem; font-weight:800; color:#dc2626;">${stats.criticalCount}</div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">Immediate action needed</div>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; border-left:4px solid #f59e0b; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Warning ≤90d</div>
+                <div style="font-size:2rem; font-weight:800; color:#d97706;">${stats.warningCount}</div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">Plan renewal outreach</div>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; border-left:4px solid #10b981; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Monitor ≤180d</div>
+                <div style="font-size:2rem; font-weight:800; color:#059669;">${stats.normalExpCount}</div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">Schedule QBR</div>
+            </div>
+        </div>
+        ${renewalRows.length > 0 ? `
+        <div class="stat-card" style="background:#FFF; padding:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="font-size:0.85rem; font-weight:700; color:#111827; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-calendar-check" style="color:#f59e0b;"></i> Renewal Pipeline — Next 6 Months
+                <span style="font-size:0.7rem; background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:10px; font-weight:700;">${stats.expiringCount} contracts</span>
             </div>
             <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; min-width:900px;">
-                    <thead>
-                        <tr style="background:#F9FAFB; text-align:left; border-bottom:2px solid #F1F5F9;">
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">End User</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Country</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Status</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Active License</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">End License</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">D-Day</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; text-align:right;">TCV</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; text-align:right;">ARR</th>
-                            <th style="padding:10px 12px; font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Services</th>
-                        </tr>
-                    </thead>
-                    <tbody>${expiringRows}</tbody>
+                <table style="width:100%; border-collapse:collapse; min-width:800px; font-size:0.8rem;">
+                    <thead><tr style="background:#f9fafb; text-align:left; border-bottom:2px solid #f1f5f9;">
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Customer</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Country</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Status</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">End Date</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">D-Day</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">TCV</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">ARR</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Services</th>
+                    </tr></thead>
+                    <tbody>${renewalRows}</tbody>
                 </table>
             </div>
-        </div>
-        `;
-    }
+        </div>` : '<div style="margin-bottom:20px;"></div>'}
+    `;
 
-    /* ── Service Analysis (existing) ── */
+    /* ══════════════════════════════════════
+       SECTION 4 — Expansion Revenue
+       ══════════════════════════════════════ */
+    const expansionRows = stats.upsellTargets.slice(0, 12).map((t, i) => {
+        const rank = i + 1;
+        const rankColor = rank === 1 ? '#f59e0b' : rank === 2 ? '#9ca3af' : rank === 3 ? '#b45309' : '#e5e7eb';
+        return `<tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:9px 10px; text-align:center;">
+                <span style="display:inline-block; width:22px; height:22px; background:${rankColor}; color:${rank <= 3 ? '#fff' : '#6b7280'}; border-radius:50%; font-size:0.68rem; font-weight:700; line-height:22px; text-align:center;">${rank}</span>
+            </td>
+            <td style="padding:9px 10px; font-weight:600; font-size:0.8rem; color:#111827;">${t.name}</td>
+            <td style="padding:9px 10px; font-size:0.78rem; color:#6b7280;">${t.country || 'N/A'}</td>
+            <td style="padding:9px 10px;"><span style="background:rgba(99,102,241,0.1); color:#6366f1; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:10px;">${t.service}</span></td>
+            <td style="padding:9px 10px; text-align:right; font-weight:700; font-size:0.8rem; color:#059669;">$${formatCurrency(t.tcv)}</td>
+        </tr>`;
+    }).join('');
+
+    const multiPct = stats.totalCustomers > 0 ? Math.round((stats.multiServiceCustomers / stats.totalCustomers) * 100) : 0;
+
     html += `
-        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
-            <div class="stat-card" style="border-left: 4px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#64748b; font-size:0.75rem; font-weight:700;">ACTIVE CUSTOMERS</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">${stats.totalCustomers}</h2>
+        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <div style="width:4px; height:18px; background:#10b981; border-radius:2px;"></div>
+            <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">④ Expansion Revenue</span>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; margin-bottom:16px;">
+            <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid #10b981; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Upsell Targets</div>
+                <div style="font-size:2rem; font-weight:800; color:#111827;">${stats.singleServiceCustomers}</div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">Single-service customers</div>
             </div>
-            <div class="stat-card" style="border-left: 4px solid #10b981; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#64748b; font-size:0.75rem; font-weight:700;">MULTI-SERVICE</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">${stats.multiServiceCustomers}</h2>
+            <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid #10b981; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Expansion Opportunity</div>
+                <div style="font-size:2rem; font-weight:800; color:#059669;">$${formatCurrency(stats.expansionOpportunity)}</div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">TCV from upsell targets</div>
             </div>
-            <div class="stat-card" style="border-left: 4px solid #f59e0b; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#64748b; font-size:0.75rem; font-weight:700;">UPSELL TARGETS</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">${stats.singleServiceCustomers}</h2>
+            <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid #6366f1; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Multi-Service Rate</div>
+                <div style="font-size:2rem; font-weight:800; color:#6366f1;">${multiPct}<span style="font-size:1rem; font-weight:600;">%</span></div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">${stats.multiServiceCustomers} of ${stats.totalCustomers} customers</div>
             </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-            <div class="stat-card" style="background:#FFF; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: stretch;">
-                <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 12px;">Service Combination Ranking</h3>
-                <div style="height: 280px;"><canvas id="service-donut-chart"></canvas></div>
+        <div class="stat-card" style="background:#FFF; padding:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="font-size:0.85rem; font-weight:700; color:#111827; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-arrow-trend-up" style="color:#10b981;"></i> Top Upsell Targets
             </div>
-            <div class="stat-card" style="background:#FFF; padding: 16px; display:flex; flex-direction:column; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); align-items: stretch;">
-                <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 12px;">Top Upsell Targets</h3>
-                <div style="overflow-y:auto; flex:1; max-height:280px;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-                        <thead style="background:#F9FAFB; position:sticky; top:0;"><tr><th style="padding:6px 8px; text-align:left;">End User</th><th style="padding:6px 8px; text-align:left;">Service</th><th style="padding:6px 8px; text-align:right;">TCV</th></tr></thead>
-                        <tbody>
-                            ${stats.upsellTargets.slice(0, 15).map(t => `<tr style="border-top: 1px solid #F3F4F6;"><td style="padding:6px 8px;">${t.name}</td><td style="padding:6px 8px;"><span style="background:rgba(99,102,241,0.1); color:#6366f1; padding:2px 8px; border-radius:10px;">${t.service}</span></td><td style="padding:6px 8px; text-align:right; color:#10b981; font-weight:600;">$${formatCurrency(t.tcv)}</td></tr>`).join('')}
-                        </tbody>
-                    </table>
+            ${expansionRows.length > 0 ? `
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead><tr style="background:#f9fafb; text-align:left; border-bottom:2px solid #f1f5f9;">
+                    <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">#</th>
+                    <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Customer</th>
+                    <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Country</th>
+                    <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Current Service</th>
+                    <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">TCV</th>
+                </tr></thead>
+                <tbody>${expansionRows}</tbody>
+            </table>` : '<p style="color:#9ca3af; text-align:center; padding:16px; font-size:0.85rem;">No single-service customers found.</p>'}
+        </div>
+    `;
+
+    /* ══════════════════════════════════════
+       SECTION 5 — Service Adoption
+       ══════════════════════════════════════ */
+    html += `
+        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <div style="width:4px; height:18px; background:#8b5cf6; border-radius:2px;"></div>
+            <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">⑤ Service Adoption</span>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:20px;">
+            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.85rem; font-weight:700; color:#111827; margin-bottom:12px;">Service Combination Ranking</div>
+                <div style="height:280px;"><canvas id="service-donut-chart"></canvas></div>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                <div style="font-size:0.85rem; font-weight:700; color:#111827; margin-bottom:12px;">Adoption Breakdown</div>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                    <div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:4px;">
+                            <span style="color:#374151; font-weight:600;">Multi-Service</span>
+                            <span style="color:#6366f1; font-weight:700;">${stats.multiServiceCustomers} (${multiPct}%)</span>
+                        </div>
+                        <div style="height:8px; background:#f1f5f9; border-radius:4px; overflow:hidden;">
+                            <div style="height:100%; width:${multiPct}%; background:linear-gradient(90deg,#6366f1,#8b5cf6); border-radius:4px; transition:width 0.6s;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:4px;">
+                            <span style="color:#374151; font-weight:600;">Single-Service (Upsell Opportunity)</span>
+                            <span style="color:#f59e0b; font-weight:700;">${stats.singleServiceCustomers} (${100 - multiPct}%)</span>
+                        </div>
+                        <div style="height:8px; background:#f1f5f9; border-radius:4px; overflow:hidden;">
+                            <div style="height:100%; width:${100 - multiPct}%; background:linear-gradient(90deg,#f59e0b,#f97316); border-radius:4px; transition:width 0.6s;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div style="border-top:1px solid #f3f4f6; padding-top:12px;">
+                    <div style="font-size:0.75rem; color:#6b7280; font-weight:700; text-transform:uppercase; margin-bottom:8px;">Top Combinations</div>
+                    ${stats.sortedCombos.slice(0, 6).map((c, i) => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f9fafb;">
+                        <span style="font-size:0.78rem; color:#374151; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:8px;">${c[0]}</span>
+                        <span style="font-size:0.78rem; font-weight:700; color:#6366f1; flex-shrink:0;">${c[1]} customers</span>
+                    </div>`).join('')}
                 </div>
             </div>
         </div>
@@ -437,7 +600,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
     return `
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
             <div class="stat-card" style="border-left: 5px solid #0ea5e9; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px;">
-                <h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700;">ACCUMULATED TCV</h3>
+                <div class="metric-title-row"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED TCV</h3><span class="metric-info" data-tooltip="Total Contract Value of all closed-won deals, summed across all countries in local currency.">i</span></div>
                 <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">${formatCurrency(stats.sumLocalTcv)}</h2>
                 <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">${stats.dealCount} Deals Total</div>
                 <div style="flex: 1; position: relative; min-height: 70px;">
@@ -445,7 +608,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 </div>
             </div>
             <div class="stat-card" style="border-left: 5px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px;">
-                <h3 style="color:#6366f1; font-size:0.75rem; font-weight:700;">ACCUMULATED KTCV</h3>
+                <div class="metric-title-row"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV</h3><span class="metric-info" data-tooltip="Total Contract Value converted to USD (Korea headquarters currency), aggregating global revenue in a single comparable unit.">i</span></div>
                 <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.sumKorTcv)}</h2>
                 <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">&nbsp;</div>
                 <div style="flex: 1; position: relative; min-height: 70px;">
@@ -454,7 +617,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
             </div>
             <div class="stat-card" style="border-left: 5px solid #8b5cf6; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; position: relative; min-height: 120px;">
                 <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px;">
-                    <h3 style="color:#8b5cf6; font-size:0.75rem; font-weight:700;">ARR</h3>
+                    <div class="metric-title-row"><h3 style="color:#8b5cf6; font-size:0.75rem; font-weight:700; margin:0;">ARR</h3><span class="metric-info" data-tooltip="Annual Recurring Revenue — the annualized value of all active subscription contracts currently in force.">i</span></div>
                     <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.sumArr)}</h2>
                 </div>
                 <div style="flex: 1; height: 80px; margin-top: auto; position: relative;">
@@ -463,7 +626,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
             </div>
             <div class="stat-card" style="border-left: 5px solid #a855f7; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; position: relative; min-height: 120px;">
                 <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px;">
-                    <h3 style="color:#a855f7; font-size:0.75rem; font-weight:700;">MRR</h3>
+                    <div class="metric-title-row"><h3 style="color:#a855f7; font-size:0.75rem; font-weight:700; margin:0;">MRR</h3><span class="metric-info" data-tooltip="Monthly Recurring Revenue — the monthly value of active subscription contracts (ARR ÷ 12), reflecting steady-state subscription income.">i</span></div>
                     <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.sumMrr)}</h2>
                 </div>
                 <div style="flex: 1; height: 80px; margin-top: auto; position: relative;">
@@ -471,16 +634,16 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 </div>
             </div>
             <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #f59e0b; display: flex; flex-direction: column; align-items: stretch;">
-                <h3 style="color:#f59e0b; font-size:0.75rem; font-weight:700; margin-bottom: 8px;">QUARTERLY TCV (${currentYear})</h3>
+                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#f59e0b; font-size:0.75rem; font-weight:700; margin:0;">QUARTERLY TCV (${currentYear})</h3><span class="metric-info" data-tooltip="Total Contract Value broken down by quarter for the current year, showing seasonal revenue distribution.">i</span></div>
                 <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
             </div>
             <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #10b981; display: flex; flex-direction: column; align-items: stretch;">
-                <h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin-bottom: 8px;">YEARLY TCV GROWTH</h3>
+                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin:0;">YEARLY TCV GROWTH</h3><span class="metric-info" data-tooltip="Year-over-year change in Total Contract Value, measuring revenue growth momentum across fiscal years.">i</span></div>
                 <div style="height:160px; position:relative;"><canvas id="tcv-growth-chart"></canvas></div>
             </div>
             ${(!filterCountry || filterCountry === 'All') ? `
             <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #6366f1;">
-                <h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin-bottom: 12px;">ACCUMULATED KTCV / COUNTRY</h3>
+                <div class="metric-title-row" style="margin-bottom:12px;"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV / COUNTRY</h3><span class="metric-info" data-tooltip="Geographic breakdown of total USD TCV, showing each country's share of global revenue.">i</span></div>
                 <div style="display: flex; gap: 32px; align-items: center;">
                     <div style="position: relative; width: 180px; height: 180px; flex-shrink: 0;">
                         <canvas id="country-tcv-donut"></canvas>
@@ -490,7 +653,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
             </div>` : ''}
             ${(!filterCountry || filterCountry === 'All') ? `
             <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #f97316;">
-                <h3 style="color:#f97316; font-size:0.75rem; font-weight:700; margin-bottom: 12px;">YoY KTCV GROWTH BY COUNTRY</h3>
+                <div class="metric-title-row" style="margin-bottom:12px;"><h3 style="color:#f97316; font-size:0.75rem; font-weight:700; margin:0;">YoY KTCV GROWTH BY COUNTRY</h3><span class="metric-info" data-tooltip="Year-over-year KTCV growth rate by country, identifying which markets are expanding or contracting.">i</span></div>
                 <div style="height: 220px; position: relative;">
                     <canvas id="country-yoy-bar"></canvas>
                 </div>
@@ -1722,7 +1885,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
     const totalRateColor = totalWeightedRate >= 100 ? '#10B981' : (totalWeightedRate >= 70 ? '#F59E0B' : '#EF4444');
     const weightGap = Math.abs(totalWeight - 100);
     const weightWarning = weightGap > 0.1
-        ? `<span style="color:#FCA5A5; font-size:0.72rem; font-weight:600; margin-left:8px;">(합계: ${Math.round(totalWeight)}% — 100%가 되어야 합니다)</span>`
+        ? `<span style="color:#FCA5A5; font-size:0.72rem; font-weight:600; margin-left:8px;">(Total: ${Math.round(totalWeight)}% — Must be 100%)</span>`
         : '';
 
     const modeLabel = isAdmin
@@ -1730,7 +1893,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
         : `<span style="background:#ede9fe; color:#5b21b6; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px; border:1px solid #ddd6fe;">👤 ${currentUser}</span>`;
 
     const userOptions = [
-        `<option value="admin" ${isAdmin ? 'selected' : ''}>🔐 Admin (구조·목표 설정)</option>`,
+        `<option value="admin" ${isAdmin ? 'selected' : ''}>🔐 Admin (Structure & Target Setting)</option>`,
         ...availableUsers.map(u => `<option value="${u}" ${!isAdmin && currentUser === u ? 'selected' : ''}>👤 ${u}</option>`)
     ].join('');
 
@@ -1788,7 +1951,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
             </table>
             <div style="margin-top: 20px; padding: 15px; background: rgba(99,102,241,0.05); border-radius: 12px; border-left: 4px solid #6366f1;">
                 <p style="margin: 0; font-size: 0.8rem; color: #4F46E5; font-weight: 600;">
-                    <i class="fa-solid fa-circle-info"></i> 각 항목의 세부 내용(1~3번)과 분기별 Target/Achievement를 입력 후 'Save Changes'를 클릭하세요. 최종 RATE는 각 항목 가중치(Weight) 기준으로 자동 계산됩니다. (모든 Weight 합계 = 100%)
+                    <i class="fa-solid fa-circle-info"></i> Enter details for each item (1~3) and quarterly Target/Achievement, then click 'Save Changes'. The final RATE is automatically calculated based on each item's Weight. (Sum of all Weights = 100%)
                 </p>
             </div>
         </div>

@@ -918,15 +918,49 @@ export function initEventCharts(stats) {
 export function initServiceAnalysisCharts(stats) {
     if (!stats) return;
     chartRegistry.destroyTag('service');
-    const ctx = document.getElementById('service-donut-chart');
-    if (ctx) {
-        chartRegistry.register('service-donut', new Chart(ctx, {
+
+    const ctxService = document.getElementById('service-donut-chart');
+    if (ctxService) {
+        chartRegistry.register('service-donut', new Chart(ctxService, {
             type: 'doughnut',
             data: {
                 labels: stats.sortedCombos.slice(0, 8).map(c => c[0]),
                 datasets: [{ data: stats.sortedCombos.slice(0, 8).map(c => c[1]), backgroundColor: stats.palette }]
             },
             options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } }
+        }));
+    }
+
+    const ctxHealth = document.getElementById('health-score-donut');
+    if (ctxHealth) {
+        const total = (stats.healthGreen || 0) + (stats.healthYellow || 0) + (stats.healthRed || 0);
+        chartRegistry.register('health-donut', new Chart(ctxHealth, {
+            type: 'doughnut',
+            data: {
+                labels: ['Healthy', 'At Risk', 'Critical'],
+                datasets: [{
+                    data: [stats.healthGreen || 0, stats.healthYellow || 0, stats.healthRed || 0],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
+                                return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
         }));
     }
 }

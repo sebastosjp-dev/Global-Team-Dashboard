@@ -8,6 +8,7 @@ import { selectKPIView } from './kpi.js';
 import { selectTrainingView } from './training.js';
 import { renderTabMetrics } from './views.js';
 import { DATA_SOURCES, AUTH } from './config.js';
+import { selectWeeklyReportView, checkWeeklyReportBadge } from './weeklyReport.js';
 
 function sheetsExportUrl(sheetId) {
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
@@ -124,8 +125,11 @@ function processWorkbook(workbook) {
             emptyState.classList.add('hidden');
             dataTable.classList.add('hidden');
             renderTabMetrics([], 'TCV_ARR', null, workbookData, searchInput);
-        }
+        },
+        onSelectWeeklyReport: () => selectWeeklyReportView(setCurrentTab, workbookData)
     });
+
+    checkWeeklyReportBadge();
 
     updateLastUpdatedDate();
 

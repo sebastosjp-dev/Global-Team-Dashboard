@@ -25,7 +25,7 @@ import {
     getGenericCountryHTML, getExpiringContractsHTML,
     getPartnerPerformanceHTML, getPocHTML, getEventHTML,
     getCountrySpecificHTML, getServiceAnalysisHTML,
-    getRenewalHTML, getKPIHTML, getCollectionHTML,
+    getKPIHTML, getCollectionHTML,
     getTcvArrHTML, getChurnRiskHTML,
     getPartnerROIHTML, getPipelineCoverageHTML
 } from './ui.js';
@@ -83,14 +83,6 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     }
 
     if (tabName === 'END USER (CSM)' && workbookData['END USER (CSM)']) {
-        const renewalFiltered = _getRenewalTableData(workbookData, filterCountry);
-        if (renewalFiltered && renewalFiltered.length > 0) {
-            const renewalContainer = document.createElement('div');
-            renewalContainer.style.gridColumn = '1 / -1';
-            renewalContainer.innerHTML = getRenewalHTML(renewalFiltered);
-            metricsGrid.appendChild(renewalContainer);
-        }
-
         _renderServiceAnalysis(workbookData['END USER (CSM)'], filterCountry, tabName, metricsGrid, searchInput);
         hasMetrics = true;
     }
@@ -109,42 +101,6 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     else metricsGrid.classList.add('hidden');
 }
 
-
-
-/**
- * @param {Object} workbookData
- * @returns {Object[]}
- */
-function _getRenewalTableData(workbookData, filterCountry) {
-    const data = workbookData['END USER (CSM)'] || [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const sixMonthsLater = new Date(today);
-    sixMonthsLater.setMonth(today.getMonth() + 6);
-
-    const getExpDate = (row) => {
-        let endDate = row['End License Date'];
-        if (!endDate) return null;
-        if (endDate instanceof Date) return endDate;
-        if (typeof endDate === 'number') return new Date(Math.round((endDate - 25569) * 86400 * 1000));
-        return new Date(endDate);
-    };
-
-    return data.filter(row => {
-        if (!isCountryMatch(row, filterCountry)) return false;
-        const d = getExpDate(row);
-        return d && d >= today && d <= sixMonthsLater;
-    }).map(row => {
-        const d = getExpDate(row);
-        const diffDays = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
-        return {
-            ...row,
-            'D-Day': diffDays === 0 ? 'D-Day' : (diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`),
-            diffDays,
-            endDateFormatted: d.toISOString().split('T')[0]
-        };
-    }).sort((a, b) => a.diffDays - b.diffDays || (parseCurrency(b['TCV Amount']) - parseCurrency(a['TCV Amount'])));
-}
 
 
 

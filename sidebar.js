@@ -13,6 +13,7 @@ import { CONFIG } from './config.js';
  * @param {function():void} callbacks.onSelectKPI
  * @param {function():void} callbacks.onSelectTraining
  * @param {function():void} callbacks.onSelectTcvArr
+ * @param {function():void} callbacks.onSelectWeeklyReport
  */
 export function buildSidebar(sheetNames, callbacks) {
     const sidebarNav = document.getElementById('sidebar-nav');
@@ -33,6 +34,7 @@ export function buildSidebar(sheetNames, callbacks) {
     _buildKPINav(sidebarNav, callbacks.onSelectKPI);
     _buildTcvArrNav(sidebarNav, callbacks.onSelectTcvArr);
     _buildTrainingNav(sidebarNav, callbacks.onSelectTraining);
+    _buildWeeklyReportNav(sidebarNav, callbacks.onSelectWeeklyReport);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -133,4 +135,40 @@ function _buildTrainingNav(container, onSelectTraining) {
     trainingItem.innerHTML = `<i class="fa-solid fa-graduation-cap" style="color: #0ea5e9;"></i> <span style="font-weight: 700;">STAFF TRAINING</span>`;
     trainingItem.onclick = () => onSelectTraining();
     container.appendChild(trainingItem);
+}
+
+/**
+ * Build the Weekly Report nav item.
+ * @param {HTMLElement} container
+ * @param {function():void} onSelectWeeklyReport
+ */
+function _buildWeeklyReportNav(container, onSelectWeeklyReport) {
+    const item = document.createElement('div');
+    item.className = 'nav-item weekly-report-tab';
+    item.style.cssText = 'margin-top:6px; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px;';
+    const { week, total } = _getCurrentWeekInfo();
+    item.innerHTML = `
+        <i class="fa-solid fa-file-lines" style="color:#34d399;"></i>
+        <span style="font-weight:700;">WEEKLY REPORT</span>
+        <span class="wr-sidebar-week">${week}/${total}</span>
+    `;
+    item.onclick = () => onSelectWeeklyReport();
+    container.appendChild(item);
+}
+
+function _getCurrentWeekInfo() {
+    const now = new Date(Date.now() + 9 * 3600 * 1000); // KST
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+
+    const dec28 = new Date(Date.UTC(now.getUTCFullYear(), 11, 28));
+    const dec28day = dec28.getUTCDay() || 7;
+    dec28.setUTCDate(dec28.getUTCDate() + 4 - dec28day);
+    const dec28YearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
+    const total = Math.ceil((((dec28 - dec28YearStart) / 86400000) + 1) / 7);
+
+    return { week, total };
 }

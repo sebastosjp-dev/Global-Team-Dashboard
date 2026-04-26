@@ -954,11 +954,12 @@ function _parseLicenseDate(row, key) {
 export function getServiceAnalysisStats(data, filterCountry = null) {
     const countryFiltered = data.filter(r => isCountryMatch(r, filterCountry));
 
-    /* ── Total end user count (rows with No. column) ── */
-    const totalEndUsers = countryFiltered.filter(r => {
-        const no = r['No.'] ?? r['No'] ?? r['NO.'] ?? r['NO'];
-        return no !== '' && no !== null && no !== undefined;
-    }).length;
+    /* ── Total end user count (rows with End User name) ── */
+    const _hasEndUser = r => {
+        const name = r['End User'] ?? r['end user'] ?? r['END USER'];
+        return name && String(name).trim() !== '';
+    };
+    const totalEndUsers = countryFiltered.filter(_hasEndUser).length;
 
     /* ── License expiration analysis (6 months) ── */
     const today = new Date();
@@ -1021,6 +1022,77 @@ export function getServiceAnalysisStats(data, filterCountry = null) {
     const activeCount = countryFiltered.filter(r => r['Status'] === 'Active').length;
     const inactiveCount = countryFiltered.filter(r => r['Status'] === 'Inactive').length;
 
+    /* ── Health Score per customer ── */
+    const validRows = countryFiltered.filter(_hasEndUser);
+
+    const healthCustomers = validRows.map(row => {
+        const endDate = _parseLicenseDate(row, 'End License Date');
+        const services = (row['Services'] || '').split(',').map(s => s.trim()).filter(Boolean);
+        const status = row['Status'];
+        const arr = parseCurrency(row['ARR Amount']);
+        const tcv = parseCurrency(row['TCV Amount']);
+
+        let score = 0;
+        const reasons = [];
+
+        if (status === 'Active') {
+            score += 40;
+        } else {
+            reasons.push('Inactive');
+        }
+
+        let daysToExpiry = null;
+        if (endDate) {
+            daysToExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+            if (daysToExpiry > 180) score += 30;
+            else if (daysToExpiry > 90) { score += 20; reasons.push(`Expiring in ${daysToExpiry}d`); }
+            else if (daysToExpiry > 30) { score += 10; reasons.push(`Expiring in ${daysToExpiry}d`); }
+            else { reasons.push(daysToExpiry <= 0 ? 'Expired' : `Expiring in ${daysToExpiry}d`); }
+        } else {
+            score += 15;
+        }
+
+        if (services.length >= 3) score += 30;
+        else if (services.length === 2) score += 20;
+        else if (services.length === 1) { score += 10; reasons.push('Single service'); }
+
+        let healthColor = 'green';
+        if (score < 40) healthColor = 'red';
+        else if (score < 70) healthColor = 'yellow';
+
+        return {
+            name: row['End User'] || 'Unknown',
+            country: row['Country'] || 'N/A',
+            status,
+            score,
+            healthColor,
+            reasons,
+            arr,
+            tcv,
+            services: row['Services'] || 'N/A',
+            daysToExpiry
+        };
+    });
+
+    const healthGreen = healthCustomers.filter(c => c.healthColor === 'green').length;
+    const healthYellow = healthCustomers.filter(c => c.healthColor === 'yellow').length;
+    const healthRed = healthCustomers.filter(c => c.healthColor === 'red').length;
+    const atRiskCustomers = healthCustomers
+        .filter(c => c.healthColor !== 'green')
+        .sort((a, b) => a.score - b.score);
+
+    /* ── ARR / Revenue metrics ── */
+    const totalArr = validRows.reduce((s, r) => s + parseCurrency(r['ARR Amount']), 0);
+    const activeArr = validRows.filter(r => r['Status'] === 'Active').reduce((s, r) => s + parseCurrency(r['ARR Amount']), 0);
+    const atRiskArr = healthCustomers
+        .filter(c => c.daysToExpiry !== null && c.daysToExpiry <= 90 && c.daysToExpiry > 0)
+        .reduce((s, c) => s + c.arr, 0);
+    const churnRate = totalEndUsers > 0 ? Math.round((inactiveCount / totalEndUsers) * 100) : 0;
+    const arrRetentionRate = totalArr > 0 ? Math.round((activeArr / totalArr) * 100) : 0;
+
+    /* ── Expansion opportunity ── */
+    const expansionOpportunity = upscaleTargetsArr.reduce((s, t) => s + t.tcv, 0);
+
     return {
         totalEndUsers,
         activeCount,
@@ -1035,7 +1107,17 @@ export function getServiceAnalysisStats(data, filterCountry = null) {
         expiringCount: expiringCustomers.length,
         criticalCount,
         warningCount,
-        normalExpCount: normalCount
+        normalExpCount: normalCount,
+        healthGreen,
+        healthYellow,
+        healthRed,
+        atRiskCustomers,
+        totalArr,
+        activeArr,
+        atRiskArr,
+        churnRate,
+        arrRetentionRate,
+        expansionOpportunity
     };
 }
 
