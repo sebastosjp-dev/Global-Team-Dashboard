@@ -1806,13 +1806,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
                         >${obj.kpis || ''}</div>
                     </div>
                 </td>
-                ${obj.targets.map((t, i) => `
-                    <td style="background: rgba(16, 185, 129, 0.05);">
-                        <input type="text" class="kpi-target-input" data-idx="${i}" value="${formatCurrency(t)}"
-                               ${isAdmin ? `onchange="window.updateKPICell(this, 'targets', ${catId}, ${objId}, ${i})"` : 'readonly'}
-                               style="${roStyle}">
-                    </td>
-                `).join('')}
+                ${[0,1,2,3].map(() => `<td style="background: rgba(16, 185, 129, 0.05);"></td>`).join('')}
                 <td class="kpi-weight" style="padding: 4px;">
                     <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                         <input type="number" min="0" max="100" step="1"
