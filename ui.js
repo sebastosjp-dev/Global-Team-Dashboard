@@ -1996,39 +1996,39 @@ export function getTcvArrHTML(stats, filters = {}) {
             <div class="stat-card" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(15,23,42,0.30);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-file-invoice-dollar" style="font-size:1rem;"></i></div>
-                    <h3 style="font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity:0.85; margin:0;">Total KOR TCV</h3>
+                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.18); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-file-invoice-dollar" style="font-size:1rem;"></i></div>
+                    <h3 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ffffff; margin:0;">Total KOR TCV</h3>
                 </div>
-                <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">$${formatCurrency(stats.totalTcv)}</h2>
-                <div style="font-size:0.7rem; margin-top:8px; opacity:0.75;">${stats.accountCount} accounts</div>
+                <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em; color:#ffffff;">$${formatCurrency(stats.totalTcv)}</h2>
+                <div style="font-size:0.78rem; margin-top:8px; color:#dbeafe; font-weight:600;">${stats.accountCount} accounts</div>
             </div>
             <div class="stat-card" style="background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(30,58,138,0.25);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-arrows-rotate" style="font-size:1rem;"></i></div>
-                    <h3 style="font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity:0.85; margin:0;">Total KOR ARR</h3>
+                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.18); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-arrows-rotate" style="font-size:1rem;"></i></div>
+                    <h3 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ffffff; margin:0;">Total KOR ARR</h3>
                 </div>
-                <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">$${formatCurrency(stats.totalArr)}</h2>
-                <div style="font-size:0.7rem; margin-top:8px; opacity:0.75;">${arrPct}% of TCV is recurring</div>
+                <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em; color:#ffffff;">$${formatCurrency(stats.totalArr)}</h2>
+                <div style="font-size:0.78rem; margin-top:8px; color:#dbeafe; font-weight:600;">${arrPct}% of TCV is recurring</div>
             </div>
             <div class="stat-card" style="background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(37,99,235,0.25);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-chart-column" style="font-size:1rem;"></i></div>
-                    <h3 style="font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity:0.85; margin:0;">Revenue Gap</h3>
+                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.18); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-chart-column" style="font-size:1rem;"></i></div>
+                    <h3 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ffffff; margin:0;">Revenue Gap</h3>
                 </div>
-                <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em;">$${formatCurrency(stats.totalGap)}</h2>
-                <div style="font-size:0.7rem; margin-top:8px; opacity:0.75;">${gapPct}% one-time revenue</div>
+                <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em; color:#ffffff;">$${formatCurrency(stats.totalGap)}</h2>
+                <div style="font-size:0.78rem; margin-top:8px; color:#dbeafe; font-weight:600;">${gapPct}% one-time revenue</div>
             </div>
             <div class="stat-card" style="background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(14,165,233,0.25);">
-                <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.08); border-radius:50%;"></div>
+                <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.10); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.18); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-building" style="font-size:1rem; color:white;"></i></div>
-                    <h3 style="font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity:0.9; margin:0; color:white;">Account Mix</h3>
+                    <div style="width:38px; height:38px; background:rgba(255,255,255,0.22); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-building" style="font-size:1rem; color:white;"></i></div>
+                    <h3 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ffffff; margin:0;">Account Mix</h3>
                 </div>
-                <div style="display:flex; gap:14px; margin-top:6px; align-items:baseline;">
-                    <div><h2 style="font-size:1.5rem; font-weight:800; margin:0; color:#bfdbfe;">${stats.recurringCount}</h2><span style="font-size:0.65rem; opacity:0.85; color:white;">Recurring</span></div>
-                    <div><h2 style="font-size:1.5rem; font-weight:800; margin:0; color:#fde68a;">${stats.perpetualCount}</h2><span style="font-size:0.65rem; opacity:0.85; color:white;">Perpetual</span></div>
+                <div style="display:flex; gap:18px; margin-top:6px; align-items:baseline;">
+                    <div><h2 style="font-size:1.6rem; font-weight:800; margin:0; color:#ffffff;">${stats.recurringCount}</h2><span style="font-size:0.72rem; font-weight:600; color:#e0f2fe;">Recurring</span></div>
+                    <div><h2 style="font-size:1.6rem; font-weight:800; margin:0; color:#fde68a;">${stats.perpetualCount}</h2><span style="font-size:0.72rem; font-weight:600; color:#fef3c7;">Perpetual</span></div>
                 </div>
             </div>
         </div>

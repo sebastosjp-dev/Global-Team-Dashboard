@@ -978,7 +978,7 @@ export function initTcvArrChart(stats) {
     // Top 15 by TCV, then sort by ARR ratio descending (healthiest at top)
     const topItems = stats.items.slice(0, 15);
     const displayItems = [...topItems].sort((a, b) => (b.recurringPct || 0) - (a.recurringPct || 0));
-    const labels = displayItems.map(i => _truncateLabel(i.name, 28));
+    const labels = displayItems.map(i => _truncateLabel(i.name, 42));
     const ratioData = displayItems.map(i => Math.min(i.recurringPct || 0, 100));
 
     const barColors = ratioData.map(r =>
@@ -1014,6 +1014,9 @@ export function initTcvArrChart(stats) {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: { right: 60, left: 4, top: 8, bottom: 4 }
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -1060,10 +1063,14 @@ export function initTcvArrChart(stats) {
                 },
                 y: {
                     grid: { display: false },
+                    afterFit(scale) {
+                        scale.width = Math.max(scale.width, 240);
+                    },
                     ticks: {
-                        color: '#1E293B',
-                        font: { size: 11, weight: '500', family: "'Inter', sans-serif" },
-                        padding: 8
+                        color: '#0f172a',
+                        font: { size: 12, weight: '600', family: "'Inter', sans-serif" },
+                        padding: 8,
+                        autoSkip: false
                     }
                 }
             }
@@ -1081,10 +1088,10 @@ export function initTcvArrChart(stats) {
                     const { x, y } = bar.tooltipPosition();
                     const color = value >= 80 ? '#059669' : value >= 60 ? '#2563eb' : value >= 40 ? '#d97706' : '#dc2626';
                     c.fillStyle = color;
-                    c.font = 'bold 10px "Inter", sans-serif';
+                    c.font = 'bold 11px "Inter", sans-serif';
                     c.textAlign = 'left';
                     c.textBaseline = 'middle';
-                    c.fillText(`${value.toFixed(0)}%`, x + 6, y);
+                    c.fillText(`${value.toFixed(0)}%`, x + 8, y);
                 });
 
                 // Average reference line
