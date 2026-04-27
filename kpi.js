@@ -174,6 +174,69 @@ async function renderKPIView() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   Targeted DOM Updates — no full re-render, preserves focus
+   ═══════════════════════════════════════════════════════════════ */
+
+function computeObjRate(catIdx, objIdx) {
+    const obj = kpiStructure?.categories[catIdx]?.objectives[objIdx];
+    if (!obj) return 0;
+    const totalAch = [0,1,2,3].map(q =>
+        [0,1,2].reduce((s, si) => s + (kpiAchievements?.data?.[`${catIdx}_${objIdx}_${si}`]?.[q] || 0), 0)
+    );
+    const sumT = (obj.targets || []).reduce((a, b) => a + b, 0);
+    const sumA = totalAch.reduce((a, b) => a + b, 0);
+    if (sumT === 0) return sumA > 0 ? 100 : 0;
+    return Math.min(200, Math.round((sumA / sumT) * 100));
+}
+
+function refreshKPIFooter() {
+    if (!kpiStructure) return;
+    let totalWeight = 0, totalWeightedRate = 0;
+    kpiStructure.categories.forEach((cat, ci) => {
+        cat.objectives.forEach((obj, oi) => {
+            const w = obj.weight || 0;
+            totalWeight += w;
+            totalWeightedRate += computeObjRate(ci, oi) * w / 100;
+        });
+    });
+    const weightGap = Math.abs(totalWeight - 100);
+    const labelCell = document.getElementById('kpi-footer-label');
+    const weightCell = document.getElementById('kpi-footer-weight');
+    const rateCell = document.getElementById('kpi-footer-rate');
+    if (labelCell) {
+        const warning = weightGap > 0.1
+            ? `<span style="color:#FCA5A5; font-size:0.72rem; font-weight:600; margin-left:8px;">(Total: ${Math.round(totalWeight)}% — Must be 100%)</span>`
+            : '';
+        labelCell.innerHTML = `TOTAL WEIGHT${warning}`;
+    }
+    if (weightCell) {
+        weightCell.style.color = weightGap > 0.1 ? '#FCA5A5' : '#86EFAC';
+        weightCell.textContent = Math.round(totalWeight) + '%';
+    }
+    if (rateCell) {
+        const color = totalWeightedRate >= 100 ? '#10B981' : (totalWeightedRate >= 70 ? '#F59E0B' : '#EF4444');
+        rateCell.style.color = color;
+        rateCell.textContent = Math.round(totalWeightedRate) + '%';
+    }
+}
+
+function refreshKPIObjectiveRow(catIdx, objIdx) {
+    [0,1,2,3].forEach(qi => {
+        const total = [0,1,2].reduce((s, si) =>
+            s + (kpiAchievements?.data?.[`${catIdx}_${objIdx}_${si}`]?.[qi] || 0), 0);
+        const cell = document.getElementById(`kpi-ach-total-${catIdx}-${objIdx}-${qi}`);
+        if (cell) cell.value = formatCurrency(total);
+    });
+    const rate = computeObjRate(catIdx, objIdx);
+    const rateCell = document.getElementById(`kpi-rate-${catIdx}-${objIdx}`);
+    if (rateCell) {
+        rateCell.style.color = rate >= 100 ? '#10B981' : (rate >= 70 ? '#F59E0B' : '#EF4444');
+        rateCell.textContent = rate + '%';
+    }
+    refreshKPIFooter();
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Public API — window handlers called from inline HTML
    ═══════════════════════════════════════════════════════════════ */
 
@@ -255,6 +318,7 @@ window.updateKPICell = function (el, type, catIdx, objIdx, qIdx) {
     const val = parseCurrency(el.value);
     kpiStructure.categories[catIdx].objectives[objIdx].targets[qIdx] = val;
     el.value = formatCurrency(val);
+    refreshKPIObjectiveRow(catIdx, objIdx);
 };
 
 window.updateKPIText = function (el, field, catIdx, objIdx) {
@@ -264,10 +328,10 @@ window.updateKPIText = function (el, field, catIdx, objIdx) {
 
 window.updateKPINumber = function (el, field, catIdx, objIdx) {
     if (!isAdmin) return;
-    const val = parseFloat(el.value) || 0;
+    const val = Math.min(100, Math.max(0, parseFloat(el.value) || 0));
     kpiStructure.categories[catIdx].objectives[objIdx][field] = val;
     el.value = val;
-    renderKPIView();
+    refreshKPIFooter();
 };
 
 window.updateKPICategoryName = function (el, catIdx) {
@@ -294,7 +358,7 @@ window.updateKPISubItemAchievement = function (el, catIdx, objIdx, subIdx, qIdx)
     if (!kpiAchievements.data[key]) kpiAchievements.data[key] = [0, 0, 0, 0];
     kpiAchievements.data[key][qIdx] = parseCurrency(el.value);
     el.value = formatCurrency(kpiAchievements.data[key][qIdx]);
-    renderKPIView();
+    refreshKPIObjectiveRow(catIdx, objIdx);
 };
 
 /* ═══════════════════════════════════════════════════════════════

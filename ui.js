@@ -1815,12 +1815,13 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
                 `).join('')}
                 <td class="kpi-weight" style="padding: 4px;">
                     <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                        <input type="number" style="width: 50px; text-align: right; border: 1px solid transparent; background: rgba(0,0,0,0.02); padding: 6px; border-radius: 6px; font-weight: 700; color: inherit; transition: all 0.2s; outline: none; ${roStyle}"
-                               ${isAdmin ? `onfocus="this.style.background='#FFF'; this.style.borderColor='#6366f1';" onblur="this.style.background='rgba(0,0,0,0.02)'; this.style.borderColor='transparent';" onchange="window.updateKPINumber(this, 'weight', ${catId}, ${objId})"` : 'readonly'}
+                        <input type="number" min="0" max="100" step="1"
+                               style="width: 50px; text-align: right; border: 1px solid ${isAdmin ? '#CBD5E1' : 'transparent'}; background: ${isAdmin ? '#F8FAFC' : 'rgba(0,0,0,0.02)'}; padding: 6px; border-radius: 6px; font-weight: 700; color: inherit; transition: all 0.2s; outline: none; ${roStyle}"
+                               ${isAdmin ? `onfocus="this.style.background='#FFF'; this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.1)';" onblur="this.style.background='#F8FAFC'; this.style.borderColor='#CBD5E1'; this.style.boxShadow='none'; window.updateKPINumber(this, 'weight', ${catId}, ${objId});"` : 'readonly'}
                                value="${obj.weight || 0}">%
                     </div>
                 </td>
-                <td class="kpi-rate" style="color: ${rateColor}">${rate}%</td>
+                <td class="kpi-rate" id="kpi-rate-${catId}-${objId}" style="color: ${rateColor}">${rate}%</td>
             </tr>
         `;
 
@@ -1851,9 +1852,9 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
                 <td colspan="2" style="text-align: right; font-weight: 700; color: #6366f1; background: rgba(99,102,241,0.06); padding: 6px 15px; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; border-top: 2px solid rgba(99,102,241,0.2);">
                     <i class="fa-solid fa-sigma" style="margin-right: 5px;"></i>Achievement (Total)
                 </td>
-                ${totalAch.map(a => `
+                ${totalAch.map((a, qi) => `
                     <td style="background: rgba(99,102,241,0.10); border-top: 2px solid rgba(99,102,241,0.2); padding: 6px 10px;">
-                        <input type="text" class="kpi-achieve-input" value="${formatCurrency(a)}" readonly
+                        <input type="text" class="kpi-achieve-input" id="kpi-ach-total-${catId}-${objId}-${qi}" value="${formatCurrency(a)}" readonly
                                style="background: transparent; font-weight: 700; color: #4338CA; cursor: default;">
                     </td>
                 `).join('')}
@@ -1941,11 +1942,11 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
                 </tbody>
                 <tfoot>
                     <tr style="background: #1E293B; color: white;">
-                        <td colspan="7" style="text-align: right; padding: 12px 16px; font-weight: 700; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase;">
+                        <td colspan="7" id="kpi-footer-label" style="text-align: right; padding: 12px 16px; font-weight: 700; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase;">
                             TOTAL WEIGHT${weightWarning}
                         </td>
-                        <td style="text-align: center; font-size: 1.05rem; font-weight: 800; padding: 12px; color: ${weightGap > 0.1 ? '#FCA5A5' : '#86EFAC'};">${Math.round(totalWeight)}%</td>
-                        <td style="text-align: center; font-size: 1.05rem; font-weight: 800; color: ${totalRateColor}; padding: 12px;">${Math.round(totalWeightedRate)}%</td>
+                        <td id="kpi-footer-weight" style="text-align: center; font-size: 1.05rem; font-weight: 800; padding: 12px; color: ${weightGap > 0.1 ? '#FCA5A5' : '#86EFAC'};">${Math.round(totalWeight)}%</td>
+                        <td id="kpi-footer-rate" style="text-align: center; font-size: 1.05rem; font-weight: 800; color: ${totalRateColor}; padding: 12px;">${Math.round(totalWeightedRate)}%</td>
                     </tr>
                 </tfoot>
             </table>
