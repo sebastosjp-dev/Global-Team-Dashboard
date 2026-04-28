@@ -130,13 +130,67 @@ export function initOrderSheetCharts(stats) {
     const lineCtx = document.getElementById('tcv-growth-chart');
     if (lineCtx) {
         const years = Object.keys(stats.yearlyTcv).sort();
+        const values = years.map(y => stats.yearlyTcv[y].korea);
+        const yoyCagrPlugin = {
+            id: 'yoyCagrLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                const meta = chart.getDatasetMeta(0);
+                if (!meta || !meta.data) return;
+                ctx.save();
+                ctx.font = '700 11px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                meta.data.forEach((point, i) => {
+                    if (i === 0) return;
+                    const prev = values[i - 1];
+                    const curr = values[i];
+                    let label;
+                    if (!prev || prev <= 0) {
+                        label = curr > 0 ? 'N/A' : '0%';
+                    } else {
+                        const cagr = ((curr / prev) - 1) * 100;
+                        const sign = cagr >= 0 ? '+' : '';
+                        label = `${sign}${cagr.toFixed(1)}%`;
+                    }
+                    const color = label.startsWith('-') ? '#ef4444' : (label === 'N/A' ? '#94a3b8' : '#10b981');
+                    const x = point.x;
+                    const y = point.y - 10;
+                    const padX = 5, padY = 2;
+                    const metrics = ctx.measureText(label);
+                    const w = metrics.width + padX * 2;
+                    const h = 16;
+                    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1;
+                    const rx = x - w / 2, ry = y - h;
+                    const r = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(rx + r, ry);
+                    ctx.lineTo(rx + w - r, ry);
+                    ctx.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
+                    ctx.lineTo(rx + w, ry + h - r);
+                    ctx.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
+                    ctx.lineTo(rx + r, ry + h);
+                    ctx.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
+                    ctx.lineTo(rx, ry + r);
+                    ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = color;
+                    ctx.fillText(label, x, ry + h - padY);
+                });
+                ctx.restore();
+            }
+        };
         chartRegistry.register('order-growth', new Chart(lineCtx, {
             type: 'line',
             data: {
                 labels: years,
                 datasets: [{
                     label: 'KOR TCV',
-                    data: years.map(y => stats.yearlyTcv[y].korea),
+                    data: values,
                     borderColor: '#10b981',
                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
                     fill: true, tension: 0.4, pointRadius: 4
@@ -144,12 +198,14 @@ export function initOrderSheetCharts(stats) {
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
+                layout: { padding: { top: 24 } },
                 plugins: { legend: { display: false } },
                 scales: {
                     y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => '$' + formatCurrency(v) } },
                     x: { grid: { display: false } }
                 }
-            }
+            },
+            plugins: [yoyCagrPlugin]
         }));
     }
 
