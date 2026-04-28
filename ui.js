@@ -638,7 +638,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
             </div>
             <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #10b981; display: flex; flex-direction: column; align-items: stretch;">
-                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin:0;">YEARLY TCV GROWTH</h3><span class="metric-info" data-tooltip="Year-over-year change in Total Contract Value, measuring revenue growth momentum across fiscal years.">i</span></div>
+                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin:0;">YEARLY TCV GROWTH</h3><span class="metric-info" data-tooltip="Year-over-year CAGR (Compound Annual Growth Rate) of Total Contract Value, measuring revenue growth momentum across fiscal years.">i</span></div>
                 <div style="height:160px; position:relative;"><canvas id="tcv-growth-chart"></canvas></div>
             </div>
             ${(!filterCountry || filterCountry === 'All') ? `

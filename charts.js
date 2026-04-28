@@ -146,14 +146,17 @@ export function initOrderSheetCharts(stats) {
                     const prev = values[i - 1];
                     const curr = values[i];
                     let label;
+                    let isNegative = false, isNA = false;
                     if (!prev || prev <= 0) {
-                        label = curr > 0 ? 'N/A' : '0%';
+                        if (curr > 0) { label = 'CAGR N/A'; isNA = true; }
+                        else { label = 'CAGR 0%'; }
                     } else {
                         const cagr = ((curr / prev) - 1) * 100;
                         const sign = cagr >= 0 ? '+' : '';
-                        label = `${sign}${cagr.toFixed(1)}%`;
+                        isNegative = cagr < 0;
+                        label = `CAGR ${sign}${cagr.toFixed(1)}%`;
                     }
-                    const color = label.startsWith('-') ? '#ef4444' : (label === 'N/A' ? '#94a3b8' : '#10b981');
+                    const color = isNegative ? '#ef4444' : (isNA ? '#94a3b8' : '#10b981');
                     const x = point.x;
                     const y = point.y - 10;
                     const padX = 5, padY = 2;
