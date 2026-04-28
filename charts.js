@@ -35,6 +35,108 @@ export const chartRegistry = {
     }
 };
 
+/** Build a data-driven CAGR insights block — describes what the actual numbers mean
+ *  and which caveats apply to *this* dataset. */
+function buildCagrInsights(years, values) {
+    if (!values || values.length < 2) {
+        return '<div style="color:#94a3b8;">Not enough data points to compute CAGR.</div>';
+    }
+    const lastIdx = values.length - 1;
+    const baseline = values[0];
+    const latest = values[lastIdx];
+    const peak = Math.max(...values);
+    const peakIdx = values.indexOf(peak);
+    const fmtPct = (v, withSign = true) => {
+        if (v === null || !isFinite(v)) return 'N/A';
+        const s = withSign && v >= 0 ? '+' : '';
+        return `${s}${v.toFixed(1)}%`;
+    };
+    const fullCagr = baseline > 0 ? ((Math.pow(latest / baseline, 1 / lastIdx) - 1) * 100) : null;
+
+    const yoy = [];
+    for (let i = 1; i < values.length; i++) {
+        yoy.push(values[i - 1] > 0 ? ((values[i] / values[i - 1] - 1) * 100) : null);
+    }
+    const latestYoy = yoy[yoy.length - 1];
+    const validYoy = yoy.filter(v => v !== null && isFinite(v));
+
+    const rolling = years.map((_, i) => (i === 0 || baseline <= 0)
+        ? null
+        : ((Math.pow(values[i] / baseline, 1 / i) - 1) * 100));
+    const rollingValid = rolling.filter(v => v !== null && isFinite(v));
+
+    const reading = [];
+    const cautions = [];
+
+    if (fullCagr !== null) {
+        reading.push(`Across <b>${years[0]}–${years[lastIdx]}</b>, TCV moved from <b>$${formatCurrency(baseline)}</b> to <b>$${formatCurrency(latest)}</b>, a <b>${fmtPct(fullCagr)}</b> compound annual rate over ${lastIdx} year${lastIdx > 1 ? 's' : ''}.`);
+    }
+
+    if (latestYoy !== null && isFinite(latestYoy)) {
+        if (latestYoy < 0 && peakIdx < lastIdx) {
+            reading.push(`The most recent year (<b>${years[lastIdx]}</b>) fell <b>${fmtPct(latestYoy, false)}</b> YoY, so the rolling CAGR is dragged down by the post-peak step.`);
+        } else if (peakIdx === lastIdx) {
+            reading.push(`<b>${years[lastIdx]}</b> sets a new TCV high — the long-run CAGR still reflects expansion.`);
+        } else {
+            reading.push(`Peak TCV was reached in <b>${years[peakIdx]}</b> ($${formatCurrency(peak)}); subsequent years have softened the rolling rate.`);
+        }
+    }
+
+    if (rollingValid.length >= 2) {
+        const first = rollingValid[0];
+        const last = rollingValid[rollingValid.length - 1];
+        if (first > 0 && last < first * 0.5) {
+            reading.push(`Rolling CAGR has compressed from <b>${fmtPct(first)}</b> to <b>${fmtPct(last)}</b> as the base scaled — typical maturation pattern.`);
+        } else if (last > first + 5) {
+            reading.push(`Rolling CAGR is <b>accelerating</b> (${fmtPct(first)} → ${fmtPct(last)}), suggesting growth is outpacing the base effect.`);
+        }
+    }
+
+    if (baseline > 0 && baseline < peak * 0.1) {
+        cautions.push(`Baseline (<b>${years[0]}: $${formatCurrency(baseline)}</b>) is only ${(baseline / peak * 100).toFixed(1)}% of peak — the headline CAGR is <b>inflated by a small denominator</b>.`);
+    } else if (baseline === 0) {
+        cautions.push(`Baseline (${years[0]}) is zero, so a single-period CAGR cannot be computed; treat early-year bars as undefined.`);
+    }
+
+    if (peakIdx < lastIdx && peak > 0) {
+        const declineFromPeak = ((latest / peak - 1) * 100);
+        cautions.push(`Latest TCV is <b>${fmtPct(declineFromPeak, false)}</b> below the ${years[peakIdx]} peak — CAGR will keep compressing unless TCV recovers above <b>$${formatCurrency(peak)}</b>.`);
+    }
+
+    const currentYear = new Date().getFullYear();
+    if (parseInt(years[lastIdx], 10) >= currentYear) {
+        cautions.push(`<b>${years[lastIdx]}</b> may still be in progress; the final-year value (and the headline CAGR) can shift as bookings close.`);
+    }
+
+    if (values.length < 4) {
+        cautions.push(`Only <b>${values.length}</b> data points — the rolling CAGR is sensitive to a single lumpy year.`);
+    }
+
+    if (validYoy.length >= 2) {
+        const yMax = Math.max(...validYoy);
+        const yMin = Math.min(...validYoy);
+        if (yMax - yMin > 200) {
+            cautions.push(`YoY swings range from <b>${fmtPct(yMin)}</b> to <b>${fmtPct(yMax)}</b>; the smoothed CAGR can hide that lumpiness.`);
+        }
+    }
+
+    const ulStyle = 'margin:0 0 10px 0; padding-left:16px;';
+    const liGap = ' style="margin-bottom:4px;"';
+    const readingHtml = reading.length
+        ? `<ul style="${ulStyle}">${reading.map(r => `<li${liGap}>${r}</li>`).join('')}</ul>`
+        : '<div style="color:#94a3b8; margin-bottom:10px;">No directional signal yet.</div>';
+    const cautionsHtml = cautions.length
+        ? `<ul style="margin:0; padding-left:16px;">${cautions.map(c => `<li${liGap}>${c}</li>`).join('')}</ul>`
+        : '<div style="color:#94a3b8;">No specific caveats flagged for this dataset.</div>';
+
+    return `
+        <div style="font-weight:700; color:#0ea5e9; margin-bottom:6px; font-size:0.72rem;">What this CAGR is telling us</div>
+        ${readingHtml}
+        <div style="font-weight:700; color:#ef4444; margin-bottom:6px; font-size:0.72rem;">Caveats specific to this dataset</div>
+        ${cautionsHtml}
+    `;
+}
+
 /* ═══ ORDER SHEET Charts ═══ */
 export function initOrderSheetCharts(stats) {
     chartRegistry.destroyTag('order');
@@ -131,8 +233,8 @@ export function initOrderSheetCharts(stats) {
     if (lineCtx) {
         const years = Object.keys(stats.yearlyTcv).sort();
         const values = years.map(y => stats.yearlyTcv[y].korea);
-        const yoyCagrPlugin = {
-            id: 'yoyCagrLabels',
+        const yoyPlugin = {
+            id: 'yoyLabels',
             afterDatasetsDraw(chart) {
                 const { ctx } = chart;
                 const meta = chart.getDatasetMeta(0);
@@ -208,7 +310,7 @@ export function initOrderSheetCharts(stats) {
                     x: { grid: { display: false } }
                 }
             },
-            plugins: [yoyCagrPlugin]
+            plugins: [yoyPlugin]
         }));
     }
 
@@ -237,6 +339,11 @@ export function initOrderSheetCharts(stats) {
         }
         if (subEl && cagrYears.length >= 2) {
             subEl.textContent = `${cagrYears[0]} → ${cagrYears[lastIdx]} (${lastIdx}-yr CAGR)`;
+        }
+
+        const insightsEl = document.getElementById('tcv-cagr-insights');
+        if (insightsEl) {
+            insightsEl.innerHTML = buildCagrInsights(cagrYears, cagrValues);
         }
 
         const cagrLabelsPlugin = {
