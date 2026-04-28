@@ -1002,7 +1002,20 @@ select:focus {
     flex-shrink: 0;
     line-height: 1;
 }
-.metric-info::before {
+.metric-globe {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #0ea5e9;
+    font-size: 0.78rem;
+    cursor: default;
+    position: relative;
+    flex-shrink: 0;
+    line-height: 1;
+    margin-left: 2px;
+}
+.metric-info::before,
+.metric-globe::before {
     content: attr(data-tooltip);
     position: absolute;
     top: calc(100% + 8px);
@@ -1023,7 +1036,8 @@ select:focus {
     transition: opacity 0.15s;
     box-shadow: 0 4px 14px rgba(0,0,0,0.18);
 }
-.metric-info::after {
+.metric-info::after,
+.metric-globe::after {
     content: '';
     position: absolute;
     top: calc(100% + 2px);
@@ -1037,7 +1051,9 @@ select:focus {
     z-index: 9999;
 }
 .metric-info:hover::before,
-.metric-info:hover::after {
+.metric-info:hover::after,
+.metric-globe:hover::before,
+.metric-globe:hover::after {
     opacity: 1;
 }
 

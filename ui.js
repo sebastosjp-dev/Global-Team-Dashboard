@@ -600,7 +600,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
     return `
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
             <div class="stat-card" style="border-left: 5px solid #0ea5e9; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px;">
-                <div class="metric-title-row"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED TCV</h3><span class="metric-info" data-tooltip="Total Contract Value of all closed-won deals, summed across all countries in local currency.">i</span></div>
+                <div class="metric-title-row"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED TCV</h3><span class="metric-globe" data-tooltip="Local currency basis — this card sums contracts in each country's original currency. All other cards on this page are on Korea (USD) basis."><i class="fa-solid fa-globe"></i></span><span class="metric-info" data-tooltip="Total Contract Value of all closed-won deals, summed across all countries in local currency.">i</span></div>
                 <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">${formatCurrency(stats.sumLocalTcv)}</h2>
                 <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">${stats.dealCount} Deals Total</div>
                 <div style="flex: 1; position: relative; min-height: 70px;">
