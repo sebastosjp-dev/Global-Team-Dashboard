@@ -617,7 +617,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
             </div>
             <div class="stat-card" style="border-left: 5px solid #8b5cf6; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; position: relative; min-height: 120px;">
                 <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px;">
-                    <div class="metric-title-row"><h3 style="color:#8b5cf6; font-size:0.75rem; font-weight:700; margin:0;">ARR</h3><span class="metric-info" data-tooltip="Annual Recurring Revenue — the annualized value of all active subscription contracts currently in force.">i</span></div>
+                    <div class="metric-title-row"><h3 style="color:#8b5cf6; font-size:0.75rem; font-weight:700; margin:0;">ARR</h3><span class="metric-info" data-tooltip="Annual Recurring Revenue — the annualized value of all active subscription contracts currently in force.">i</span><span class="metric-yoy-badge" data-tooltip="전년 대비 성장률 (YoY %) — 각 연도 포인트 위 라벨은 직전 연도 대비 ARR 변화율입니다. 초록은 증가, 빨강은 감소, 회색 N/A는 직전 연도 값이 0이거나 비어 있어 비교가 불가능한 경우입니다.">YoY %</span></div>
                     <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.sumArr)}</h2>
                 </div>
                 <div style="flex: 1; height: 80px; margin-top: auto; position: relative;">
@@ -626,7 +626,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
             </div>
             <div class="stat-card" style="border-left: 5px solid #a855f7; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; position: relative; min-height: 120px;">
                 <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px;">
-                    <div class="metric-title-row"><h3 style="color:#a855f7; font-size:0.75rem; font-weight:700; margin:0;">MRR</h3><span class="metric-info" data-tooltip="Monthly Recurring Revenue — the monthly value of active subscription contracts (ARR ÷ 12), reflecting steady-state subscription income.">i</span></div>
+                    <div class="metric-title-row"><h3 style="color:#a855f7; font-size:0.75rem; font-weight:700; margin:0;">MRR</h3><span class="metric-info" data-tooltip="Monthly Recurring Revenue — the monthly value of active subscription contracts (ARR ÷ 12), reflecting steady-state subscription income.">i</span><span class="metric-yoy-badge" data-tooltip="전년 대비 성장률 (YoY %) — 각 연도 포인트 위 라벨은 직전 연도 대비 MRR 변화율입니다. 초록은 증가, 빨강은 감소, 회색 N/A는 직전 연도 값이 0이거나 비어 있어 비교가 불가능한 경우입니다.">YoY %</span></div>
                     <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.sumMrr)}</h2>
                 </div>
                 <div style="flex: 1; height: 80px; margin-top: auto; position: relative;">

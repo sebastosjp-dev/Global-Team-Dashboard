@@ -1015,7 +1015,8 @@ select:focus {
     margin-left: 2px;
 }
 .metric-info::before,
-.metric-globe::before {
+.metric-globe::before,
+.metric-yoy-badge::before {
     content: attr(data-tooltip);
     position: absolute;
     top: calc(100% + 8px);
@@ -1037,7 +1038,8 @@ select:focus {
     box-shadow: 0 4px 14px rgba(0,0,0,0.18);
 }
 .metric-info::after,
-.metric-globe::after {
+.metric-globe::after,
+.metric-yoy-badge::after {
     content: '';
     position: absolute;
     top: calc(100% + 2px);
@@ -1053,8 +1055,27 @@ select:focus {
 .metric-info:hover::before,
 .metric-info:hover::after,
 .metric-globe:hover::before,
-.metric-globe:hover::after {
+.metric-globe:hover::after,
+.metric-yoy-badge:hover::before,
+.metric-yoy-badge:hover::after {
     opacity: 1;
+}
+.metric-yoy-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: #ecfdf5;
+    color: #047857;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    cursor: default;
+    position: relative;
+    flex-shrink: 0;
+    line-height: 1.4;
+    border: 1px solid #a7f3d0;
+    margin-left: 2px;
 }
 
 /* ════════════════════════════════════════════════════════════════

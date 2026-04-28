@@ -486,65 +486,149 @@ export function initOrderSheetCharts(stats) {
     const sparklineOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { 
-            legend: { display: false }, 
-            tooltip: { enabled: true, callbacks: { label: (ctx) => ` US$ ${formatCurrency(ctx.parsed.y)}` } } 
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                enabled: true,
+                backgroundColor: '#1e293b',
+                titleColor: '#f1f5f9',
+                bodyColor: '#f1f5f9',
+                padding: 10,
+                cornerRadius: 6,
+                callbacks: {
+                    label: (ctx) => ` US$ ${formatCurrency(ctx.parsed.y)}`,
+                    afterLabel: (ctx) => {
+                        const data = ctx.chart.data.datasets[0].data;
+                        const i = ctx.dataIndex;
+                        if (i === 0) return ' 전년 대비: 기준 연도';
+                        const prev = data[i - 1];
+                        const curr = data[i];
+                        if (!prev || prev <= 0) return ' 전년 대비: N/A (직전 연도 0)';
+                        const yoy = ((curr / prev) - 1) * 100;
+                        const sign = yoy >= 0 ? '+' : '';
+                        const delta = curr - prev;
+                        const dSign = delta >= 0 ? '+' : '−';
+                        return ` 전년 대비 (YoY): ${sign}${yoy.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(delta))})`;
+                    }
+                }
+            }
         },
-        scales: { 
-            x: { 
-                display: true, 
-                grid: { display: false }, 
+        scales: {
+            x: {
+                display: true,
+                grid: { display: false },
                 border: { display: false },
                 ticks: {
                     color: '#94a3b8',
                     font: { size: 9, weight: '700' },
                     padding: 4
                 }
-            }, 
-            y: { display: false } 
+            },
+            y: { display: false }
         },
-        elements: { 
-            point: { radius: 2, hoverRadius: 5 }, 
-            line: { borderWidth: 2, tension: 0.4 } 
+        elements: {
+            point: { radius: 2, hoverRadius: 5 },
+            line: { borderWidth: 2, tension: 0.4 }
         },
         layout: {
-            padding: { top: 5, bottom: 0, left: 5, right: 5 }
+            padding: { top: 18, bottom: 0, left: 8, right: 8 }
         }
     };
+
+    const sparkYoyLabelsPlugin = (values) => ({
+        id: 'sparkYoyLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx, chartArea } = chart;
+            const meta = chart.getDatasetMeta(0);
+            if (!meta || !meta.data) return;
+            ctx.save();
+            ctx.font = '700 9px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            meta.data.forEach((point, i) => {
+                if (i === 0) return;
+                const prev = values[i - 1];
+                const curr = values[i];
+                let label, color;
+                if (!prev || prev <= 0) {
+                    if (curr > 0) { label = 'N/A'; color = '#94a3b8'; }
+                    else { label = '0%'; color = '#94a3b8'; }
+                } else {
+                    const yoy = ((curr / prev) - 1) * 100;
+                    const sign = yoy >= 0 ? '+' : '';
+                    label = `${sign}${yoy.toFixed(1)}%`;
+                    color = yoy < 0 ? '#ef4444' : '#10b981';
+                }
+                const padX = 4, h = 14;
+                const w = ctx.measureText(label).width + padX * 2;
+                let x = point.x;
+                const minX = chartArea.left + w / 2;
+                const maxX = chartArea.right - w / 2;
+                if (x < minX) x = minX;
+                if (x > maxX) x = maxX;
+                let y = point.y - 12;
+                if (y - h / 2 < chartArea.top) y = chartArea.top + h / 2;
+                ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                const rx = x - w / 2, ry = y - h / 2, r = 3;
+                ctx.beginPath();
+                ctx.moveTo(rx + r, ry);
+                ctx.lineTo(rx + w - r, ry);
+                ctx.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
+                ctx.lineTo(rx + w, ry + h - r);
+                ctx.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
+                ctx.lineTo(rx + r, ry + h);
+                ctx.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
+                ctx.lineTo(rx, ry + r);
+                ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = color;
+                ctx.fillText(label, x, y);
+            });
+            ctx.restore();
+        }
+    });
 
     const arrYears = Object.keys(stats.yearlyArr).sort();
     const arrCtx = document.getElementById('arr-sparkline');
     if (arrCtx && arrYears.length > 0) {
+        const arrValues = arrYears.map(y => stats.yearlyArr[y]);
         chartRegistry.register('order-arr-spark', new Chart(arrCtx, {
             type: 'line',
             data: {
                 labels: arrYears,
-                datasets: [{ 
-                    data: arrYears.map(y => stats.yearlyArr[y]),
+                datasets: [{
+                    data: arrValues,
                     borderColor: '#8b5cf6',
                     backgroundColor: 'rgba(139, 92, 246, 0.1)',
                     fill: true
                 }]
             },
-            options: sparklineOptions
+            options: sparklineOptions,
+            plugins: [sparkYoyLabelsPlugin(arrValues)]
         }));
     }
 
     const mrrYears = Object.keys(stats.yearlyMrr).sort();
     const mrrCtx = document.getElementById('mrr-sparkline');
     if (mrrCtx && mrrYears.length > 0) {
+        const mrrValues = mrrYears.map(y => stats.yearlyMrr[y]);
         chartRegistry.register('order-mrr-spark', new Chart(mrrCtx, {
             type: 'line',
             data: {
                 labels: mrrYears,
                 datasets: [{
-                    data: mrrYears.map(y => stats.yearlyMrr[y]),
+                    data: mrrValues,
                     borderColor: '#a855f7',
                     backgroundColor: 'rgba(168, 85, 247, 0.1)',
                     fill: true
                 }]
             },
-            options: sparklineOptions
+            options: sparklineOptions,
+            plugins: [sparkYoyLabelsPlugin(mrrValues)]
         }));
     }
 
