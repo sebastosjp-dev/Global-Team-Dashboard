@@ -148,13 +148,13 @@ export function initOrderSheetCharts(stats) {
                     let label;
                     let isNegative = false, isNA = false;
                     if (!prev || prev <= 0) {
-                        if (curr > 0) { label = 'CAGR N/A'; isNA = true; }
-                        else { label = 'CAGR 0%'; }
+                        if (curr > 0) { label = 'N/A'; isNA = true; }
+                        else { label = '0%'; }
                     } else {
-                        const cagr = ((curr / prev) - 1) * 100;
-                        const sign = cagr >= 0 ? '+' : '';
-                        isNegative = cagr < 0;
-                        label = `CAGR ${sign}${cagr.toFixed(1)}%`;
+                        const yoy = ((curr / prev) - 1) * 100;
+                        const sign = yoy >= 0 ? '+' : '';
+                        isNegative = yoy < 0;
+                        label = `${sign}${yoy.toFixed(1)}%`;
                     }
                     const color = isNegative ? '#ef4444' : (isNA ? '#94a3b8' : '#10b981');
                     const x = point.x;
@@ -209,6 +209,103 @@ export function initOrderSheetCharts(stats) {
                 }
             },
             plugins: [yoyCagrPlugin]
+        }));
+    }
+
+    const cagrCtx = document.getElementById('tcv-cagr-chart');
+    if (cagrCtx) {
+        const cagrYears = Object.keys(stats.yearlyTcv).sort();
+        const cagrValues = cagrYears.map(y => stats.yearlyTcv[y].korea);
+        const baseline = cagrValues[0];
+        const lastIdx = cagrValues.length - 1;
+        const cagrSeries = cagrYears.map((y, i) => {
+            if (i === 0 || !baseline || baseline <= 0) return null;
+            return ((Math.pow(cagrValues[i] / baseline, 1 / i) - 1) * 100);
+        });
+        const headlineEl = document.getElementById('tcv-cagr-headline');
+        const subEl = document.getElementById('tcv-cagr-sub');
+        if (headlineEl) {
+            const fullCagr = cagrSeries[lastIdx];
+            if (fullCagr === null || !isFinite(fullCagr)) {
+                headlineEl.textContent = 'N/A';
+                headlineEl.style.color = '#94a3b8';
+            } else {
+                const sign = fullCagr >= 0 ? '+' : '';
+                headlineEl.textContent = `${sign}${fullCagr.toFixed(1)}%`;
+                headlineEl.style.color = fullCagr >= 0 ? '#0ea5e9' : '#ef4444';
+            }
+        }
+        if (subEl && cagrYears.length >= 2) {
+            subEl.textContent = `${cagrYears[0]} → ${cagrYears[lastIdx]} (${lastIdx}-yr CAGR)`;
+        }
+
+        const cagrLabelsPlugin = {
+            id: 'cagrBarLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                const meta = chart.getDatasetMeta(0);
+                if (!meta || !meta.data) return;
+                ctx.save();
+                ctx.font = '700 10px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                meta.data.forEach((bar, i) => {
+                    const v = cagrSeries[i];
+                    if (v === null || !isFinite(v)) return;
+                    const sign = v >= 0 ? '+' : '';
+                    const text = `${sign}${v.toFixed(1)}%`;
+                    ctx.fillStyle = v >= 0 ? '#0369a1' : '#b91c1c';
+                    const yPos = v >= 0 ? bar.y - 4 : bar.y + 12;
+                    ctx.fillText(text, bar.x, yPos);
+                });
+                ctx.restore();
+            }
+        };
+
+        chartRegistry.register('order-cagr', new Chart(cagrCtx, {
+            type: 'bar',
+            data: {
+                labels: cagrYears,
+                datasets: [{
+                    data: cagrSeries.map(v => (v === null || !isFinite(v)) ? 0 : v),
+                    backgroundColor: cagrSeries.map(v => {
+                        if (v === null || !isFinite(v)) return 'rgba(148, 163, 184, 0.25)';
+                        return v >= 0 ? 'rgba(14, 165, 233, 0.7)' : 'rgba(239, 68, 68, 0.7)';
+                    }),
+                    borderColor: cagrSeries.map(v => {
+                        if (v === null || !isFinite(v)) return '#94a3b8';
+                        return v >= 0 ? '#0ea5e9' : '#ef4444';
+                    }),
+                    borderWidth: 1,
+                    borderRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 14, bottom: 0 } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 8,
+                        cornerRadius: 6,
+                        callbacks: {
+                            label: (ctx) => {
+                                const v = cagrSeries[ctx.dataIndex];
+                                if (v === null || !isFinite(v)) return ' baseline';
+                                const sign = v >= 0 ? '+' : '';
+                                return ` CAGR ${sign}${v.toFixed(2)}% (${ctx.dataIndex}-yr)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9, weight: '700' } } },
+                    y: { display: false }
+                }
+            },
+            plugins: [cagrLabelsPlugin]
         }));
     }
 

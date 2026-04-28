@@ -638,8 +638,14 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
             </div>
             <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #10b981; display: flex; flex-direction: column; align-items: stretch;">
-                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin:0;">YEARLY TCV GROWTH</h3><span class="metric-info" data-tooltip="Year-over-year CAGR (Compound Annual Growth Rate) of Total Contract Value, measuring revenue growth momentum across fiscal years.">i</span></div>
+                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin:0;">YEARLY TCV GROWTH</h3><span class="metric-info" data-tooltip="Year-over-year (YoY) growth rate of Total Contract Value, measuring revenue growth momentum across fiscal years.">i</span></div>
                 <div style="height:160px; position:relative;"><canvas id="tcv-growth-chart"></canvas></div>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #0ea5e9; display: flex; flex-direction: column; align-items: stretch;">
+                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">TCV CAGR</h3><span class="metric-info" data-tooltip="Compound Annual Growth Rate — the smoothed annual growth rate from the baseline year to each subsequent year. Top number shows the full-period CAGR.">i</span></div>
+                <div id="tcv-cagr-headline" style="font-size:1.6rem; font-weight:800; margin: 0 0 4px;">—</div>
+                <div id="tcv-cagr-sub" style="font-size:0.7rem; color:#64748b; margin-bottom:6px;"></div>
+                <div style="flex:1; height:110px; position:relative;"><canvas id="tcv-cagr-chart"></canvas></div>
             </div>
             ${(!filterCountry || filterCountry === 'All') ? `
             <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #6366f1;">
