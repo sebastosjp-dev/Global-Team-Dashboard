@@ -472,10 +472,18 @@ export function initOrderSheetCharts(stats) {
     const buildSparklineOptions = (metric) => ({
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+            axis: 'x'
+        },
         plugins: {
             legend: { display: false },
             tooltip: {
                 enabled: true,
+                mode: 'index',
+                intersect: false,
+                axis: 'x',
                 backgroundColor: '#1e293b',
                 titleColor: '#f1f5f9',
                 bodyColor: '#f1f5f9',
