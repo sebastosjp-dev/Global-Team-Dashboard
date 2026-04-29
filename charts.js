@@ -229,91 +229,6 @@ export function initOrderSheetCharts(stats) {
             }
         }));
     }
-    const lineCtx = document.getElementById('tcv-growth-chart');
-    if (lineCtx) {
-        const years = Object.keys(stats.yearlyTcv).sort();
-        const values = years.map(y => stats.yearlyTcv[y].korea);
-        const yoyPlugin = {
-            id: 'yoyLabels',
-            afterDatasetsDraw(chart) {
-                const { ctx } = chart;
-                const meta = chart.getDatasetMeta(0);
-                if (!meta || !meta.data) return;
-                ctx.save();
-                ctx.font = '700 11px Inter, system-ui, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'bottom';
-                meta.data.forEach((point, i) => {
-                    if (i === 0) return;
-                    const prev = values[i - 1];
-                    const curr = values[i];
-                    let label;
-                    let isNegative = false, isNA = false;
-                    if (!prev || prev <= 0) {
-                        if (curr > 0) { label = 'N/A'; isNA = true; }
-                        else { label = '0%'; }
-                    } else {
-                        const yoy = ((curr / prev) - 1) * 100;
-                        const sign = yoy >= 0 ? '+' : '';
-                        isNegative = yoy < 0;
-                        label = `${sign}${yoy.toFixed(1)}%`;
-                    }
-                    const color = isNegative ? '#ef4444' : (isNA ? '#94a3b8' : '#10b981');
-                    const x = point.x;
-                    const y = point.y - 10;
-                    const padX = 5, padY = 2;
-                    const metrics = ctx.measureText(label);
-                    const w = metrics.width + padX * 2;
-                    const h = 16;
-                    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 1;
-                    const rx = x - w / 2, ry = y - h;
-                    const r = 4;
-                    ctx.beginPath();
-                    ctx.moveTo(rx + r, ry);
-                    ctx.lineTo(rx + w - r, ry);
-                    ctx.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
-                    ctx.lineTo(rx + w, ry + h - r);
-                    ctx.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
-                    ctx.lineTo(rx + r, ry + h);
-                    ctx.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
-                    ctx.lineTo(rx, ry + r);
-                    ctx.quadraticCurveTo(rx, ry, rx + r, ry);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-                    ctx.fillStyle = color;
-                    ctx.fillText(label, x, ry + h - padY);
-                });
-                ctx.restore();
-            }
-        };
-        chartRegistry.register('order-growth', new Chart(lineCtx, {
-            type: 'line',
-            data: {
-                labels: years,
-                datasets: [{
-                    label: 'KOR TCV',
-                    data: values,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    fill: true, tension: 0.4, pointRadius: 4
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                layout: { padding: { top: 24 } },
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => '$' + formatCurrency(v) } },
-                    x: { grid: { display: false } }
-                }
-            },
-            plugins: [yoyPlugin]
-        }));
-    }
-
     const cagrCtx = document.getElementById('tcv-cagr-chart');
     if (cagrCtx) {
         const cagrYears = Object.keys(stats.yearlyTcv).sort();
@@ -416,74 +331,145 @@ export function initOrderSheetCharts(stats) {
         }));
     }
 
-    // Yearly bar charts for TCV and KTCV cards
-    const yearlyBarOptions = (color) => ({
+    // Stacked cumulative bars: each bar = sum of per-year segments, oldest at bottom → newest on top.
+    // Each year gets a distinct shade so the height added between adjacent bars is that year's contribution.
+    const tcvYears = Object.keys(stats.yearlyTcv).sort();
+
+    const cumulativeStackedOptions = (yearlyValues, currencyPrefix = '$') => ({
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
             legend: { display: false },
             tooltip: {
+                mode: 'index',
+                intersect: false,
                 backgroundColor: '#1e293b',
                 padding: 8,
                 cornerRadius: 6,
-                callbacks: { label: (ctx) => ` $${formatCurrency(ctx.parsed.y)}` }
+                filter: (ctx) => (ctx.parsed.y || 0) > 0,
+                itemSort: (a, b) => b.datasetIndex - a.datasetIndex,
+                callbacks: {
+                    label: (ctx) => {
+                        const yearly = ctx.parsed.y || 0;
+                        const prevYearly = yearlyValues[ctx.datasetIndex - 1] || 0;
+                        const growth = (ctx.datasetIndex > 0 && prevYearly > 0)
+                            ? `  (${(((yearly / prevYearly) - 1) * 100).toFixed(1)}% YoY)`
+                            : '';
+                        return ` ${ctx.dataset.label}: ${currencyPrefix}${formatCurrency(yearly)}${growth}`;
+                    },
+                    footer: (items) => {
+                        const total = items.reduce((s, it) => s + (it.parsed.y || 0), 0);
+                        return `Cumulative: ${currencyPrefix}${formatCurrency(total)}`;
+                    }
+                }
             }
         },
         scales: {
             x: {
+                stacked: true,
                 display: true,
                 grid: { display: false },
                 border: { display: false },
                 ticks: { color: '#94a3b8', font: { size: 9, weight: '700' } }
             },
-            y: { display: false }
+            y: { stacked: true, display: false }
         },
-        layout: { padding: { top: 4, bottom: 0, left: 2, right: 2 } }
+        layout: { padding: { top: 16, bottom: 0, left: 2, right: 2 } }
     });
 
-    const tcvYears = Object.keys(stats.yearlyTcv).sort();
+    // Draws "+X.X%" yearly YoY labels above each bar — that year's value vs. the prior year's
+    // value (not cumulative). Skips year 0; shows N/A when prior year is zero/missing.
+    const yoyGrowthLabelsPlugin = (yearlyValues) => ({
+        id: 'yoyGrowthLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            ctx.save();
+            ctx.font = '700 10px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            for (let i = 1; i < yearlyValues.length; i++) {
+                const meta = chart.getDatasetMeta(i);
+                const bar = meta && meta.data && meta.data[i];
+                if (!bar) continue;
+                const prev = yearlyValues[i - 1] || 0;
+                const curr = yearlyValues[i] || 0;
+                let text, color;
+                if (prev <= 0) {
+                    if (curr <= 0) continue;
+                    text = 'N/A';
+                    color = '#94a3b8';
+                } else {
+                    const growth = ((curr / prev) - 1) * 100;
+                    const sign = growth >= 0 ? '+' : '';
+                    text = `${sign}${growth.toFixed(1)}%`;
+                    color = growth >= 0 ? '#10b981' : '#ef4444';
+                }
+                ctx.fillStyle = color;
+                ctx.fillText(text, bar.x, bar.y - 3);
+            }
+            ctx.restore();
+        }
+    });
+
+    // Light → dark shade gradient so the newest year sits prominently on top.
+    const yearShade = (rgb, idx, total) => {
+        const minOpacity = 0.28;
+        const maxOpacity = 0.92;
+        const t = total <= 1 ? 1 : idx / (total - 1);
+        const opacity = (minOpacity + t * (maxOpacity - minOpacity)).toFixed(2);
+        return `rgba(${rgb}, ${opacity})`;
+    };
+
+    const buildStackedDatasets = (rgb, yearlyValues, years) => years.map((year, yearIdx) => ({
+        label: year,
+        data: years.map((_, barIdx) => barIdx >= yearIdx ? (yearlyValues[yearIdx] || 0) : 0),
+        backgroundColor: yearShade(rgb, yearIdx, years.length),
+        borderColor: `rgb(${rgb})`,
+        borderWidth: 0,
+        borderRadius: (ctx) => {
+            const isTopOfBar = ctx.datasetIndex === ctx.dataIndex;
+            const isBottomOfBar = ctx.datasetIndex === 0;
+            return {
+                topLeft: isTopOfBar ? 3 : 0,
+                topRight: isTopOfBar ? 3 : 0,
+                bottomLeft: isBottomOfBar ? 3 : 0,
+                bottomRight: isBottomOfBar ? 3 : 0
+            };
+        },
+        borderSkipped: false
+    }));
+
     const tcvBarCtx = document.getElementById('tcv-yearly-bar');
     if (tcvBarCtx && tcvYears.length > 0) {
+        const tcvYearly = tcvYears.map(y => stats.yearlyTcv[y].local);
         chartRegistry.register('order-tcv-yearly', new Chart(tcvBarCtx, {
             type: 'bar',
             data: {
                 labels: tcvYears,
-                datasets: [{
-                    data: tcvYears.map(y => stats.yearlyTcv[y].local),
-                    backgroundColor: tcvYears.map((y, i, arr) =>
-                        i === arr.length - 1 ? 'rgba(14, 165, 233, 0.85)' : 'rgba(14, 165, 233, 0.3)'
-                    ),
-                    borderColor: '#0ea5e9',
-                    borderWidth: 1,
-                    borderRadius: 3
-                }]
+                datasets: buildStackedDatasets('14, 165, 233', tcvYearly, tcvYears)
             },
-            options: yearlyBarOptions('#0ea5e9')
+            options: cumulativeStackedOptions(tcvYearly, ''),
+            plugins: [yoyGrowthLabelsPlugin(tcvYearly)]
         }));
     }
 
     const ktcvBarCtx = document.getElementById('ktcv-yearly-bar');
     if (ktcvBarCtx && tcvYears.length > 0) {
+        const ktcvYearly = tcvYears.map(y => stats.yearlyTcv[y].korea);
         chartRegistry.register('order-ktcv-yearly', new Chart(ktcvBarCtx, {
             type: 'bar',
             data: {
                 labels: tcvYears,
-                datasets: [{
-                    data: tcvYears.map(y => stats.yearlyTcv[y].korea),
-                    backgroundColor: tcvYears.map((y, i, arr) =>
-                        i === arr.length - 1 ? 'rgba(99, 102, 241, 0.85)' : 'rgba(99, 102, 241, 0.3)'
-                    ),
-                    borderColor: '#6366f1',
-                    borderWidth: 1,
-                    borderRadius: 3
-                }]
+                datasets: buildStackedDatasets('99, 102, 241', ktcvYearly, tcvYears)
             },
-            options: yearlyBarOptions('#6366f1')
+            options: cumulativeStackedOptions(ktcvYearly, 'US$ '),
+            plugins: [yoyGrowthLabelsPlugin(ktcvYearly)]
         }));
     }
 
     // Sparklines for ARR and MRR Growth
-    const sparklineOptions = {
+    // metric: 'ARR' shows MRR equivalent (÷12); 'MRR' shows ARR equivalent (×12)
+    const buildSparklineOptions = (metric) => ({
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -493,22 +479,69 @@ export function initOrderSheetCharts(stats) {
                 backgroundColor: '#1e293b',
                 titleColor: '#f1f5f9',
                 bodyColor: '#f1f5f9',
-                padding: 10,
+                padding: 12,
                 cornerRadius: 6,
+                displayColors: false,
                 callbacks: {
-                    label: (ctx) => ` US$ ${formatCurrency(ctx.parsed.y)}`,
+                    label: (ctx) => ` ${metric}: US$ ${formatCurrency(ctx.parsed.y)}`,
                     afterLabel: (ctx) => {
                         const data = ctx.chart.data.datasets[0].data;
+                        const labels = ctx.chart.data.labels;
                         const i = ctx.dataIndex;
-                        if (i === 0) return ' YoY: baseline year';
-                        const prev = data[i - 1];
                         const curr = data[i];
-                        if (!prev || prev <= 0) return ' YoY: N/A (prior year is 0)';
-                        const yoy = ((curr / prev) - 1) * 100;
-                        const sign = yoy >= 0 ? '+' : '';
-                        const delta = curr - prev;
-                        const dSign = delta >= 0 ? '+' : '−';
-                        return ` YoY: ${sign}${yoy.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(delta))})`;
+                        const lines = [];
+
+                        // ARR↔MRR conversion equivalent
+                        if (metric === 'ARR') {
+                            lines.push(` ≈ US$ ${formatCurrency(curr / 12)} / mo (MRR)`);
+                        } else if (metric === 'MRR') {
+                            lines.push(` ≈ US$ ${formatCurrency(curr * 12)} / yr (ARR)`);
+                        }
+
+                        // YoY
+                        if (i === 0) {
+                            lines.push(' YoY: baseline year');
+                        } else {
+                            const prev = data[i - 1];
+                            if (!prev || prev <= 0) {
+                                lines.push(' YoY: N/A (prior year is 0)');
+                            } else {
+                                const yoy = ((curr / prev) - 1) * 100;
+                                const sign = yoy >= 0 ? '+' : '';
+                                const delta = curr - prev;
+                                const dSign = delta >= 0 ? '+' : '−';
+                                lines.push(` YoY: ${sign}${yoy.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(delta))})`);
+                            }
+                        }
+
+                        // vs baseline (first year) + CAGR
+                        const baseline = data[0];
+                        const baselineYear = labels[0];
+                        const currYear = labels[i];
+                        if (i > 0 && baseline > 0) {
+                            const totalGrowth = ((curr / baseline) - 1) * 100;
+                            const sign = totalGrowth >= 0 ? '+' : '';
+                            const totalDelta = curr - baseline;
+                            const dSign = totalDelta >= 0 ? '+' : '−';
+                            lines.push(` vs ${baselineYear}: ${sign}${totalGrowth.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(totalDelta))})`);
+                            const yearsElapsed = i;
+                            if (yearsElapsed >= 1) {
+                                const cagr = (Math.pow(curr / baseline, 1 / yearsElapsed) - 1) * 100;
+                                const cSign = cagr >= 0 ? '+' : '';
+                                lines.push(` CAGR (${baselineYear}→${currYear}): ${cSign}${cagr.toFixed(1)}%`);
+                            }
+                        }
+
+                        // Series position
+                        const max = Math.max(...data);
+                        const min = Math.min(...data);
+                        if (curr === max && data.length > 1) {
+                            lines.push(' ★ Series high');
+                        } else if (curr === min && data.length > 1 && i !== 0) {
+                            lines.push(' ▼ Series low');
+                        }
+
+                        return lines.join('\n');
                     }
                 }
             }
@@ -524,7 +557,7 @@ export function initOrderSheetCharts(stats) {
                     padding: 4
                 }
             },
-            y: { display: false }
+            y: { display: false, beginAtZero: true }
         },
         elements: {
             point: { radius: 2, hoverRadius: 5 },
@@ -533,7 +566,7 @@ export function initOrderSheetCharts(stats) {
         layout: {
             padding: { top: 18, bottom: 0, left: 8, right: 8 }
         }
-    };
+    });
 
     const sparkYoyLabelsPlugin = (values) => ({
         id: 'sparkYoyLabels',
@@ -592,6 +625,41 @@ export function initOrderSheetCharts(stats) {
         }
     });
 
+    // Year-segmented shading underneath the line: each year contributes its own band
+    // (light → dark by year via yearShade), so the area visually decomposes into the
+    // same per-year stack the top TCV/KTCV bars show. The top of layer i traces the
+    // line itself for j ≥ i and stays at val_j (the line) for j < i, so layers nest
+    // cleanly without crossing.
+    const yoyStackedAreaPlugin = (values, baseRgb) => ({
+        id: 'yoyStackedArea',
+        beforeDatasetsDraw(chart) {
+            const { ctx, scales } = chart;
+            const xScale = scales.x;
+            const yScale = scales.y;
+            if (!xScale || !yScale || !values.length) return;
+            ctx.save();
+            for (let i = 0; i < values.length; i++) {
+                ctx.fillStyle = yearShade(baseRgb, i, values.length);
+                ctx.beginPath();
+                for (let j = 0; j < values.length; j++) {
+                    const x = xScale.getPixelForValue(j);
+                    const y = yScale.getPixelForValue(values[Math.min(i, j)] || 0);
+                    if (j === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                for (let j = values.length - 1; j >= 0; j--) {
+                    const x = xScale.getPixelForValue(j);
+                    const yVal = i === 0 ? 0 : (values[Math.min(i - 1, j)] || 0);
+                    const y = yScale.getPixelForValue(yVal);
+                    ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+    });
+
     const arrYears = Object.keys(stats.yearlyArr).sort();
     const arrCtx = document.getElementById('arr-sparkline');
     if (arrCtx && arrYears.length > 0) {
@@ -602,13 +670,16 @@ export function initOrderSheetCharts(stats) {
                 labels: arrYears,
                 datasets: [{
                     data: arrValues,
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                    fill: true
+                    borderColor: '#7c3aed',
+                    backgroundColor: '#7c3aed',
+                    fill: false,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#7c3aed',
+                    pointBorderWidth: 2
                 }]
             },
-            options: sparklineOptions,
-            plugins: [sparkYoyLabelsPlugin(arrValues)]
+            options: buildSparklineOptions('ARR'),
+            plugins: [yoyStackedAreaPlugin(arrValues, '139, 92, 246'), sparkYoyLabelsPlugin(arrValues)]
         }));
     }
 
@@ -622,13 +693,16 @@ export function initOrderSheetCharts(stats) {
                 labels: mrrYears,
                 datasets: [{
                     data: mrrValues,
-                    borderColor: '#a855f7',
-                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                    fill: true
+                    borderColor: '#9333ea',
+                    backgroundColor: '#9333ea',
+                    fill: false,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#9333ea',
+                    pointBorderWidth: 2
                 }]
             },
-            options: sparklineOptions,
-            plugins: [sparkYoyLabelsPlugin(mrrValues)]
+            options: buildSparklineOptions('MRR'),
+            plugins: [yoyStackedAreaPlugin(mrrValues, '168, 85, 247'), sparkYoyLabelsPlugin(mrrValues)]
         }));
     }
 

@@ -637,10 +637,6 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#f59e0b; font-size:0.75rem; font-weight:700; margin:0;">QUARTERLY TCV (${currentYear})</h3><span class="metric-info" data-tooltip="Total Contract Value broken down by quarter for the current year, showing seasonal revenue distribution.">i</span></div>
                 <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
             </div>
-            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #10b981; display: flex; flex-direction: column; align-items: stretch;">
-                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#10b981; font-size:0.75rem; font-weight:700; margin:0;">YEARLY TCV GROWTH</h3><span class="metric-info" data-tooltip="Year-over-year (YoY) growth rate of Total Contract Value, measuring revenue growth momentum across fiscal years.">i</span></div>
-                <div style="height:160px; position:relative;"><canvas id="tcv-growth-chart"></canvas></div>
-            </div>
             <div class="stat-card" style="grid-column: span 2; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #0ea5e9; display: flex; flex-direction: column; align-items: stretch;">
                 <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">TCV CAGR</h3><span class="metric-info" data-tooltip="Compound Annual Growth Rate — the smoothed annual growth rate from the baseline year to each subsequent year. Top number shows the full-period CAGR.">i</span></div>
                 <div style="display:flex; gap:20px; align-items:stretch;">
@@ -653,19 +649,19 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 </div>
             </div>
             ${(!filterCountry || filterCountry === 'All') ? `
-            <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #6366f1;">
+            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #6366f1; display:flex; flex-direction:column;">
                 <div class="metric-title-row" style="margin-bottom:12px;"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV / COUNTRY</h3><span class="metric-info" data-tooltip="Geographic breakdown of total USD TCV, showing each country's share of global revenue.">i</span></div>
-                <div style="display: flex; gap: 32px; align-items: center;">
+                <div style="display: flex; gap: 20px; align-items: center; flex: 1; min-height: 220px;">
                     <div style="position: relative; width: 180px; height: 180px; flex-shrink: 0;">
                         <canvas id="country-tcv-donut"></canvas>
                     </div>
-                    <div id="country-tcv-legend" style="flex: 1;"></div>
+                    <div id="country-tcv-legend" style="flex: 1; min-width: 0;"></div>
                 </div>
             </div>` : ''}
             ${(!filterCountry || filterCountry === 'All') ? `
-            <div class="stat-card" style="grid-column: 1 / -1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #f97316;">
+            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #f97316; display:flex; flex-direction:column;">
                 <div class="metric-title-row" style="margin-bottom:12px;"><h3 style="color:#f97316; font-size:0.75rem; font-weight:700; margin:0;">YoY KTCV GROWTH BY COUNTRY</h3><span class="metric-info" data-tooltip="Year-over-year KTCV growth rate by country, identifying which markets are expanding or contracting.">i</span></div>
-                <div style="height: 220px; position: relative;">
+                <div style="flex: 1; min-height: 220px; position: relative;">
                     <canvas id="country-yoy-bar"></canvas>
                 </div>
             </div>` : ''}
@@ -1279,65 +1275,120 @@ export function getChurnRiskHTML(stats) {
         return `D-${d}`;
     }
 
-    function buildRows(list, tier) {
-        const cfg = {
-            critical: { bg: 'rgba(239,68,68,0.07)', border: '#ef4444', badgeBg: 'rgba(239,68,68,0.12)', badgeColor: '#b91c1c', badgeText: 'CRITICAL', dayColor: '#dc2626' },
-            warning:  { bg: 'rgba(245,158,11,0.07)', border: '#f59e0b', badgeBg: 'rgba(245,158,11,0.12)', badgeColor: '#92400e', badgeText: 'RENEW SOON', dayColor: '#d97706' },
-            overdue:  { bg: 'rgba(107,114,128,0.07)', border: '#9ca3af', badgeBg: 'rgba(107,114,128,0.1)', badgeColor: '#4b5563', badgeText: 'OVERDUE', dayColor: '#6b7280' },
-        }[tier];
+    const tierConfig = {
+        critical: {
+            rowBg: 'rgba(239,68,68,0.06)', border: '#ef4444',
+            chipBg: 'rgba(239,68,68,0.12)', dayColor: '#b91c1c',
+            headerBg: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)',
+            headerColor: '#ef4444', countBg: '#fee2e2', countColor: '#b91c1c',
+            label: 'Critical', sublabel: 'Within 30 Days', icon: 'fa-circle-exclamation'
+        },
+        warning: {
+            rowBg: 'rgba(245,158,11,0.06)', border: '#f59e0b',
+            chipBg: 'rgba(245,158,11,0.14)', dayColor: '#92400e',
+            headerBg: 'linear-gradient(135deg, #fffbeb 0%, #fefce8 100%)',
+            headerColor: '#d97706', countBg: '#fef3c7', countColor: '#92400e',
+            label: 'Renew Soon', sublabel: '30–90 Days', icon: 'fa-clock'
+        },
+        overdue: {
+            rowBg: 'rgba(107,114,128,0.05)', border: '#9ca3af',
+            chipBg: 'rgba(107,114,128,0.12)', dayColor: '#374151',
+            headerBg: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
+            headerColor: '#6b7280', countBg: '#e5e7eb', countColor: '#374151',
+            label: 'Overdue', sublabel: 'Revenue Leak', icon: 'fa-triangle-exclamation'
+        }
+    };
 
-        return list.slice(0, 5).map(d => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:${cfg.bg}; border-radius:8px; border-left:3px solid ${cfg.border}; margin-bottom:6px; transition:transform 0.15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='translateX(0)'">
-                <div style="display:flex; flex-direction:column; gap:3px; min-width:0; flex:1;">
-                    <span style="font-size:0.82rem; font-weight:700; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${d.name}</span>
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        ${d.country ? `<span style="font-size:0.68rem; color:#6b7280;"><i class="fa-solid fa-location-dot"></i> ${d.country}</span>` : ''}
-                        <span style="font-size:0.7rem; font-weight:700; color:${cfg.dayColor};">${daysLabel(d.daysLeft)}</span>
-                        <span style="font-size:0.68rem; color:#6b7280;"><i class="fa-regular fa-calendar-alt"></i> ${d.date}</span>
+    function buildRow(d, tier) {
+        const cfg = tierConfig[tier];
+        return `
+            <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:9px 12px; background:${cfg.rowBg}; border-radius:8px; border-left:3px solid ${cfg.border}; transition:transform 0.15s;" onmouseover="this.style.transform='translateX(3px)'" onmouseout="this.style.transform='translateX(0)'">
+                <div style="min-width:0;">
+                    <div style="font-size:0.8rem; font-weight:700; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px;" title="${d.name}">${d.name}</div>
+                    <div style="display:flex; align-items:center; gap:8px; font-size:0.66rem; color:#6b7280; white-space:nowrap;">
+                        ${d.country ? `<span><i class="fa-solid fa-location-dot"></i> ${d.country}</span>` : ''}
+                        <span style="font-weight:800; color:${cfg.dayColor}; background:${cfg.chipBg}; padding:1px 7px; border-radius:4px; letter-spacing:0.02em;">${daysLabel(d.daysLeft)}</span>
+                        <span style="overflow:hidden; text-overflow:ellipsis;"><i class="fa-regular fa-calendar"></i> ${d.date}</span>
                     </div>
                 </div>
-                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; margin-left:10px; flex-shrink:0;">
-                    ${d.arr > 0 ? `<span style="font-size:0.78rem; font-weight:800; color:#111827;">${fmtArr(d.arr)} <span style="font-size:0.62rem; font-weight:600; color:#6b7280;">ARR</span></span>` : ''}
-                    <span style="font-size:0.6rem; font-weight:800; color:${cfg.badgeColor}; background:${cfg.badgeBg}; padding:2px 7px; border-radius:5px; letter-spacing:0.05em;">${cfg.badgeText}</span>
-                </div>
+                ${d.arr > 0 ? `<div style="text-align:right; white-space:nowrap;"><span style="font-size:0.82rem; font-weight:800; color:#111827;">${fmtArr(d.arr)}</span> <span style="font-size:0.6rem; font-weight:700; color:#9ca3af; letter-spacing:0.05em;">ARR</span></div>` : '<div></div>'}
             </div>
-        `).join('') + (list.length > 5 ? `<div style="text-align:center; font-size:0.7rem; color:#9ca3af; padding:6px; font-weight:600;">+ ${list.length - 5} more</div>` : '');
+        `;
     }
 
-    const sections = [];
-    if (critical.length > 0) sections.push({ tier: 'critical', list: critical, label: 'Critical — Within 30 Days', icon: 'fa-circle-exclamation', color: '#ef4444', arr: criticalArr });
-    if (warning.length > 0)  sections.push({ tier: 'warning',  list: warning,  label: 'Renew Soon — 30–90 Days',    icon: 'fa-clock',             color: '#f59e0b', arr: warningArr });
-    if (overdue.length > 0)  sections.push({ tier: 'overdue',  list: overdue,  label: 'Overdue — Revenue Leak',      icon: 'fa-triangle-exclamation', color: '#9ca3af', arr: overdueArr });
+    function buildSection(tier, list, arrSum) {
+        if (!list || list.length === 0) return '';
+        const cfg = tierConfig[tier];
+        const SHOW = 6;
+        const visible = list.slice(0, SHOW);
+        const hidden = list.slice(SHOW);
+        const sectionId = `churn-${tier}-${Math.random().toString(36).slice(2, 8)}`;
 
-    const sectionsHTML = sections.map(s => `
-        <div style="flex:1; min-width:260px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                <i class="fa-solid ${s.icon}" style="color:${s.color}; font-size:0.85rem;"></i>
-                <span style="font-size:0.72rem; font-weight:800; color:${s.color}; text-transform:uppercase; letter-spacing:0.06em;">${s.label}</span>
-                ${s.arr > 0 ? `<span style="margin-left:auto; font-size:0.7rem; font-weight:700; color:#374151;">${fmtArr(s.arr)} ARR</span>` : ''}
+        const expandable = hidden.length > 0 ? `
+                <div id="${sectionId}-hidden" style="display:none; flex-direction:column; gap:5px;">
+                    ${hidden.map(d => buildRow(d, tier)).join('')}
+                </div>
+                <button type="button"
+                    onclick="(function(btn){var box=document.getElementById('${sectionId}-hidden');var open=box.style.display==='flex';box.style.display=open?'none':'flex';btn.querySelector('span').textContent=open?('+ '+${hidden.length}+' more'):'Show less';btn.querySelector('i').className=open?'fa-solid fa-plus':'fa-solid fa-chevron-up';})(this)"
+                    style="cursor:pointer; background:transparent; border:1px dashed ${cfg.border}66; color:${cfg.headerColor}; font-size:0.7rem; padding:7px 12px; font-weight:700; border-radius:8px; margin-top:4px; transition:background 0.15s; display:flex; align-items:center; justify-content:center; gap:6px;"
+                    onmouseover="this.style.background='${cfg.rowBg}'"
+                    onmouseout="this.style.background='transparent'">
+                    <i class="fa-solid fa-plus"></i><span>+ ${hidden.length} more</span>
+                </button>
+            ` : '';
+
+        return `
+            <div style="display:flex; flex-direction:column; gap:10px; min-width:0;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 14px; background:${cfg.headerBg}; border-radius:10px; border:1px solid ${cfg.border}33;">
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <div style="width:30px; height:30px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+                            <i class="fa-solid ${cfg.icon}" style="color:${cfg.headerColor}; font-size:0.85rem;"></i>
+                        </div>
+                        <div style="min-width:0;">
+                            <div style="font-size:0.72rem; font-weight:800; color:${cfg.headerColor}; text-transform:uppercase; letter-spacing:0.06em; line-height:1.1;">${cfg.label}</div>
+                            <div style="font-size:0.62rem; color:#6b7280; line-height:1.2;">${cfg.sublabel}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                        <span style="background:${cfg.countBg}; color:${cfg.countColor}; font-size:0.68rem; font-weight:800; padding:3px 9px; border-radius:12px;">${list.length}</span>
+                        ${arrSum > 0 ? `<span style="font-size:0.78rem; font-weight:800; color:#111827;">${fmtArr(arrSum)}</span>` : ''}
+                    </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    ${visible.map(d => buildRow(d, tier)).join('')}
+                </div>
+                ${expandable}
             </div>
-            ${buildRows(s.list, s.tier)}
-        </div>
-    `).join('');
+        `;
+    }
 
-    const pillCritical = critical.length > 0 ? `<span style="background:rgba(239,68,68,0.1); color:#b91c1c; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;"><i class="fa-solid fa-circle-exclamation"></i> ${critical.length} Critical</span>` : '';
-    const pillWarning  = warning.length  > 0 ? `<span style="background:rgba(245,158,11,0.1); color:#92400e; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;"><i class="fa-solid fa-clock"></i> ${warning.length} Renew Soon</span>` : '';
-    const pillOverdue  = overdue.length  > 0 ? `<span style="background:rgba(107,114,128,0.1); color:#4b5563; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px;"><i class="fa-solid fa-triangle-exclamation"></i> ${overdue.length} Overdue</span>` : '';
+    const sectionsList = [
+        { tier: 'critical', list: critical, arr: criticalArr },
+        { tier: 'warning',  list: warning,  arr: warningArr  },
+        { tier: 'overdue',  list: overdue,  arr: overdueArr  },
+    ].filter(s => s.list && s.list.length > 0);
+
+    const sectionsHTML = sectionsList.map(s => buildSection(s.tier, s.list, s.arr)).join('');
+    const gridCols = `repeat(auto-fit, minmax(min(100%, 320px), 1fr))`;
+
+    const pillCritical = critical.length > 0 ? `<span style="background:rgba(239,68,68,0.1); color:#b91c1c; font-size:0.68rem; font-weight:800; padding:4px 10px; border-radius:20px; white-space:nowrap;"><i class="fa-solid fa-circle-exclamation"></i> ${critical.length} Critical</span>` : '';
+    const pillWarning  = warning.length  > 0 ? `<span style="background:rgba(245,158,11,0.1); color:#92400e; font-size:0.68rem; font-weight:800; padding:4px 10px; border-radius:20px; white-space:nowrap;"><i class="fa-solid fa-clock"></i> ${warning.length} Renew Soon</span>` : '';
+    const pillOverdue  = overdue.length  > 0 ? `<span style="background:rgba(107,114,128,0.1); color:#4b5563; font-size:0.68rem; font-weight:800; padding:4px 10px; border-radius:20px; white-space:nowrap;"><i class="fa-solid fa-triangle-exclamation"></i> ${overdue.length} Overdue</span>` : '';
 
     return `
-        <div class="stat-card" style="padding:22px; border:1px solid rgba(239,68,68,0.18); background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(239,68,68,0.06);">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; border-bottom:1px solid #fef2f2; padding-bottom:14px; flex-wrap:wrap; row-gap:8px;">
-                <div style="background:rgba(239,68,68,0.1); color:#ef4444; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-shield-halved" style="font-size:1rem;"></i></div>
-                <div>
-                    <h3 style="margin:0; font-size:0.72rem; color:#ef4444; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">CHURN RISK ALERT</h3>
-                    <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827;">Contract Renewal Monitor</h2>
+        <div class="stat-card" style="display:block; padding:20px 22px; border:1px solid rgba(239,68,68,0.18); background:#fff; border-radius:14px; box-shadow:0 4px 16px rgba(239,68,68,0.06);">
+            <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #fef2f2; flex-wrap:wrap; row-gap:10px;">
+                <div style="background:rgba(239,68,68,0.1); color:#ef4444; width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-shield-halved" style="font-size:1.05rem;"></i></div>
+                <div style="flex-shrink:0;">
+                    <h3 style="margin:0; font-size:0.7rem; color:#ef4444; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; line-height:1.2;">CHURN RISK ALERT</h3>
+                    <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827; line-height:1.3;">Contract Renewal Monitor</h2>
                 </div>
-                <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <div style="margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
                     ${pillCritical}${pillWarning}${pillOverdue}
-                    ${totalArrAtRisk > 0 ? `<span style="background:#fef3c7; color:#92400e; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:20px; border:1px solid #fde68a;"><i class="fa-solid fa-dollar-sign"></i> ${fmtArr(totalArrAtRisk)} ARR at Risk</span>` : ''}
+                    ${totalArrAtRisk > 0 ? `<span style="background:#fef3c7; color:#92400e; font-size:0.7rem; font-weight:800; padding:4px 12px; border-radius:20px; border:1px solid #fde68a; white-space:nowrap;"><i class="fa-solid fa-dollar-sign"></i> ${fmtArr(totalArrAtRisk)} ARR at Risk</span>` : ''}
                 </div>
             </div>
-            <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+            <div style="display:grid; grid-template-columns:${gridCols}; gap:18px; align-items:flex-start;">
                 ${sectionsHTML}
             </div>
         </div>
@@ -1523,6 +1574,143 @@ export function getPartnerPerformanceHTML() {
                 </div>
             </div>
             <div style="position: relative; height: 400px;"><canvas id="partner-top-performer-chart"></canvas></div>
+        </div>
+    `;
+}
+
+/**
+ * Build per-account status board (timeline cards) like the reference design.
+ * Renders one card per running/hold/decision-required POC.
+ * @param {Object} stats - getPocStats result
+ * @returns {string} HTML
+ */
+export function getPocStatusBoardHTML(stats) {
+    const list = (stats.runningList || []).slice();
+    if (list.length === 0) return '';
+
+    const now = new Date();
+    const todayMs = now.getTime();
+    const dayMs = 86400 * 1000;
+
+    const cards = list.map(r => {
+        const startMs = r.startDateMs;
+        const startDate = startMs ? new Date(startMs) : null;
+
+        // Scheduled end: License End if available, else Start + max(120, days+30) days as projected end
+        let endMs = r.licenseEndMs;
+        let endLabel = r.licenseEndDisplay ? `License end: <b>${r.licenseEndDisplay}</b>` : null;
+        if (!endMs && startMs) {
+            const projectedDays = Math.max(120, (r.days || 0) + 30);
+            endMs = startMs + projectedDays * dayMs;
+            endLabel = `Should finish: <b>${new Date(endMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}</b>`;
+        }
+        if (!endMs) {
+            endMs = todayMs + 30 * dayMs;
+            endLabel = endLabel || 'Scheduled end: TBD';
+        }
+
+        // Status badge logic
+        const isOverdue = (r.daysSinceStart != null && r.daysSinceStart > 60) || r.isStalled || (endMs < todayMs);
+        const isHold = String(r.status).toLowerCase() === 'hold';
+        let badgeColor, badgeBg, badgeIcon, badgeText;
+        if (isHold) { badgeColor = '#D97706'; badgeBg = '#FEF3C7'; badgeIcon = 'fa-pause'; badgeText = 'Hold'; }
+        else if (isOverdue) { badgeColor = '#DC2626'; badgeBg = '#FEE2E2'; badgeIcon = 'fa-triangle-exclamation'; badgeText = 'Overdue'; }
+        else { badgeColor = '#1D4ED8'; badgeBg = '#DBEAFE'; badgeIcon = 'fa-circle-play'; badgeText = 'Running'; }
+
+        // Timeline track positioning (% from left)
+        const totalSpan = Math.max(1, (endMs - (startMs || todayMs)));
+        const todayPctRaw = startMs ? ((todayMs - startMs) / totalSpan) * 100 : 100;
+        const todayPct = Math.max(2, Math.min(98, todayPctRaw));
+        const todayPastEnd = todayMs > endMs;
+
+        // Issue dots derived from notes/techComm — simple keyword scan, distributed along timeline
+        const noteText = `${r.notes || ''} ${r.techComm || ''}`;
+        const issueKeywords = ['issue', 'block', 'hold', 'pause', 'overdue', 'delay', 'license expired', 'pic unreachable', 'pending'];
+        const detectedIssues = [];
+        const lower = noteText.toLowerCase();
+        issueKeywords.forEach(kw => {
+            if (lower.includes(kw)) detectedIssues.push(kw);
+        });
+        const issueDotsHtml = detectedIssues.slice(0, 5).map((kw, idx) => {
+            const pct = 15 + (idx + 1) * (Math.max(0, todayPct - 20) / Math.max(1, detectedIssues.length));
+            return `<div class="poc-sb-dot poc-sb-dot-issue" style="left:${pct}%" title="${kw}">
+                        <span class="poc-sb-dot-label">${kw}</span>
+                    </div>`;
+        }).join('');
+
+        // Format short dates for axis
+        const startShort = startDate ? startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+        const endShort = new Date(endMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+        const todayShort = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        // Footer bullets — split notes by sentence-like separators
+        const footerBits = noteText
+            .split(/[•·\.\n\r]|[ ]·[ ]/)
+            .map(s => s.trim())
+            .filter(s => s.length >= 4)
+            .slice(0, 4);
+        const footerHtml = footerBits.length
+            ? `<div class="poc-sb-footer">${footerBits.map(b => `<span class="poc-sb-footer-bit">${b}</span>`).join('<span class="poc-sb-sep">·</span>')}</div>`
+            : '';
+
+        const indSuffix = r.industry && r.industry !== 'Unknown' ? ` — ${r.industry}` : '';
+
+        return `
+        <div class="poc-status-card ${isOverdue ? 'is-overdue' : ''}">
+            <div class="poc-sb-head">
+                <div class="poc-sb-title-wrap">
+                    <span class="poc-sb-title-pill">${r.name}${indSuffix}</span>
+                </div>
+                <div class="poc-sb-badge" style="color:${badgeColor}; background:${badgeBg};">
+                    <i class="fa-solid ${badgeIcon}"></i> ${badgeText}
+                </div>
+            </div>
+            <div class="poc-sb-meta">
+                <span class="poc-sb-meta-item"><span class="poc-sb-meta-key">Start:</span> <b>${r.startDate || '—'}</b></span>
+                <span class="poc-sb-meta-item"><span class="poc-sb-meta-key">Working days:</span> <b>${r.days}</b> days</span>
+                <span class="poc-sb-meta-item"><span class="poc-sb-meta-key">Partner:</span> <b>${r.partner}</b></span>
+                <span class="poc-sb-meta-item"><span class="poc-sb-meta-key">Est. Value:</span> <b>$${formatCurrency(r.estValue || 0)}</b></span>
+            </div>
+            <div class="poc-sb-timeline">
+                <div class="poc-sb-track ${isOverdue ? 'overdue-track' : ''}">
+                    <div class="poc-sb-progress" style="width:${todayPct}%"></div>
+                    ${issueDotsHtml}
+                    <div class="poc-sb-dot poc-sb-dot-today" style="left:${todayPct}%">
+                        <span class="poc-sb-dot-label poc-sb-today-label">Today<br>${todayShort}</span>
+                    </div>
+                    <div class="poc-sb-dot poc-sb-dot-start" style="left:0%"></div>
+                    <div class="poc-sb-dot poc-sb-dot-end ${todayPastEnd ? 'past' : ''}" style="left:100%"></div>
+                </div>
+                <div class="poc-sb-axis">
+                    <span class="poc-sb-axis-l">Start<br>${startShort}</span>
+                    <span class="poc-sb-axis-r">${endLabel ? endLabel.replace(/<\/?b>/g, '') : 'End'}<br>${endShort}</span>
+                </div>
+            </div>
+            ${footerHtml}
+        </div>`;
+    }).join('');
+
+    return `
+        <div class="stat-card highlight-card" style="padding: 24px; margin-bottom: 30px; display: block;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #111827; margin: 0;">
+                        <i class="fa-solid fa-chart-gantt" style="margin-right:8px; color:#1D4ED8;"></i>Account Status Board
+                    </h3>
+                    <p style="font-size: 0.75rem; color: #6B7280; margin: 4px 0 0;">Per-account POC timeline — start, today, scheduled end</p>
+                </div>
+                <div style="font-size: 0.75rem; color: #6B7280;">${list.length} accounts</div>
+            </div>
+            <div class="poc-sb-grid">
+                ${cards}
+            </div>
+            <div class="poc-sb-legend">
+                <span><span class="poc-sb-legend-line"></span> Active progress</span>
+                <span><span class="poc-sb-legend-line overdue"></span> Overdue timeline</span>
+                <span><span class="poc-sb-legend-dot issue"></span> Issue/block</span>
+                <span><span class="poc-sb-legend-dot today"></span> Today</span>
+                <span><span class="poc-sb-legend-dot end"></span> Scheduled end</span>
+            </div>
         </div>
     `;
 }
@@ -1715,6 +1903,8 @@ export function getPocHTML(stats, filters, uniqueValues) {
             </div>
         </div>`;
         })()}
+
+        ${getPocStatusBoardHTML(stats)}
     `;
 }
 

@@ -760,11 +760,17 @@ export function getPocStats(data, filters, workbookData) {
             else if (curStatus.includes('won') || curStatus.includes('complete')) { statusLabel = 'Won'; statusColor = '#34C759'; }
             else if (curStatus === '') { statusLabel = 'Others'; statusColor = '#9CA3AF'; }
 
+            const estValEntry = parseCurrency(r[findEstimatedValueKey(allKeys)] || 0);
+            const licEndKey = findKey(allKeys, k => k.toLowerCase().replace(/[^a-z]/g, '') === 'poclicenseend', k => k.toLowerCase().includes('license') && k.toLowerCase().includes('end'));
+            const licEndDate = licEndKey ? parseExcelDateSafe(r[licEndKey]) : null;
+            const indRaw = String(r[findKey(allKeys, k => k.toLowerCase().includes('industry'))] || 'Unknown').trim();
+            const indClean = indRaw.split('|').pop().replace(/[ㄱ-ㅎㅏ-ㅣ가-힣]/g, '').trim() || indRaw || 'Unknown';
+
             const entry = {
                 name: r[findPocNameKey(allKeys)] || 'Unknown',
                 partner: r[findKey(allKeys, k => k.toLowerCase() === 'partner')] || 'Unknown',
                 country: r[findCountryKey(allKeys)] || 'Unknown',
-                industry: r[findKey(allKeys, k => k.toLowerCase().includes('industry'))] || 'Unknown',
+                industry: indClean,
                 days: runningDays,
                 status: statusLabel,
                 statusColor,
@@ -772,8 +778,12 @@ export function getPocStats(data, filters, workbookData) {
                 techComm: r[findKey(allKeys, k => k.toLowerCase().includes('technical comment'), k => k.toLowerCase().includes('report'))] || '',
                 isStalled: runningDays >= 100,
                 startDate: startDateDisplay,
+                startDateMs: startDateObj ? startDateObj.getTime() : null,
                 daysSinceStart,
-                isOverTwoMonths
+                isOverTwoMonths,
+                estValue: estValEntry,
+                licenseEndMs: licEndDate ? licEndDate.getTime() : null,
+                licenseEndDisplay: licEndDate ? licEndDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null
             };
             s.runningList.push(entry);
             if (runningDays >= 100) s.staledRunningList.push(entry);

@@ -1643,3 +1643,267 @@ select:focus {
     .wr-alert   { font-size: 0.72rem !important; padding: 5px 8px !important; }
     .wr-subsec  { font-size: 0.7rem !important; margin: 6px 0 4px !important; }
 }
+
+/* ================================================================
+   POC Account Status Board
+   ================================================================ */
+.poc-sb-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.poc-status-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 18px 22px 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.poc-status-card:hover {
+    border-color: #CBD5E1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.poc-status-card.is-overdue {
+    border-color: rgba(220, 38, 38, 0.25);
+}
+
+.poc-sb-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.poc-sb-title-pill {
+    display: inline-block;
+    background: #1D4ED8;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 0.92rem;
+    padding: 7px 14px;
+    border-radius: 7px;
+    letter-spacing: 0.005em;
+}
+
+.poc-status-card.is-overdue .poc-sb-title-pill {
+    background: #1F2937;
+}
+
+.poc-sb-badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.poc-sb-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin-bottom: 18px;
+    font-size: 0.82rem;
+    color: #374151;
+}
+
+.poc-sb-meta-key {
+    color: #6B7280;
+    font-weight: 500;
+    margin-right: 4px;
+}
+
+.poc-sb-meta-item b {
+    color: #111827;
+    font-weight: 700;
+}
+
+.poc-sb-timeline {
+    position: relative;
+    margin: 14px 4px 8px;
+}
+
+.poc-sb-track {
+    position: relative;
+    height: 2px;
+    background: #D1D5DB;
+    margin: 22px 0 0;
+    border-radius: 2px;
+}
+
+.poc-sb-track.overdue-track {
+    background: #FCA5A5;
+}
+
+.poc-sb-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #1D4ED8;
+    border-radius: 2px;
+}
+
+.poc-status-card.is-overdue .poc-sb-progress {
+    background: #DC2626;
+}
+
+.poc-sb-dot {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 2px solid #9CA3AF;
+    z-index: 2;
+}
+
+.poc-sb-dot-start {
+    border-color: #6B7280;
+    background: #FFFFFF;
+}
+
+.poc-sb-dot-end {
+    border-color: #6B7280;
+    background: #FFFFFF;
+    width: 14px;
+    height: 14px;
+}
+
+.poc-sb-dot-end.past {
+    border-color: #DC2626;
+}
+
+.poc-sb-dot-today {
+    background: #1D4ED8;
+    border-color: #1D4ED8;
+    width: 14px;
+    height: 14px;
+    box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.18);
+}
+
+.poc-status-card.is-overdue .poc-sb-dot-today {
+    background: #DC2626;
+    border-color: #DC2626;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18);
+}
+
+.poc-sb-dot-issue {
+    background: #DC2626;
+    border-color: #DC2626;
+    width: 10px;
+    height: 10px;
+}
+
+.poc-sb-dot-label {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.66rem;
+    color: #6B7280;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    text-transform: capitalize;
+}
+
+.poc-sb-dot-issue .poc-sb-dot-label {
+    color: #DC2626;
+}
+
+.poc-sb-today-label {
+    color: #1D4ED8;
+    text-align: center;
+    line-height: 1.15;
+}
+
+.poc-status-card.is-overdue .poc-sb-today-label {
+    color: #DC2626;
+}
+
+.poc-sb-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: #6B7280;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.poc-sb-axis-l { text-align: left; }
+.poc-sb-axis-r { text-align: right; }
+
+.poc-sb-footer {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed #E5E7EB;
+    font-size: 0.76rem;
+    color: #6B7280;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.poc-status-card.is-overdue .poc-sb-footer {
+    color: #B91C1C;
+}
+
+.poc-sb-footer-bit::before {
+    content: "■ ";
+    color: inherit;
+    font-size: 0.65rem;
+    margin-right: 2px;
+}
+
+.poc-sb-sep {
+    color: #D1D5DB;
+    margin: 0 4px;
+}
+
+.poc-sb-legend {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #F3F4F6;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    font-size: 0.74rem;
+    color: #6B7280;
+    align-items: center;
+}
+
+.poc-sb-legend-line {
+    display: inline-block;
+    width: 22px;
+    height: 2px;
+    background: #1D4ED8;
+    vertical-align: middle;
+    margin-right: 6px;
+    border-radius: 2px;
+}
+
+.poc-sb-legend-line.overdue { background: #DC2626; }
+
+.poc-sb-legend-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+.poc-sb-legend-dot.issue { background: #DC2626; }
+.poc-sb-legend-dot.today { background: #1D4ED8; }
+.poc-sb-legend-dot.end { background: #FFFFFF; border: 2px solid #6B7280; width: 8px; height: 8px; }
