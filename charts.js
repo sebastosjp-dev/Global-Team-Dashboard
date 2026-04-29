@@ -568,7 +568,7 @@ export function initOrderSheetCharts(stats) {
             y: { display: false, beginAtZero: true }
         },
         elements: {
-            point: { radius: 2, hoverRadius: 5 },
+            point: { radius: 3, hoverRadius: 7, hitRadius: 20, hoverBorderWidth: 3 },
             line: { borderWidth: 2, tension: 0.4 }
         },
         layout: {
