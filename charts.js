@@ -500,15 +500,15 @@ export function initOrderSheetCharts(stats) {
                     afterLabel: (ctx) => {
                         const data = ctx.chart.data.datasets[0].data;
                         const i = ctx.dataIndex;
-                        if (i === 0) return ' 전년 대비: 기준 연도';
+                        if (i === 0) return ' YoY: baseline year';
                         const prev = data[i - 1];
                         const curr = data[i];
-                        if (!prev || prev <= 0) return ' 전년 대비: N/A (직전 연도 0)';
+                        if (!prev || prev <= 0) return ' YoY: N/A (prior year is 0)';
                         const yoy = ((curr / prev) - 1) * 100;
                         const sign = yoy >= 0 ? '+' : '';
                         const delta = curr - prev;
                         const dSign = delta >= 0 ? '+' : '−';
-                        return ` 전년 대비 (YoY): ${sign}${yoy.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(delta))})`;
+                        return ` YoY: ${sign}${yoy.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(delta))})`;
                     }
                 }
             }
