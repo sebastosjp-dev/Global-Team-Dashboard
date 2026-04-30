@@ -9,7 +9,7 @@ import {
     chartRegistry, initOrderSheetCharts, initPipelineCharts,
     initPartnerCharts, initPartnerPerformanceCharts,
     initPocCharts, initEventCharts, initServiceAnalysisCharts,
-    initTcvArrChart
+    initTcvArrChart, initProjectCharts
 } from './charts.js';
 import {
     getOrderSheetStats, getPipelineStats, getPartnerStats,
@@ -18,7 +18,8 @@ import {
     getCountrySpecificStats, getServiceAnalysisStats,
     getCollectionStats, getDetailedCollectionAnalysis,
     getTcvArrStats, getChurnRiskStats,
-    getPartnerROIStats, getPipelineCoverageStats
+    getPartnerROIStats, getPipelineCoverageStats,
+    getProjectStats
 } from './services.js';
 import {
                                                 getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
@@ -28,7 +29,8 @@ import {
     getKPIHTML, getCollectionHTML,
     getTcvArrHTML, getChurnRiskHTML,
     getPartnerROIHTML, getPipelineCoverageHTML,
-    getPipelineChangeLogHTML, getCurrentPipelineListHTML
+    getPipelineChangeLogHTML, getCurrentPipelineListHTML,
+    getProjectHTML
 } from './ui.js';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -49,7 +51,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     let hasMetrics = false;
     const isGlobalTab = tabName && tabName.includes('Global(Contract Date)');
     const isCountryTab = tabName && filterCountry === null &&
-        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'CSM', 'END USER (CSM)', 'COLLECTION'].includes(tabName) &&
+        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'CSM', 'END USER (CSM)', 'COLLECTION', 'PROJECT'].includes(tabName) &&
         !isGlobalTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
@@ -97,6 +99,11 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'TCV_ARR' && workbookData['ORDER SHEET']) {
         _renderTcvArr(workbookData, metricsGrid);
+        hasMetrics = true;
+    }
+
+    if (tabName === 'PROJECT' && workbookData['PROJECT']) {
+        _renderProject(workbookData['PROJECT'], filterCountry, metricsGrid, searchInput);
         hasMetrics = true;
     }
 
@@ -498,6 +505,30 @@ function _renderPoc(data, filterCountry, metricsGrid, workbookData) {
     };
 
     window.renderPocUI();
+}
+
+function _renderProject(data, filterCountry, metricsGrid, searchInput) {
+    if (!data || data.length === 0) return;
+    metricsGrid.innerHTML = '';
+    const projectContainer = document.createElement('div');
+    projectContainer.id = 'project-dashboard-container';
+    projectContainer.style.gridColumn = '1 / -1';
+    metricsGrid.appendChild(projectContainer);
+
+    window.projectFilters = window.projectFilters || { country: 'All' };
+
+    window.renderProjectUI = function () {
+        const { stats, uniqueValues } = getProjectStats(data, window.projectFilters.country);
+        const container = document.getElementById('project-dashboard-container');
+        if (container) {
+            container.innerHTML = getProjectHTML(stats, window.projectFilters.country, uniqueValues);
+            const sel = document.getElementById('project-filter-country');
+            if (sel) sel.addEventListener('change', (e) => { window.projectFilters.country = e.target.value; window.renderProjectUI(); });
+            setTimeout(() => initProjectCharts(stats), 50);
+        }
+    };
+
+    window.renderProjectUI();
 }
 
 function _renderEvent(eventData, filterCountry, metricsGrid) {
