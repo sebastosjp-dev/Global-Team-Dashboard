@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(python3 -c \"import openpyxl; wb = openpyxl.load_workbook\\('2026 Global Rev.01.xlsx', data_only=True\\); print\\('Sheets:', wb.sheetnames\\); ws = wb['Staff Training']; rows = list\\(ws.iter_rows\\(values_only=True\\)\\); print\\('First row \\(headers\\):', rows[0]\\); print\\('Row count:', len\\(rows\\)\\); print\\('Sample row:', rows[1] if len\\(rows\\) > 1 else None\\)\")"
     ]
   }
 }

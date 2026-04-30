@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="xr" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision"><authors><author>tc={cfc38376-577a-4b90-af47-29763799304e}</author><author/></authors><commentList><comment ref="A1" authorId="0" shapeId="0" xr:uid="{CFC38376-577A-4B90-AF47-29763799304E}"><text><t>[스레드 댓글]
+
+사용 중인 버전의 Excel에서 이 스레드 댓글을 읽을 수 있지만 파일을 이후 버전의 Excel에서 열면 편집 내용이 모두 제거됩니다. 자세한 정보: https://go.microsoft.com/fwlink/?linkid=870924.
+
+[Tasks]
+
+이 주석에 고정 된 작업이 클라이언트에서 표시 되지 않습니다.
+
+댓글:
+    @clarissa@whatap.io please clear these rows if data is not available.
+Assigned to clarissa@whatap.io
+답글:
+    Okay, will clear the rows. 
+*I put these based on your first Order Sheet but the files are not enough for me to check the exact numbers and details</t></text></comment><comment ref="N1" authorId="1" shapeId="0" xr:uid="{00000000-0006-0000-0000-000001000000}"><text><r><rPr><sz val="10"/><color rgb="FF000000"/><rFont val="Arial"/><scheme val="minor"/></rPr><t>TCV / Contract years</t></r></text></comment></commentList></comments>
