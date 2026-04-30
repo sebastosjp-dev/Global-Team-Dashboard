@@ -1306,6 +1306,88 @@ export function initPocCharts(stats) {
     }
 }
 
+/* ═══ PROJECT Charts ═══ */
+export function initProjectCharts(stats) {
+    chartRegistry.destroyTag('project');
+
+    const ctxActivity = document.getElementById('project-activity-chart');
+    if (ctxActivity) {
+        chartRegistry.register('project-activity', new Chart(ctxActivity, {
+            type: 'line',
+            data: {
+                labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                datasets: [
+                    {
+                        label: 'New Logs',
+                        data: stats.newPerMonth,
+                        borderColor: '#007AFF',
+                        backgroundColor: 'rgba(0,122,255,0.12)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#007AFF'
+                    },
+                    {
+                        label: 'Resolved',
+                        data: stats.resolvedPerMonth,
+                        borderColor: '#10B981',
+                        backgroundColor: 'rgba(16,185,129,0.12)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#10B981'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+            }
+        }));
+    }
+
+    const ctxCategory = document.getElementById('project-category-chart');
+    if (ctxCategory && stats.sortedCategories.length > 0) {
+        const palette = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
+        chartRegistry.register('project-category', new Chart(ctxCategory, {
+            type: 'doughnut',
+            data: {
+                labels: stats.sortedCategories.map(c => c.name),
+                datasets: [{ data: stats.sortedCategories.map(c => c.val), backgroundColor: palette }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+        }));
+    }
+
+    const ctxStatus = document.getElementById('project-status-chart');
+    if (ctxStatus) {
+        const statusEntries = Object.entries(stats.byStatus);
+        const colorFor = (label) => {
+            const s = String(label).toLowerCase();
+            if (s.includes('resolved') || s.includes('complete') || s.includes('done')) return '#10B981';
+            if (s.includes('progress')) return '#F59E0B';
+            if (s.includes('hold') || s.includes('block')) return '#EF4444';
+            return '#9CA3AF';
+        };
+        chartRegistry.register('project-status', new Chart(ctxStatus, {
+            type: 'bar',
+            data: {
+                labels: statusEntries.map(([k]) => k),
+                datasets: [{ data: statusEntries.map(([, v]) => v), backgroundColor: statusEntries.map(([k]) => colorFor(k)), borderRadius: 4 }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+            }
+        }));
+    }
+}
+
 /* ═══ EVENT Charts ═══ */
 export function initEventCharts(stats) {
     if (!stats) return;

@@ -2219,6 +2219,123 @@ export function getPocHTML(stats, filters, uniqueValues) {
     `;
 }
 
+export function getProjectHTML(stats, filterCountry, uniqueValues) {
+    const currentYear = new Date().getFullYear();
+    const country = filterCountry || 'All';
+
+    const escape = (str) => String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+    const statusColor = (status) => {
+        const s = String(status || '').toLowerCase();
+        if (s.includes('resolved') || s.includes('complete') || s.includes('done')) return '#10B981';
+        if (s.includes('progress')) return '#F59E0B';
+        if (s.includes('hold') || s.includes('block')) return '#EF4444';
+        return '#6B7280';
+    };
+
+    const recent = stats.entries.slice(0, 15);
+    const rowsHtml = recent.map((r, i) => `
+        <tr style="border-bottom: 1px solid #E5E7EB; background: ${i % 2 === 0 ? '#FAFAFA' : 'transparent'};">
+            <td style="padding: 10px 14px; color: #9CA3AF; font-size: 0.78rem;">${i + 1}</td>
+            <td style="padding: 10px 14px; color: #374151; font-size: 0.8rem;">${escape(r.country)}</td>
+            <td style="padding: 10px 14px; font-weight: 600; color: #111827; font-size: 0.8rem;">${escape(r.poc)}</td>
+            <td style="padding: 10px 14px; color: #374151; font-size: 0.78rem;">${escape(r.category)}</td>
+            <td style="padding: 10px 14px; text-align: center;">
+                <span style="background: ${statusColor(r.status)}20; color: ${statusColor(r.status)}; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 0.7rem; text-transform: uppercase;">${escape(r.status) || '-'}</span>
+            </td>
+            <td style="padding: 10px 14px; text-align: center; color: #374151; font-size: 0.78rem;">${fmtDate(r.date)}</td>
+            <td style="padding: 10px 14px; text-align: center; color: #374151; font-size: 0.78rem;">${fmtDate(r.resolvedDate)}</td>
+            <td style="padding: 10px 14px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6B7280; font-size: 0.78rem;">${escape(r.log) || '-'}</td>
+        </tr>
+    `).join('');
+    const thStyle = `padding: 10px 14px; color: #6B7280; font-weight: 600; font-size: 0.78rem; white-space: nowrap; text-align: left;`;
+
+    return `
+        <div class="stat-card" style="display:flex; flex-wrap: wrap; gap: 20px; padding: 18px; background: #FFFFFF; border: 1px solid #F3F4F6; margin-bottom: 24px;">
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:0.8rem; color:#6B7280; font-weight:600; text-transform: uppercase;"><i class="fa-solid fa-earth-americas" style="margin-right: 6px;"></i>Country</label>
+                <select id="project-filter-country" style="background:#F9FAFB; color:#111827; border:1px solid #334155; padding:8px 12px; border-radius:6px; width: 180px;">
+                    ${Array.from(uniqueValues.countries).map(c => `<option value="${c}" ${country === c ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; margin-bottom: 30px;">
+            <div class="stat-card highlight-card" style="background: #EBF4FF; border: 1px solid rgba(0,122,255,0.2); padding: 24px; border-left: 5px solid #007AFF;">
+                <div class="stat-icon" style="background: rgba(0,122,255,0.15); color: #007AFF; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-list-check"></i></div>
+                <div>
+                    <h3 style="color: #007AFF; font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Total Logs</h3>
+                    <h2 style="color: #111827; font-size: 2.2rem; font-weight: 800; margin: 0;">${stats.totalLogs} <span style="font-size: 1rem; font-weight: 400; opacity: 0.7;">Entries</span></h2>
+                </div>
+            </div>
+            <div class="stat-card highlight-card" style="background: #FFF9ED; border: 1px solid rgba(245,158,11,0.2); padding: 24px; border-left: 5px solid #F59E0B;">
+                <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: #F59E0B; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-spinner"></i></div>
+                <div>
+                    <h3 style="color: #D97706; font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">In Progress</h3>
+                    <h2 style="color: #111827; font-size: 2.2rem; font-weight: 800; margin: 0;">${stats.inProgressCount} <span style="font-size: 1rem; font-weight: 400; opacity: 0.7;">Open</span></h2>
+                </div>
+            </div>
+            <div class="stat-card highlight-card" style="background: #ECFDF5; border: 1px solid rgba(16,185,129,0.2); padding: 24px; border-left: 5px solid #10B981;">
+                <div class="stat-icon" style="background: rgba(16,185,129,0.15); color: #10B981; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-circle-check"></i></div>
+                <div>
+                    <h3 style="color: #059669; font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Resolved</h3>
+                    <h2 style="color: #111827; font-size: 2.2rem; font-weight: 800; margin: 0;">${stats.resolvedCount} <span style="font-size: 1rem; font-weight: 400; opacity: 0.7;">Closed</span></h2>
+                </div>
+            </div>
+            <div class="stat-card highlight-card" style="background: #FDF2FF; border: 1px solid rgba(168,85,247,0.25); padding: 24px; border-left: 5px solid #A855F7;">
+                <div class="stat-icon" style="background: rgba(168,85,247,0.15); color: #A855F7; width: 56px; height: 56px; font-size: 1.5rem;"><i class="fa-solid fa-stopwatch"></i></div>
+                <div>
+                    <h3 style="color: #A855F7; font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Avg Resolution</h3>
+                    <h2 style="color: #111827; font-size: 2.2rem; font-weight: 800; margin: 0;">${stats.avgResolutionDays !== null ? stats.avgResolutionDays : '-'} <span style="font-size: 1rem; font-weight: 400; opacity: 0.7;">Days</span></h2>
+                    <p style="color: #7C3AED; font-size: 0.72rem; margin: 4px 0 0; font-weight: 500;">across resolved logs</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card highlight-card" style="padding: 24px; margin-bottom: 30px; background: #FFFFFF; border: 1px solid #F3F4F6; display: block;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: #111827; margin-bottom: 20px;">Monthly Project Activity (${currentYear})</h3>
+            <div style="position: relative; height: 350px;"><canvas id="project-activity-chart"></canvas></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px;">
+            <div class="stat-card highlight-card" style="padding: 20px; display: flex; flex-direction: column;">
+                <h4 style="font-size: 0.85rem; color: #111827; margin-bottom: 16px;"><i class="fa-solid fa-pie-chart" style="margin-right: 8px;"></i>Category Distribution</h4>
+                <div style="position: relative; flex: 1; min-height: 240px;"><canvas id="project-category-chart"></canvas></div>
+            </div>
+            <div class="stat-card highlight-card" style="padding: 20px; display: flex; flex-direction: column;">
+                <h4 style="font-size: 0.85rem; color: #111827; margin-bottom: 16px;"><i class="fa-solid fa-flag" style="margin-right: 8px;"></i>Status Breakdown</h4>
+                <div style="position: relative; flex: 1; min-height: 240px;"><canvas id="project-status-chart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="stat-card highlight-card" style="padding: 24px; display: block;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #111827; margin: 0;">Recent Project Logs</h3>
+                    <p style="font-size: 0.75rem; color: #6B7280; margin: 4px 0 0;">Latest ${recent.length} of ${stats.totalLogs} entries</p>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                    <thead>
+                        <tr style="background: #F3F4F6; border-bottom: 2px solid #E5E7EB;">
+                            <th style="${thStyle}">#</th>
+                            <th style="${thStyle}">Country</th>
+                            <th style="${thStyle}">POC</th>
+                            <th style="${thStyle}">Category</th>
+                            <th style="${thStyle} text-align: center;">Status</th>
+                            <th style="${thStyle} text-align: center;">Date</th>
+                            <th style="${thStyle} text-align: center;">Resolved</th>
+                            <th style="${thStyle}">Log Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml || '<tr><td colspan="8" style="padding: 20px; text-align: center; color: #9CA3AF;">No project logs found.</td></tr>'}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
 export function getEventHTML(stats) {
     if (!stats) return '';
     const currentYear = new Date().getFullYear();
