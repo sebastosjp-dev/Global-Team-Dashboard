@@ -856,6 +856,103 @@ export function getPocStats(data, filters, workbookData) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   PROJECT
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Compute aggregated stats for the PROJECT sheet (milestone / issue log).
+ * Sheet columns: Country, POC, Date, Category, Status, Resolved Date, Log Details.
+ * @param {Object[]} data
+ * @param {string} filterCountry - 'All' or country code
+ * @returns {{stats: Object, uniqueValues: Object}}
+ */
+export function getProjectStats(data, filterCountry) {
+    const currentYear = new Date().getFullYear();
+    const uniqueValues = { countries: new Set(['All']), categories: new Set(), statuses: new Set() };
+
+    const sample = data.find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
+    const keys = Object.keys(sample);
+    const countryKey = findCountryKey(keys);
+    const pocKey = findKey(keys, k => k.toLowerCase() === 'poc', k => k.toLowerCase().includes('poc'));
+    const dateKey = findKey(keys, k => k.toLowerCase() === 'date', k => k.toLowerCase().includes('date') && !k.toLowerCase().includes('resolved'));
+    const categoryKey = findKey(keys, k => k.toLowerCase().includes('category'));
+    const statusKey = findStatusKey(keys);
+    const resolvedKey = findKey(keys, k => k.toLowerCase().includes('resolved') && k.toLowerCase().includes('date'));
+    const logKey = findKey(keys, k => k.toLowerCase().includes('log') || k.toLowerCase().includes('detail'));
+
+    data.forEach(r => {
+        if (countryKey && r[countryKey]) uniqueValues.countries.add(normalizeCountry(r[countryKey]));
+        if (categoryKey && r[categoryKey]) uniqueValues.categories.add(String(r[categoryKey]).trim());
+        if (statusKey && r[statusKey]) uniqueValues.statuses.add(String(r[statusKey]).trim());
+    });
+
+    const filtered = data.filter(r => {
+        if (!Object.values(r).some(v => v !== null && v !== '')) return false;
+        if (filterCountry === 'All' || !filterCountry) return true;
+        const c = countryKey ? normalizeCountry(r[countryKey]) : '';
+        return c === filterCountry;
+    });
+
+    const s = {
+        totalLogs: 0,
+        inProgressCount: 0,
+        resolvedCount: 0,
+        inProgressList: [],
+        resolutionDaysSum: 0,
+        resolutionDaysCount: 0,
+        newPerMonth: Array(12).fill(0),
+        resolvedPerMonth: Array(12).fill(0),
+        byCategory: {},
+        byStatus: {},
+        entries: []
+    };
+
+    filtered.forEach(r => {
+        s.totalLogs++;
+        const status = String(r[statusKey] || '').trim();
+        const statusLower = status.toLowerCase();
+        const category = String(r[categoryKey] || 'Uncategorized').trim() || 'Uncategorized';
+        const country = countryKey ? normalizeCountry(r[countryKey]) : '';
+        const poc = String(r[pocKey] || '').trim();
+        const log = String(r[logKey] || '').trim();
+        const dateObj = dateKey ? parseExcelDateSafe(r[dateKey]) : null;
+        const resolvedDateObj = resolvedKey ? parseExcelDateSafe(r[resolvedKey]) : null;
+
+        const isResolved = statusLower.includes('resolved') || statusLower.includes('complete') || statusLower.includes('done');
+        if (isResolved) s.resolvedCount++;
+        else if (status) {
+            s.inProgressCount++;
+            s.inProgressList.push({ country, poc, category, status, log, date: dateObj });
+        }
+
+        s.byCategory[category] = (s.byCategory[category] || 0) + 1;
+        const statusBucket = status || 'Unknown';
+        s.byStatus[statusBucket] = (s.byStatus[statusBucket] || 0) + 1;
+
+        if (dateObj && dateObj.getFullYear() === currentYear) s.newPerMonth[dateObj.getMonth()]++;
+        if (resolvedDateObj && resolvedDateObj.getFullYear() === currentYear) s.resolvedPerMonth[resolvedDateObj.getMonth()]++;
+
+        if (isResolved && dateObj && resolvedDateObj && resolvedDateObj >= dateObj) {
+            s.resolutionDaysSum += Math.floor((resolvedDateObj - dateObj) / 86400000);
+            s.resolutionDaysCount++;
+        }
+
+        s.entries.push({
+            country, poc, category, status, log,
+            date: dateObj,
+            resolvedDate: resolvedDateObj,
+            isResolved
+        });
+    });
+
+    s.avgResolutionDays = s.resolutionDaysCount > 0 ? Math.round(s.resolutionDaysSum / s.resolutionDaysCount) : null;
+    s.entries.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+    s.sortedCategories = Object.entries(s.byCategory).map(([name, val]) => ({ name, val })).sort((a, b) => b.val - a.val);
+
+    return { stats: s, uniqueValues };
+}
+
+/* ═══════════════════════════════════════════════════════════════
    EVENT
    ═══════════════════════════════════════════════════════════════ */
 
