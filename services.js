@@ -728,7 +728,7 @@ export function getPocStats(data, filters, workbookData) {
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
         const isActuallyWon = notesStr.includes('won') && pEndDate && pEndDate.getFullYear() === analysisYear && pEndDate <= now;
 
-        if (isActuallyWon) {
+        if (isActuallyWon || curStatus.includes('won') || curStatus.includes('complete')) {
             s.statusStats.won++;
         } else if (curStatus.includes('hold') || curStatus.includes('pause')) {
             s.totalHold++;
