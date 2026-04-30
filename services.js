@@ -188,33 +188,35 @@ export function getPipelineStats(pData, orderData = []) {
         const wAmt = parseCurrency(r[wAmtRaw] || r['Weighted Amount']);
         const dealName = r[nameKey] || 'N/A';
 
-        if (!pipelineByCountry[c]) pipelineByCountry[c] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
-        pipelineByCountry[c].amount += amt;
-        pipelineByCountry[c].weighted += wAmt;
-        pipelineByCountry[c].count++;
-
         const dKey = findKey(keys, k => k.toLowerCase().includes('date'), k => k.toLowerCase().includes('start'));
         const d = dKey ? parseExcelDateSafe(r[dKey]) : null;
         const year = d ? d.getFullYear().toString() : 'Unknown';
 
         const qKey = findKey(keys, k => k.toLowerCase() === 'quarter', k => k.toLowerCase().includes('qtr'), k => k.toLowerCase() === 'q');
+        let qMatch = '';
         if (qKey && r[qKey]) {
             const qRaw = String(r[qKey]).toUpperCase().trim();
-            let qMatch = '';
             if (qRaw.includes('Q1')) qMatch = 'Q1';
             else if (qRaw.includes('Q2')) qMatch = 'Q2';
             else if (qRaw.includes('Q3')) qMatch = 'Q3';
             else if (qRaw.includes('Q4')) qMatch = 'Q4';
+        }
 
-            if (qMatch) {
-                if (!pipelineByQuarter[qMatch].countries[c]) {
-                    pipelineByQuarter[qMatch].countries[c] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
-                }
-                pipelineByQuarter[qMatch].countries[c].amount += amt;
-                pipelineByQuarter[qMatch].countries[c].weighted += wAmt;
-                pipelineByQuarter[qMatch].countries[c].count++;
-                pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, country: c, year });
+        // Only count rows tagged with a current-year quarter. Untagged rows are
+        // legacy/Lost/Won/Dropped entries that should not inflate the global hero.
+        if (qMatch) {
+            if (!pipelineByCountry[c]) pipelineByCountry[c] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
+            pipelineByCountry[c].amount += amt;
+            pipelineByCountry[c].weighted += wAmt;
+            pipelineByCountry[c].count++;
+
+            if (!pipelineByQuarter[qMatch].countries[c]) {
+                pipelineByQuarter[qMatch].countries[c] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
             }
+            pipelineByQuarter[qMatch].countries[c].amount += amt;
+            pipelineByQuarter[qMatch].countries[c].weighted += wAmt;
+            pipelineByQuarter[qMatch].countries[c].count++;
+            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, country: c, year });
         }
 
         if (year === currentYearStr && d) {
