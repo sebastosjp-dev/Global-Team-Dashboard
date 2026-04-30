@@ -1563,6 +1563,317 @@ export function getPipelineCoverageHTML(stats) {
     `;
 }
 
+/**
+ * Render the Pipeline Change Log table for a selected country.
+ * Shows snapshots over time with delta arrows highlighting suspicious drops.
+ * @param {string} filterCountry
+ * @param {Array} history - newest-last array of snapshots
+ * @param {Array} dealDiffs - same length as oldest-first sorted history; each entry
+ *   is null (for the initial) or `{ added, removed, modified }`
+ * @returns {string} HTML
+ */
+export function getPipelineChangeLogHTML(filterCountry, history, dealDiffs = []) {
+    const headerLeft = `
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div class="stat-icon" style="width:36px; height:36px; font-size:1rem; background:rgba(245,158,11,0.15); color:#f59e0b; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <div>
+                <h3 style="margin:0; font-size:0.72rem; color:#b45309; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">PIPELINE CHANGE LOG</h3>
+                <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827;">${filterCountry} — historical snapshots</h2>
+            </div>
+        </div>`;
+
+    if (!history || history.length === 0) {
+        return `
+        <div style="padding:22px; background:#FFFFFF; border:1px solid #fde68a; border-radius:14px; box-shadow:0 2px 10px rgba(245,158,11,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; border-bottom:1px solid #fef3c7; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
+                ${headerLeft}
+            </div>
+            <p style="color:#6B7280; font-size:0.8rem; margin:0;">No snapshots yet. The first snapshot will be recorded automatically the next time pipeline values for ${filterCountry} change.</p>
+        </div>`;
+    }
+
+    // Sort oldest-first to compute pairwise changes, then reverse for display.
+    const oldestFirst = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const initial = oldestFirst[0];
+    const latest = oldestFirst[oldestFirst.length - 1];
+
+    const fmtDateLong = (d) => new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+    // Compact baseline strip — sits at the very top of the body so it's the
+    // anchor reference everything else is compared against.
+    const initialQuarterPills = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
+        const v = initial.byQuarter?.[q] || { amount: 0, count: 0 };
+        return `<span style="background:#fff; border:1px solid #ddd6fe; padding:3px 8px; border-radius:6px; font-size:0.65rem; color:#4338ca; font-weight:600;">${q} <span style="color:#111827; font-weight:700;">$${formatCurrency(v.amount || 0)}</span> <span style="color:#9CA3AF;">·${v.count || 0}</span></span>`;
+    }).join('');
+    const baselineStrip = `
+        <div style="display:flex; align-items:center; gap:14px; padding:10px 14px; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:10px; margin-bottom:14px; flex-wrap:wrap;">
+            <span style="background:#4338ca; color:#fff; font-size:0.6rem; font-weight:800; padding:3px 8px; border-radius:6px; letter-spacing:0.05em; white-space:nowrap;"><i class="fa-solid fa-flag" style="margin-right:4px;"></i>INITIAL BASELINE</span>
+            <span style="font-size:0.7rem; color:#6B7280; white-space:nowrap;">${fmtDateLong(initial.date)}</span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;"><strong style="color:#111827;">${initial.count || 0}</strong> deals</span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Pipeline <strong style="color:#10b981;">$${formatCurrency(initial.amount || 0)}</strong></span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Weighted <strong style="color:#007AFF;">$${formatCurrency(initial.weighted || 0)}</strong></span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">TCV <strong style="color:#ef4444;">$${formatCurrency(initial.tcv || 0)}</strong></span>
+            <span style="display:flex; gap:5px; flex-wrap:wrap; margin-left:auto;">${initialQuarterPills}</span>
+        </div>`;
+
+    // Build per-change events: what shifted between consecutive snapshots.
+    const changeEvents = [];
+    for (let i = 1; i < oldestFirst.length; i++) {
+        const before = oldestFirst[i - 1];
+        const after = oldestFirst[i];
+        const quartersChanged = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
+            const b = before.byQuarter?.[q] || { amount: 0, weighted: 0, count: 0 };
+            const a = after.byQuarter?.[q] || { amount: 0, weighted: 0, count: 0 };
+            return {
+                q,
+                beforeAmt: b.amount || 0,
+                afterAmt: a.amount || 0,
+                delta: (a.amount || 0) - (b.amount || 0),
+                beforeCount: b.count || 0,
+                afterCount: a.count || 0
+            };
+        }).filter(x => Math.abs(x.delta) >= 1 || x.beforeCount !== x.afterCount);
+        const dealDiff = dealDiffs[i] || { added: [], removed: [], modified: [] };
+        changeEvents.push({ before, after, quartersChanged, dealDiff });
+    }
+    changeEvents.reverse(); // newest first
+
+    // Helper to render a single secondary metric chip (weighted / TCV / deals)
+    // when those also moved alongside pipeline.
+    const secondaryChip = (label, color, before, after, isCurrency = true) => {
+        const d = (after || 0) - (before || 0);
+        if (Math.abs(d) < 1) return '';
+        const arrow = d > 0 ? '▲' : '▼';
+        const sign = d > 0 ? '+' : '−';
+        const c = d > 0 ? '#10b981' : '#ef4444';
+        const cur = isCurrency ? `$${formatCurrency(after)}` : String(after);
+        const dStr = isCurrency ? `$${formatCurrency(Math.abs(d))}` : String(Math.abs(d));
+        return `<span style="display:inline-flex; align-items:center; gap:5px; background:#F9FAFB; border:1px solid #E5E7EB; padding:3px 8px; border-radius:6px; font-size:0.66rem;">
+            <span style="color:${color}; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;">${label}</span>
+            <span style="color:#111827; font-weight:700;">${cur}</span>
+            <span style="color:${c}; font-weight:800;">${arrow} ${sign}${dStr}</span>
+        </span>`;
+    };
+
+    let changeListHTML;
+    if (changeEvents.length === 0) {
+        changeListHTML = `<div style="padding:18px; text-align:center; font-size:0.78rem; color:#9CA3AF; font-style:italic; background:#FAFAFA; border:1px dashed #E5E7EB; border-radius:10px;">No changes recorded yet — the baseline above is the only snapshot so far.</div>`;
+    } else {
+        changeListHTML = changeEvents.map(ev => {
+            const dAmt = (ev.after.amount || 0) - (ev.before.amount || 0);
+            const arrow = dAmt > 0 ? '▲' : (dAmt < 0 ? '▼' : '–');
+            const color = dAmt > 0 ? '#10b981' : (dAmt < 0 ? '#ef4444' : '#6B7280');
+            const sign = dAmt > 0 ? '+' : (dAmt < 0 ? '−' : '');
+            const deltaPct = (ev.before.amount || 0) > 0
+                ? ((dAmt / ev.before.amount) * 100).toFixed(1)
+                : null;
+            const accentBg = dAmt < 0 ? '#FEF2F2' : (dAmt > 0 ? '#F0FDF4' : '#F9FAFB');
+            const accentBorder = dAmt < 0 ? '#fecaca' : (dAmt > 0 ? '#bbf7d0' : '#E5E7EB');
+
+            const secondaryChips = [
+                secondaryChip('Deals', '#6B7280', ev.before.count, ev.after.count, false),
+                secondaryChip('Weighted', '#007AFF', ev.before.weighted, ev.after.weighted, true),
+                secondaryChip('TCV', '#ef4444', ev.before.tcv, ev.after.tcv, true)
+            ].filter(Boolean).join(' ');
+
+            const quarterChips = ev.quartersChanged.length === 0
+                ? `<span style="color:#9CA3AF; font-size:0.72rem; font-style:italic;">Totals shifted but no single quarter moved by $1+ — likely a rounding-level edit.</span>`
+                : ev.quartersChanged.map(qc => {
+                    const qArrow = qc.delta > 0 ? '▲' : (qc.delta < 0 ? '▼' : '–');
+                    const qColor = qc.delta > 0 ? '#10b981' : (qc.delta < 0 ? '#ef4444' : '#6B7280');
+                    const qSign = qc.delta > 0 ? '+' : (qc.delta < 0 ? '−' : '');
+                    const qBg = qc.delta < 0 ? '#FEF2F2' : (qc.delta > 0 ? '#F0FDF4' : '#FFFBEB');
+                    const qBorder = qc.delta < 0 ? '#fecaca' : (qc.delta > 0 ? '#bbf7d0' : '#fde68a');
+                    const countNote = qc.beforeCount !== qc.afterCount
+                        ? ` <span style="color:#6B7280; font-size:0.62rem;">${qc.beforeCount}→${qc.afterCount} deals</span>`
+                        : '';
+                    return `<span style="display:inline-flex; align-items:center; gap:6px; background:${qBg}; border:1px solid ${qBorder}; padding:6px 10px; border-radius:8px; font-size:0.72rem; line-height:1.3;">
+                        <strong style="color:#111827; font-size:0.78rem; background:#fff; border:1px solid ${qBorder}; padding:1px 6px; border-radius:5px;">${qc.q}</strong>
+                        <span style="color:#9CA3AF;">$${formatCurrency(qc.beforeAmt)} →</span>
+                        <span style="color:#111827; font-weight:700;">$${formatCurrency(qc.afterAmt)}</span>
+                        <span style="color:${qColor}; font-weight:800;">${qArrow} ${qSign}$${formatCurrency(Math.abs(qc.delta))}</span>${countNote}
+                    </span>`;
+                }).join(' ');
+
+            // Deal-level diff chips. Surfaces deal swaps that totals/quarters can hide.
+            const diff = ev.dealDiff || { added: [], removed: [], modified: [] };
+            const renderDealChip = (mode, deal, beforeDeal) => {
+                const bg = mode === 'added' ? '#F0FDF4' : (mode === 'removed' ? '#FEF2F2' : '#FFFBEB');
+                const border = mode === 'added' ? '#bbf7d0' : (mode === 'removed' ? '#fecaca' : '#fde68a');
+                const tagBg = mode === 'added' ? '#10b981' : (mode === 'removed' ? '#ef4444' : '#f59e0b');
+                const tagText = mode === 'added' ? 'NEW' : (mode === 'removed' ? 'GONE' : 'CHG');
+                const label = deal.customer ? `${deal.customer} — ${deal.name}` : deal.name;
+                let body;
+                if (mode === 'modified') {
+                    const parts = [];
+                    if ((beforeDeal.amount || 0) !== (deal.amount || 0)) {
+                        const d = (deal.amount || 0) - (beforeDeal.amount || 0);
+                        const ar = d > 0 ? '▲' : '▼'; const cl = d > 0 ? '#10b981' : '#ef4444';
+                        parts.push(`<span style="color:#9CA3AF;">$${formatCurrency(beforeDeal.amount || 0)} →</span> <span style="font-weight:700;">$${formatCurrency(deal.amount || 0)}</span> <span style="color:${cl}; font-weight:800;">${ar} $${formatCurrency(Math.abs(d))}</span>`);
+                    }
+                    if ((beforeDeal.quarter || '') !== (deal.quarter || '')) {
+                        parts.push(`<span style="color:#7c3aed; font-weight:700;">${beforeDeal.quarter || '–'} → ${deal.quarter || '–'}</span>`);
+                    }
+                    body = parts.join(' · ');
+                } else {
+                    const qBadge = deal.quarter ? `<span style="background:#fff; border:1px solid ${border}; color:#374151; font-weight:700; font-size:0.62rem; padding:1px 5px; border-radius:4px;">${deal.quarter}</span>` : '';
+                    body = `${qBadge} <span style="font-weight:700;">$${formatCurrency(deal.amount || 0)}</span>`;
+                }
+                return `<span style="display:inline-flex; align-items:center; gap:6px; background:${bg}; border:1px solid ${border}; padding:5px 9px; border-radius:8px; font-size:0.7rem; line-height:1.3; max-width:100%;">
+                    <span style="background:${tagBg}; color:#fff; font-size:0.55rem; font-weight:800; padding:1px 5px; border-radius:4px; letter-spacing:0.04em;">${tagText}</span>
+                    <span style="color:#111827; font-weight:600; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${label.replace(/"/g, '&quot;')}">${label}</span>
+                    ${body}
+                </span>`;
+            };
+
+            const totalDealChanges = diff.added.length + diff.removed.length + diff.modified.length;
+            const dealSection = totalDealChanges === 0 ? '' : `
+                <div>
+                    <div style="font-size:0.62rem; color:#92400e; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;"><i class="fa-solid fa-list-check" style="margin-right:4px;"></i>Deal-level changes (${totalDealChanges} — ${diff.removed.length} removed · ${diff.added.length} added · ${diff.modified.length} modified)</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        ${diff.removed.map(d => renderDealChip('removed', d)).join('')}
+                        ${diff.added.map(d => renderDealChip('added', d)).join('')}
+                        ${diff.modified.map(m => renderDealChip('modified', m.after, m.before)).join('')}
+                    </div>
+                </div>`;
+
+            return `
+            <div style="display:grid; grid-template-columns: minmax(220px, 260px) 1fr; gap:0; border:1px solid ${accentBorder}; border-radius:12px; overflow:hidden; background:#fff;">
+                <div style="padding:14px 16px; background:${accentBg}; border-right:1px solid ${accentBorder}; display:flex; flex-direction:column; gap:4px;">
+                    <div style="font-size:0.68rem; color:#6B7280; font-weight:600;">${fmtDateLong(ev.after.date)}</div>
+                    <div style="font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-top:6px;">Pipeline total</div>
+                    <div style="font-size:0.72rem; color:#9CA3AF;">$${formatCurrency(ev.before.amount || 0)} →</div>
+                    <div style="font-size:1.15rem; color:#111827; font-weight:800; line-height:1.1;">$${formatCurrency(ev.after.amount || 0)}</div>
+                    <div style="font-size:0.95rem; color:${color}; font-weight:800; margin-top:2px;">${arrow} ${sign}$${formatCurrency(Math.abs(dAmt))}${deltaPct !== null ? ` <span style="font-size:0.7rem;">(${sign}${Math.abs(deltaPct)}%)</span>` : ''}</div>
+                </div>
+                <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+                    <div>
+                        <div style="font-size:0.62rem; color:#92400e; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;"><i class="fa-solid fa-bullseye" style="margin-right:4px;"></i>Affected quarters (${ev.quartersChanged.length})</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">${quarterChips}</div>
+                    </div>
+                    ${dealSection}
+                    ${secondaryChips ? `
+                    <div>
+                        <div style="font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Other metrics that moved</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">${secondaryChips}</div>
+                    </div>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Cumulative drift cards (initial vs latest).
+    let quarterlyDrift = '';
+    if (initial && latest && initial !== latest && initial.byQuarter && latest.byQuarter) {
+        const cards = ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
+            const o = initial.byQuarter[q] || { amount: 0 };
+            const n = latest.byQuarter[q] || { amount: 0 };
+            const dAmt = (n.amount || 0) - (o.amount || 0);
+            const color = dAmt > 0 ? '#10b981' : (dAmt < 0 ? '#ef4444' : '#6B7280');
+            const arrow = dAmt > 0 ? '▲' : (dAmt < 0 ? '▼' : '–');
+            const sign = dAmt > 0 ? '+' : (dAmt < 0 ? '−' : '');
+            return `
+            <div style="flex:1; min-width:130px; background:#FAFAFA; border:1px solid #E5E7EB; border-radius:10px; padding:10px 12px;">
+                <div style="font-size:0.65rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">${q} cumulative drift</div>
+                <div style="font-size:1rem; font-weight:800; color:${color}; line-height:1.2;">${arrow} ${sign}$${formatCurrency(Math.abs(dAmt))}</div>
+                <div style="font-size:0.62rem; color:#9CA3AF; margin-top:2px;">$${formatCurrency(o.amount || 0)} → $${formatCurrency(n.amount || 0)}</div>
+            </div>`;
+        }).join('');
+        quarterlyDrift = `
+        <div style="margin-top:14px; padding-top:14px; border-top:1px dashed #E5E7EB;">
+            <div style="font-size:0.7rem; color:#6B7280; font-weight:700; margin-bottom:8px;">Drift from initial baseline → latest snapshot</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">${cards}</div>
+        </div>`;
+    }
+
+    return `
+        <div style="padding:22px; background:#FFFFFF; border:1px solid #fde68a; border-radius:14px; box-shadow:0 2px 10px rgba(245,158,11,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; border-bottom:1px solid #fef3c7; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
+                ${headerLeft}
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:0.7rem; color:#6B7280;">${history.length} snapshot${history.length === 1 ? '' : 's'} · ${changeEvents.length} change${changeEvents.length === 1 ? '' : 's'}</span>
+                    <button id="pipeline-changelog-reset" style="background:#fff; border:1px solid #E5E7EB; color:#6B7280; padding:6px 10px; border-radius:8px; font-size:0.7rem; cursor:pointer; font-weight:600;"><i class="fa-solid fa-trash" style="margin-right:4px;"></i>Clear Log</button>
+                </div>
+            </div>
+            ${baselineStrip}
+            <div style="display:flex; flex-direction:column; gap:10px;">${changeListHTML}</div>
+            ${quarterlyDrift}
+            <div style="margin-top:12px; padding:8px 12px; background:#FFFBEB; border:1px solid #fef3c7; border-radius:8px; font-size:0.68rem; color:#92400e;">
+                <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>A new snapshot is recorded automatically whenever any pipeline total changes. Stored locally in this browser.
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render the country's full deal-level pipeline list. Sits at the bottom of
+ * the country pipeline page as the live "current state" anchor that the
+ * change log diffs against.
+ * @param {string} filterCountry
+ * @param {Array<{key,name,customer,quarter,amount,weighted}>} deals
+ * @returns {string} HTML
+ */
+export function getCurrentPipelineListHTML(filterCountry, deals) {
+    const sorted = [...(deals || [])].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+    const totalAmount = sorted.reduce((acc, d) => acc + (d.amount || 0), 0);
+    const totalWeighted = sorted.reduce((acc, d) => acc + (d.weighted || 0), 0);
+
+    const qBadge = (q) => {
+        if (!q) return '<span style="color:#9CA3AF; font-size:0.62rem;">–</span>';
+        const map = { Q1: '#6366f1', Q2: '#0ea5e9', Q3: '#f59e0b', Q4: '#ef4444' };
+        const c = map[q] || '#6B7280';
+        return `<span style="background:${c}1a; color:${c}; border:1px solid ${c}40; font-size:0.62rem; font-weight:800; padding:2px 7px; border-radius:6px; letter-spacing:0.04em;">${q}</span>`;
+    };
+
+    const rows = sorted.length === 0
+        ? `<tr><td colspan="5" style="padding:18px; text-align:center; font-size:0.78rem; color:#9CA3AF; font-style:italic;">No active pipeline deals for ${filterCountry}.</td></tr>`
+        : sorted.map((d, i) => `
+            <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:9px 12px; font-size:0.72rem; color:#9CA3AF; text-align:right; width:36px;">${i + 1}</td>
+                <td style="padding:9px 12px; font-size:0.78rem; color:#111827; font-weight:600;">${d.customer || '<span style="color:#9CA3AF;">—</span>'}</td>
+                <td style="padding:9px 12px; font-size:0.74rem; color:#374151;">${d.name}</td>
+                <td style="padding:9px 12px; text-align:center;">${qBadge(d.quarter)}</td>
+                <td style="padding:9px 12px; font-size:0.78rem; text-align:right; color:#10b981; font-weight:700; white-space:nowrap;">$${formatCurrency(d.amount || 0)}</td>
+                <td style="padding:9px 12px; font-size:0.78rem; text-align:right; color:#007AFF; font-weight:600; white-space:nowrap;">$${formatCurrency(d.weighted || 0)}</td>
+            </tr>`).join('');
+
+    return `
+        <div style="padding:22px; background:#FFFFFF; border:1px solid #d1fae5; border-radius:14px; box-shadow:0 2px 10px rgba(16,185,129,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; border-bottom:1px solid #ecfdf5; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:36px; height:36px; font-size:1rem; background:rgba(16,185,129,0.15); color:#10b981; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-list"></i></div>
+                    <div>
+                        <h3 style="margin:0; font-size:0.72rem; color:#059669; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">CURRENT PIPELINE DEALS</h3>
+                        <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827;">${filterCountry} — live snapshot (${sorted.length} deals)</h2>
+                    </div>
+                </div>
+                <div style="display:flex; gap:18px; font-size:0.72rem; color:#374151; flex-wrap:wrap;">
+                    <span>Pipeline <strong style="color:#10b981; font-size:0.95rem;">$${formatCurrency(totalAmount)}</strong></span>
+                    <span>Weighted <strong style="color:#007AFF; font-size:0.95rem;">$${formatCurrency(totalWeighted)}</strong></span>
+                </div>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; min-width:680px;">
+                    <thead style="background:#F9FAFB;">
+                        <tr>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">#</th>
+                            <th style="padding:9px 12px; text-align:left; font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Customer</th>
+                            <th style="padding:9px 12px; text-align:left; font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Deal</th>
+                            <th style="padding:9px 12px; text-align:center; font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Q</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.62rem; color:#10b981; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Amount</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.62rem; color:#007AFF; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Weighted</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <div style="margin-top:12px; padding:8px 12px; background:#ecfdf5; border:1px solid #d1fae5; border-radius:8px; font-size:0.68rem; color:#065f46;">
+                <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>This list is the live anchor. Each visit compares it against the previous snapshot — added, removed, or modified deals show up in the change log above.
+            </div>
+        </div>
+    `;
+}
+
 export function getPartnerPerformanceHTML() {
     return `
         <div class="stat-card" style="padding: 24px; background: #FFFFFF; border: 1px solid #F3F4F6;">

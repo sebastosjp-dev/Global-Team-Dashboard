@@ -4,7 +4,7 @@
  * @module views
  */
 import { CONFIG } from './config.js';
-import { parseCurrency, formatCurrency, isCountryMatch } from './utils.js';
+import { parseCurrency, formatCurrency, isCountryMatch, findKey } from './utils.js';
 import {
     chartRegistry, initOrderSheetCharts, initPipelineCharts,
     initPartnerCharts, initPartnerPerformanceCharts,
@@ -27,7 +27,8 @@ import {
     getCountrySpecificHTML, getServiceAnalysisHTML,
     getKPIHTML, getCollectionHTML,
     getTcvArrHTML, getChurnRiskHTML,
-    getPartnerROIHTML, getPipelineCoverageHTML
+    getPartnerROIHTML, getPipelineCoverageHTML,
+    getPipelineChangeLogHTML, getCurrentPipelineListHTML
 } from './ui.js';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -60,6 +61,8 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     if (tabName === 'PIPELINE' && workbookData['PIPELINE']) {
         _renderPipeline(workbookData, filterCountry, tabName, metricsGrid, searchInput);
         _renderPipelineCoverage(workbookData, filterCountry, metricsGrid);
+        _renderPipelineChangeLog(workbookData, filterCountry, metricsGrid, searchInput);
+        _renderCurrentPipelineList(workbookData, filterCountry, metricsGrid);
         hasMetrics = true;
     }
 
@@ -252,6 +255,204 @@ function _renderPipelineCoverage(workbookData, filterCountry, metricsGrid) {
     container.style.gridColumn = '1 / -1';
     container.style.marginTop = '12px';
     container.innerHTML = getPipelineCoverageHTML(stats);
+    metricsGrid.appendChild(container);
+}
+
+/**
+ * Extract a normalized deal-level view from PIPELINE rows for diff tracking.
+ * Each deal carries a stable key (customer::name) so we can detect added /
+ * removed / modified deals across snapshots — even when totals stay identical
+ * (e.g. swap of equal-value deals).
+ * @returns {Array<{key, name, customer, quarter, amount, weighted}>}
+ */
+function _extractPipelineDeals(pData) {
+    if (!pData || pData.length === 0) return [];
+    const keys = Object.keys(pData[0]);
+    const nameKey = findKey(keys,
+        k => k.toLowerCase().includes('deal name'),
+        k => k.toLowerCase().includes('crm deal name'));
+    const customerKey = findKey(keys,
+        k => k.toLowerCase().includes('customer'),
+        k => k.toLowerCase().includes('end user'),
+        k => k.toLowerCase().includes('account'));
+    const amtKey = findKey(keys, k => (k.toUpperCase().includes('KOR TCV') && k.toUpperCase().includes('USD')) || k === 'Amount') || 'Amount';
+    const wAmtKey = findKey(keys, k => (k.toUpperCase().includes('WEIGHTED') && k.toUpperCase().includes('KOR TCV')) || k === 'Weighted Amount') || 'Weighted Amount';
+    const qKey = findKey(keys,
+        k => k.toLowerCase() === 'quarter',
+        k => k.toLowerCase().includes('qtr'),
+        k => k.toLowerCase() === 'q');
+
+    const seen = new Map();
+    return pData.map((row, i) => {
+        const name = nameKey ? String(row[nameKey] || '').trim() : '';
+        const customer = customerKey ? String(row[customerKey] || '').trim() : '';
+        const amount = Math.round(parseCurrency(row[amtKey]));
+        const weighted = Math.round(parseCurrency(row[wAmtKey]));
+        let quarter = '';
+        if (qKey && row[qKey]) {
+            const qRaw = String(row[qKey]).toUpperCase().trim();
+            if (qRaw.includes('Q1')) quarter = 'Q1';
+            else if (qRaw.includes('Q2')) quarter = 'Q2';
+            else if (qRaw.includes('Q3')) quarter = 'Q3';
+            else if (qRaw.includes('Q4')) quarter = 'Q4';
+        }
+        // Build a stable-ish key. Disambiguate duplicates by appending #N.
+        const baseKey = (customer && name) ? `${customer}::${name}`
+            : (name || customer || `row-${i}`);
+        const dupCount = seen.get(baseKey) || 0;
+        seen.set(baseKey, dupCount + 1);
+        const key = dupCount === 0 ? baseKey : `${baseKey}#${dupCount + 1}`;
+        return {
+            key,
+            name: name || '(unnamed)',
+            customer,
+            quarter,
+            amount,
+            weighted
+        };
+    });
+}
+
+function _dealsFingerprint(deals) {
+    return deals
+        .map(d => `${d.key}|${d.amount}|${d.weighted}|${d.quarter}`)
+        .sort()
+        .join('||');
+}
+
+function _diffDeals(beforeDeals, afterDeals) {
+    const beforeMap = new Map((beforeDeals || []).map(d => [d.key, d]));
+    const afterMap = new Map((afterDeals || []).map(d => [d.key, d]));
+    const added = [];
+    const removed = [];
+    const modified = [];
+    afterMap.forEach((a, k) => { if (!beforeMap.has(k)) added.push(a); });
+    beforeMap.forEach((b, k) => { if (!afterMap.has(k)) removed.push(b); });
+    afterMap.forEach((a, k) => {
+        const b = beforeMap.get(k);
+        if (!b) return;
+        if (b.amount !== a.amount || b.weighted !== a.weighted || b.quarter !== a.quarter) {
+            modified.push({ before: b, after: a });
+        }
+    });
+    return { added, removed, modified };
+}
+
+/**
+ * Auto-snapshot the country's pipeline (totals + deal-level) to localStorage
+ * and render the historical change log. Only runs when a country is selected.
+ */
+function _renderPipelineChangeLog(workbookData, filterCountry, metricsGrid, searchInput) {
+    if (!filterCountry) return; // country-specific only
+    const pipelineRows = workbookData['PIPELINE'] || [];
+    const pData = pipelineRows.filter(r => isCountryMatch(r, filterCountry));
+    if (pData.length === 0) return;
+
+    const oData = (workbookData['ORDER SHEET'] || []).filter(r => isCountryMatch(r, filterCountry));
+    const stats = getPipelineStats(pData, oData);
+
+    const byQuarter = {};
+    (stats.sortedQuarterly || []).forEach(([q, qData]) => {
+        const totals = Object.values(qData.countries || {}).reduce((a, c) => ({
+            amount: a.amount + (c.amount || 0),
+            weighted: a.weighted + (c.weighted || 0),
+            count: a.count + (c.count || 0)
+        }), { amount: 0, weighted: 0, count: 0 });
+        byQuarter[q] = {
+            amount: Math.round(totals.amount),
+            weighted: Math.round(totals.weighted),
+            count: totals.count
+        };
+    });
+
+    const deals = _extractPipelineDeals(pData);
+    const current = {
+        count: stats.globalTotalCount || 0,
+        amount: Math.round(stats.globalTotalAmount || 0),
+        weighted: Math.round(stats.globalTotalWeighted || 0),
+        tcv: Math.round(stats.globalTotalTcv || 0),
+        byQuarter,
+        deals,
+        dealsFp: _dealsFingerprint(deals)
+    };
+
+    const storageKey = `pipelineChangeLog::${filterCountry}`;
+    let history = [];
+    try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) history = JSON.parse(raw);
+        if (!Array.isArray(history)) history = [];
+    } catch { history = []; }
+
+    const last = history[history.length - 1];
+    const quartersDiffer = (a, b) => {
+        if (!a || !b) return true;
+        return ['Q1', 'Q2', 'Q3', 'Q4'].some(q => {
+            const ax = a[q] || {}; const bx = b[q] || {};
+            return (ax.amount || 0) !== (bx.amount || 0)
+                || (ax.weighted || 0) !== (bx.weighted || 0)
+                || (ax.count || 0) !== (bx.count || 0);
+        });
+    };
+    const changed = !last
+        || last.count !== current.count
+        || last.amount !== current.amount
+        || last.weighted !== current.weighted
+        || last.tcv !== current.tcv
+        || quartersDiffer(last.byQuarter, current.byQuarter)
+        || (last.dealsFp || '') !== current.dealsFp;
+
+    if (changed) {
+        history.push({ date: new Date().toISOString(), ...current });
+        if (history.length > 100) history = history.slice(-100);
+        try { localStorage.setItem(storageKey, JSON.stringify(history)); }
+        catch (e) { console.warn('[ChangeLog] localStorage write failed (likely quota):', e); }
+    }
+
+    // Pre-compute deal-level diffs between consecutive snapshots so the UI layer
+    // doesn't have to know how snapshots are structured.
+    const sorted = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const dealDiffs = sorted.map((snap, i) => {
+        if (i === 0) return null;
+        return _diffDeals(sorted[i - 1].deals || [], snap.deals || []);
+    });
+
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    container.style.marginTop = '12px';
+    container.innerHTML = getPipelineChangeLogHTML(filterCountry, history, dealDiffs);
+    metricsGrid.appendChild(container);
+
+    setTimeout(() => {
+        const resetBtn = document.getElementById('pipeline-changelog-reset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (!confirm(`Clear all pipeline change history for ${filterCountry}? This cannot be undone.`)) return;
+                try { localStorage.removeItem(storageKey); } catch {}
+                window.dispatchEvent(new CustomEvent('filter-country-change', {
+                    detail: { country: filterCountry, searchTerm: searchInput?.value || '' }
+                }));
+            });
+        }
+    }, 80);
+}
+
+/**
+ * Render the current deal-level pipeline list at the very bottom of the
+ * country pipeline page. This is the live anchor everything in the change log
+ * is compared against.
+ */
+function _renderCurrentPipelineList(workbookData, filterCountry, metricsGrid) {
+    if (!filterCountry) return;
+    const pipelineRows = workbookData['PIPELINE'] || [];
+    const pData = pipelineRows.filter(r => isCountryMatch(r, filterCountry));
+    if (pData.length === 0) return;
+
+    const deals = _extractPipelineDeals(pData);
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    container.style.marginTop = '12px';
+    container.innerHTML = getCurrentPipelineListHTML(filterCountry, deals);
     metricsGrid.appendChild(container);
 }
 
