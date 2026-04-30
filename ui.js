@@ -2088,9 +2088,13 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
         ? `<span style="background:#fef3c7; color:#92400e; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px; border:1px solid #fde68a;">🔐 Admin</span>`
         : `<span style="background:#ede9fe; color:#5b21b6; font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px; border:1px solid #ddd6fe;">👤 ${currentUser}</span>`;
 
+    const userListForDropdown = [...availableUsers];
+    if (!isAdmin && currentUser && currentUser !== 'admin' && !userListForDropdown.includes(currentUser)) {
+        userListForDropdown.push(currentUser);
+    }
     const userOptions = [
         `<option value="admin" ${isAdmin ? 'selected' : ''}>🔐 Admin (Structure & Target Setting)</option>`,
-        ...availableUsers.map(u => `<option value="${u}" ${!isAdmin && currentUser === u ? 'selected' : ''}>👤 ${u}</option>`)
+        ...userListForDropdown.map(u => `<option value="${u}" ${!isAdmin && currentUser === u ? 'selected' : ''}>👤 ${u}</option>`)
     ].join('');
 
     return `

@@ -385,5 +385,12 @@ export function selectKPIView(setCurrentTab) {
         currentUser = lastUser;
     }
 
-    loadAvailableUsers().then(() => renderKPIView());
+    loadAvailableUsers().then(() => {
+        if (!isAdmin && !availableUsers.includes(currentUser)) {
+            isAdmin = true;
+            currentUser = 'admin';
+            localStorage.removeItem('kpi_last_user');
+        }
+        renderKPIView();
+    });
 }
