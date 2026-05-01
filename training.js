@@ -24,38 +24,81 @@ function getStaffColor(index) {
 }
 
 /**
+ * Find a key in a row using case/whitespace-insensitive matching.
+ */
+function findRowKey(row, ...candidates) {
+    if (!row) return null;
+    const keys = Object.keys(row);
+    const norm = s => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
+    for (const cand of candidates) {
+        const target = norm(cand);
+        const exact = keys.find(k => norm(k) === target);
+        if (exact) return exact;
+    }
+    for (const cand of candidates) {
+        const target = norm(cand);
+        const partial = keys.find(k => norm(k).includes(target));
+        if (partial) return partial;
+    }
+    return null;
+}
+
+/**
+ * Resolve the column keys used by the Staff Training sheet.
+ */
+function resolveTrainingKeys(trainingData) {
+    const sample = trainingData && trainingData.length > 0 ? trainingData[0] : null;
+    return {
+        name: findRowKey(sample, 'Name', 'Staff', 'Staff Name', '이름'),
+        hours: findRowKey(sample, 'Total Training Hours', 'Training Hours', 'Hours'),
+        completion: findRowKey(sample, 'Completion Date', 'End Date', 'Date'),
+        start: findRowKey(sample, 'Start Date', 'Date'),
+        title: findRowKey(sample, 'Training Title', 'Title')
+    };
+}
+
+/**
  * Pure function to extract staff list.
  */
-function getStaffList(workbookData, trainingData) {
-    const nameSheetKey = Object.keys(workbookData).find(k => 
-        k.trim().toUpperCase() === 'NAME' || k.includes('Name') || k.includes('이름')
+function getStaffList(workbookData, trainingData, keys) {
+    if (trainingData && trainingData.length > 0 && keys.name) {
+        const names = [...new Set(
+            trainingData.map(r => String(r[keys.name] || '').trim()).filter(Boolean)
+        )];
+        if (names.length > 0) return names;
+    }
+
+    const nameSheetKey = Object.keys(workbookData).find(k =>
+        k.trim().toUpperCase() === 'NAME' || k.includes('이름')
     );
     const nameSheet = nameSheetKey ? workbookData[nameSheetKey] : null;
-    
     if (nameSheet && nameSheet.length > 0) {
-        const keys = Object.keys(nameSheet[0]);
-        const nameKey = keys.find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('staff')) || keys[0];
+        const sheetKeys = Object.keys(nameSheet[0]);
+        const nameKey = findRowKey(nameSheet[0], 'Name', 'Staff') || sheetKeys[0];
         return [...new Set(nameSheet.map(r => String(r[nameKey] || '').trim()).filter(Boolean))];
     }
-    return [...new Set(trainingData.map(r => String(r['Name'] || '').trim()).filter(Boolean))];
+    return [];
 }
 
 /**
  * Pure function to process training statistics.
  */
-export function calculateTrainingStats(trainingData, staffNames, year = new Date().getFullYear()) {
+export function calculateTrainingStats(trainingData, staffNames, year = new Date().getFullYear(), keys = null) {
+    const k = keys || resolveTrainingKeys(trainingData);
     const stats = staffNames.reduce((acc, name) => {
         acc[name] = { name, monthlyHours: Array(12).fill(0), totalHours: 0, avgPerMonth: 0 };
         return acc;
     }, {});
 
     trainingData.forEach(row => {
-        const rowName = String(row['Name'] || '').trim();
+        const rowName = String((k.name && row[k.name]) || '').trim();
         if (!stats[rowName]) return;
 
-        const hours = parseCurrency(row['Total Training Hours']);
-        const date = parseExcelDate(row['Completion Date'] || row['Start Date']);
-        
+        const hours = parseCurrency(k.hours ? row[k.hours] : 0);
+        const date = parseExcelDate(
+            (k.completion && row[k.completion]) || (k.start && row[k.start])
+        );
+
         if (date && !isNaN(date.getTime()) && date.getFullYear() === year) {
             stats[rowName].monthlyHours[date.getMonth()] += hours;
             stats[rowName].totalHours += hours;
@@ -201,22 +244,27 @@ export function selectTrainingView(setCurrentTab, workbookData) {
     metricsGrid.innerHTML = '';
     metricsGrid.classList.remove('hidden');
 
-    const trainingData = workbookData['Staff Training'] || [];
-    const staffNames = getStaffList(workbookData, trainingData);
+    const trainingSheetKey = Object.keys(workbookData).find(k =>
+        k.trim().toLowerCase() === 'staff training'
+    ) || 'Staff Training';
+    const trainingData = workbookData[trainingSheetKey] || [];
+    const trainingKeys = resolveTrainingKeys(trainingData);
+    const staffNames = getStaffList(workbookData, trainingData, trainingKeys);
 
     if (staffNames.length === 0) {
         metricsGrid.innerHTML = `<div style="padding: 40px; text-align: center;"><h2>No Staff Data Found</h2></div>`;
+        renderTrainingDataView(trainingData);
         return;
     }
 
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const trainingYear = new Date().getFullYear();
-    const stats = calculateTrainingStats(trainingData, staffNames, trainingYear);
+    const stats = calculateTrainingStats(trainingData, staffNames, trainingYear, trainingKeys);
 
     // All-time total across all years
     let allTimeTotal = 0;
     trainingData.forEach(row => {
-        const h = parseCurrency(row['Total Training Hours']);
+        const h = parseCurrency(trainingKeys.hours ? row[trainingKeys.hours] : 0);
         if (!isNaN(h)) allTimeTotal += h;
     });
 
@@ -262,13 +310,18 @@ export function selectTrainingView(setCurrentTab, workbookData) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${trainingData.slice(0, 10).map(row => `
+                            ${trainingData.slice(0, 10).map(row => {
+                                const nm = trainingKeys.name ? row[trainingKeys.name] : '';
+                                const ttl = trainingKeys.title ? row[trainingKeys.title] : '';
+                                const hrs = trainingKeys.hours ? row[trainingKeys.hours] : '';
+                                return `
                                 <tr style="border-bottom: 1px solid #f1f5f9;">
-                                    <td style="padding: 10px; font-size: 0.8rem; font-weight: 600; color: #334155;">${row['Name']}</td>
-                                    <td style="padding: 10px; font-size: 0.8rem; color: #64748b;">${row['Training Title'] || 'Self Development'}</td>
-                                    <td style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: #10b981; text-align: right;">${row['Total Training Hours']}h</td>
+                                    <td style="padding: 10px; font-size: 0.8rem; font-weight: 600; color: #334155;">${nm || ''}</td>
+                                    <td style="padding: 10px; font-size: 0.8rem; color: #64748b;">${ttl || 'Self Development'}</td>
+                                    <td style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: #10b981; text-align: right;">${hrs !== '' && hrs != null ? hrs + 'h' : ''}</td>
                                 </tr>
-                            `).join('')}
+                            `;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
