@@ -5,7 +5,12 @@
       "Bash(python3 -c \"import openpyxl; wb = openpyxl.load_workbook\\('2026 Global Rev.01.xlsx', data_only=True\\); print\\('Sheets:', wb.sheetnames\\); ws = wb['Staff Training']; rows = list\\(ws.iter_rows\\(values_only=True\\)\\); print\\('First row \\(headers\\):', rows[0]\\); print\\('Row count:', len\\(rows\\)\\); print\\('Sample row:', rows[1] if len\\(rows\\) > 1 else None\\)\")",
       "Bash(xargs -I {} git log -1 --format=\"%H %s\" {})",
       "Bash(git log *)",
-      "Bash(git -C \"c:/Users/LG/Downloads/global dashboard making\" log --oneline -10)"
+      "Bash(git -C \"c:/Users/LG/Downloads/global dashboard making\" log --oneline -10)",
+      "Bash(python3 -c ' *)",
+      "Bash('c:/Users/LG/Downloads/global dashboard making/node_portable/node.exe' -e ' *)",
+      "Bash('/c/Users/LG/Downloads/global dashboard making/node_portable/node-v20.11.1-win-x64/node.exe' -e ' *)",
+      "Bash(git -C \"c:/Users/LG/Downloads/global dashboard making\" show 076d3ea --stat)",
+      "Bash(git -C \"c:/Users/LG/Downloads/global dashboard making\" show 076d3ea -- training.js)"
     ]
   }
 }

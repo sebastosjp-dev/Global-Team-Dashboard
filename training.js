@@ -252,7 +252,29 @@ export function selectTrainingView(setCurrentTab, workbookData) {
     const staffNames = getStaffList(workbookData, trainingData, trainingKeys);
 
     if (staffNames.length === 0) {
-        metricsGrid.innerHTML = `<div style="padding: 40px; text-align: center;"><h2>No Staff Data Found</h2></div>`;
+        const availableSheets = Object.keys(workbookData);
+        const sheetExists = availableSheets.some(k => k.trim().toLowerCase() === 'staff training');
+        const cols = trainingData.length > 0 ? Object.keys(trainingData[0]).filter(k => !k.startsWith('__EMPTY')) : [];
+        metricsGrid.innerHTML = `
+            <div style="grid-column: 1 / -1; padding: 32px; background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <h2 style="font-size: 1.25rem; font-weight: 800; color: #1e293b; margin-bottom: 12px;">Staff training data not loaded</h2>
+                <p style="color: #475569; margin-bottom: 16px;">
+                    ${sheetExists
+                        ? `"Staff Training" 시트는 발견됐지만 직원 이름을 인식하지 못했어요. 아래 컬럼 중 이름 컬럼이 있는지 확인해주세요.`
+                        : `현재 불러온 워크북에 "Staff Training" 시트가 없습니다. Google Drive 파일에 시트가 추가됐는지, 그리고 우측 상단의 새로고침 버튼을 눌렀는지 확인해주세요.`}
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div style="padding: 16px; background: #f8fafc; border-radius: 12px;">
+                        <p style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">Sheets in workbook</p>
+                        <div style="font-size: 0.85rem; color: #334155; line-height: 1.6;">${availableSheets.length ? availableSheets.map(s => `<div>• ${s}</div>`).join('') : '<em>(none)</em>'}</div>
+                    </div>
+                    <div style="padding: 16px; background: #f8fafc; border-radius: 12px;">
+                        <p style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">Staff Training columns (rows: ${trainingData.length})</p>
+                        <div style="font-size: 0.85rem; color: #334155; line-height: 1.6;">${cols.length ? cols.map(c => `<div>• ${c}</div>`).join('') : '<em>(no columns / no rows)</em>'}</div>
+                    </div>
+                </div>
+            </div>
+        `;
         renderTrainingDataView(trainingData);
         return;
     }
