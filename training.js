@@ -244,9 +244,10 @@ export function selectTrainingView(setCurrentTab, workbookData) {
     metricsGrid.innerHTML = '';
     metricsGrid.classList.remove('hidden');
 
-    const trainingSheetKey = Object.keys(workbookData).find(k =>
-        k.trim().toLowerCase() === 'staff training'
-    ) || 'Staff Training';
+    const trainingSheetKey = Object.keys(workbookData).find(k => {
+        const norm = k.trim().toLowerCase();
+        return norm === 'staff training' || norm === 'training';
+    }) || 'Staff Training';
     const trainingData = workbookData[trainingSheetKey] || [];
     const trainingKeys = resolveTrainingKeys(trainingData);
     const staffNames = getStaffList(workbookData, trainingData, trainingKeys);

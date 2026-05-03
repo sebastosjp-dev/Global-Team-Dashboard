@@ -22,7 +22,7 @@ export function buildSidebar(sheetNames, callbacks) {
 
     sheetNames.forEach(name => {
         // Updated exclusion list to include "Staff Training" sheet while keeping the dashboard menu
-        if (name.includes('Global(Contract Date)') || ['Sheet9', 'Sheet10', 'Sheet12', 'Sheet13', 'Sheet16', '2026 Q1 Review', 'Staff Training', 'FEEDBACK', 'Weekly draft'].includes(name)) return;
+        if (name.includes('Global(Contract Date)') || ['Sheet9', 'Sheet10', 'Sheet12', 'Sheet13', 'Sheet16', '2026 Q1 Review', 'Staff Training', 'TRAINING', 'FEEDBACK', 'Weekly draft'].includes(name)) return;
 
         if (name === 'ORDER SHEET') {
             _buildExpandableNav(sidebarNav, name, callbacks.onSelectTab);
