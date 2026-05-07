@@ -858,6 +858,100 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
 
     injectPipelineTooltipStyles();
 
+    // ── Pipeline by Deal Stage (aggregated across all current-year quarters) ──
+    const STAGE_ORDER = ['Discovery', 'PoC', 'Quotation', 'Negotiation', 'Lost', 'Won', 'Unknown'];
+    const stageEntries = (stats.sortedStage || []).slice().sort((a, b) => {
+        const ai = STAGE_ORDER.indexOf(a[0]); const bi = STAGE_ORDER.indexOf(b[0]);
+        const ax = ai === -1 ? 999 : ai; const bx = bi === -1 ? 999 : bi;
+        if (ax !== bx) return ax - bx;
+        return b[1].weighted - a[1].weighted;
+    });
+    const stageGrandPipeline = stageEntries.reduce((s, [, v]) => s + (v.amount || 0), 0);
+    const stageGrandWeighted = stageEntries.reduce((s, [, v]) => s + (v.weighted || 0), 0);
+    const stageGrandCount = stageEntries.reduce((s, [, v]) => s + (v.count || 0), 0);
+
+    const stageCardsHtml = stageEntries.length === 0
+        ? '<div style="grid-column: 1 / -1; padding: 16px; text-align: center; color: #9ca3af; font-size: 0.78rem;">No stage data available.</div>'
+        : stageEntries.map(([stageName, v]) => {
+            const t = getStageTheme(stageName);
+            const weightedPct = stageGrandWeighted > 0 ? (v.weighted / stageGrandWeighted * 100) : 0;
+            return `
+                <div class="stat-card" style="background:#FFFFFF; padding:14px; border-top: 4px solid ${t.fg}; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        ${renderStageBadge(stageName, { fontSize: '0.72rem', padding: '4px 10px' })}
+                        <span style="background: rgba(99,102,241,0.1); color:#6366f1; font-size:0.65rem; font-weight:800; padding: 2px 8px; border-radius: 10px;">${v.count || 0} deals</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                            <span style="font-size:0.62rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Pipeline</span>
+                            <span style="font-size:0.95rem; color:#34C759; font-weight:800;">$${formatCurrency(v.amount || 0)}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                            <span style="font-size:0.62rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Weighted Pipeline Value</span>
+                            <span style="font-size:0.95rem; color:#007AFF; font-weight:800;">$${formatCurrency(v.weighted || 0)}</span>
+                        </div>
+                    </div>
+                    <div style="height:6px; background:#F3F4F6; border-radius: 4px; overflow:hidden;">
+                        <div style="height:100%; width:${weightedPct.toFixed(1)}%; background:${t.fg};"></div>
+                    </div>
+                    <div style="font-size:0.6rem; color:#9ca3af; text-align:right;">${weightedPct.toFixed(1)}% of weighted pipeline</div>
+                </div>
+            `;
+        }).join('');
+
+    const stageTableRowsHtml = stageEntries.length === 0
+        ? `<tr><td colspan="4" style="padding:14px; text-align:center; color:#9ca3af; font-size:0.78rem;">No stage data available.</td></tr>`
+        : stageEntries.map(([stageName, v]) => `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:10px 14px;">${renderStageBadge(stageName, { fontSize: '0.7rem', padding: '4px 10px' })}</td>
+                <td style="padding:10px 14px; text-align:center; color:#475569; font-weight:700; font-size:0.8rem;">${v.count || 0}</td>
+                <td style="padding:10px 14px; text-align:right; color:#34C759; font-weight:800; font-size:0.9rem;">$${formatCurrency(v.amount || 0)}</td>
+                <td style="padding:10px 14px; text-align:right; color:#007AFF; font-weight:800; font-size:0.9rem;">$${formatCurrency(v.weighted || 0)}</td>
+            </tr>
+        `).join('');
+
+    const stageTableFooterHtml = stageEntries.length === 0 ? '' : `
+        <tr style="background:#f8fafc; border-top:2px solid #cbd5e1;">
+            <td style="padding:12px 14px; font-size:0.75rem; font-weight:900; color:#111827; text-transform:uppercase; letter-spacing:0.04em;">Total</td>
+            <td style="padding:12px 14px; text-align:center; color:#111827; font-weight:900; font-size:0.85rem;">${stageGrandCount}</td>
+            <td style="padding:12px 14px; text-align:right; color:#047857; font-weight:900; font-size:0.95rem;">$${formatCurrency(stageGrandPipeline)}</td>
+            <td style="padding:12px 14px; text-align:right; color:#1e40af; font-weight:900; font-size:0.95rem;">$${formatCurrency(stageGrandWeighted)}</td>
+        </tr>
+    `;
+
+    const stageSummaryHtml = `
+        <div style="border-top: 1px solid #E5E7EB; padding-top: 12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(139, 92, 246, 0.15); color: #8b5cf6;"><i class="fa-solid fa-layer-group"></i></div>
+                    <div>
+                        <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">Pipeline by Deal Stage (${currentYear})</h2>
+                        <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Aggregated across Q1–Q4 — counts, Pipeline (TCV) and Weighted Pipeline Value per stage.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 12px;">
+                ${stageCardsHtml}
+            </div>
+            <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow-x: auto;">
+                <table style="width:100%; border-collapse:collapse; min-width:520px;">
+                    <thead>
+                        <tr style="background:#f8fafc; border-bottom:2px solid #cbd5e1;">
+                            <th style="padding:10px 14px; text-align:left; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;">Deal Stage</th>
+                            <th style="padding:10px 14px; text-align:center; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;">Deals</th>
+                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#34C759; letter-spacing:0.06em; text-transform:uppercase;">Pipeline</th>
+                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#007AFF; letter-spacing:0.06em; text-transform:uppercase;">Weighted Pipeline Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${stageTableRowsHtml}
+                        ${stageTableFooterHtml}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
     // ── New Pipeline Volume Matrix (Country × Quarter, ARR & TCV) ──────────
     const matrixCountrySet = new Set();
     stats.sortedQuarterly.forEach(([, qData]) => Object.keys(qData.countries).forEach(c => matrixCountrySet.add(c)));
@@ -1006,6 +1100,8 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 </div>
             </div>
             ` : ''}
+
+            ${stageSummaryHtml}
 
             <div style="border-top: 1px solid #E5E7EB; padding-top: 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
