@@ -9,7 +9,7 @@ import {
     chartRegistry, initOrderSheetCharts, initPipelineCharts,
     initPartnerCharts, initPartnerPerformanceCharts,
     initPocCharts, initEventCharts, initServiceAnalysisCharts,
-    initTcvArrChart, initProjectCharts
+    initTcvArrChart, initProjectCharts, initDealLostCharts
 } from './charts.js';
 import {
     getOrderSheetStats, getPipelineStats, getPartnerStats,
@@ -19,7 +19,7 @@ import {
     getCollectionStats, getDetailedCollectionAnalysis,
     getTcvArrStats, getChurnRiskStats,
     getPartnerROIStats, getPipelineCoverageStats,
-    getProjectStats
+    getProjectStats, getDealLostStats
 } from './services.js';
 import {
                                                 getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
@@ -30,7 +30,7 @@ import {
     getTcvArrHTML, getChurnRiskHTML,
     getPartnerROIHTML, getPipelineCoverageHTML,
     getPipelineChangeLogHTML, getCurrentPipelineListHTML,
-    getProjectHTML
+    getProjectHTML, getDealLostHTML
 } from './ui.js';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -51,7 +51,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     let hasMetrics = false;
     const isGlobalTab = tabName && tabName.includes('Global(Contract Date)');
     const isCountryTab = tabName && filterCountry === null &&
-        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'CSM', 'END USER (CSM)', 'COLLECTION', 'PROJECT'].includes(tabName) &&
+        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'CSM', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST'].includes(tabName) &&
         !isGlobalTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
@@ -104,6 +104,11 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'PROJECT' && workbookData['PROJECT']) {
         _renderProject(workbookData['PROJECT'], filterCountry, metricsGrid, searchInput);
+        hasMetrics = true;
+    }
+
+    if (tabName === 'DEAL LOST' && workbookData['DEAL LOST']) {
+        _renderDealLost(workbookData['DEAL LOST'], metricsGrid);
         hasMetrics = true;
     }
 
@@ -529,6 +534,32 @@ function _renderProject(data, filterCountry, metricsGrid, searchInput) {
     };
 
     window.renderProjectUI();
+}
+
+function _renderDealLost(data, metricsGrid) {
+    if (!data) return;
+    metricsGrid.innerHTML = '';
+    const container = document.createElement('div');
+    container.id = 'deallost-dashboard-container';
+    container.style.gridColumn = '1 / -1';
+    metricsGrid.appendChild(container);
+
+    window.dealLostFilters = window.dealLostFilters || { country: 'All' };
+
+    window.renderDealLostUI = function () {
+        const { stats, uniqueValues } = getDealLostStats(data, window.dealLostFilters.country);
+        const el = document.getElementById('deallost-dashboard-container');
+        if (!el) return;
+        el.innerHTML = getDealLostHTML(stats, window.dealLostFilters.country, uniqueValues);
+        const sel = document.getElementById('deallost-filter-country');
+        if (sel) sel.addEventListener('change', (e) => {
+            window.dealLostFilters.country = e.target.value;
+            window.renderDealLostUI();
+        });
+        setTimeout(() => initDealLostCharts(stats), 50);
+    };
+
+    window.renderDealLostUI();
 }
 
 function _renderEvent(eventData, filterCountry, metricsGrid) {

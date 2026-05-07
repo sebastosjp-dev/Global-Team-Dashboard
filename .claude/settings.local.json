@@ -12,7 +12,16 @@
       "Bash(git -C \"c:/Users/LG/Downloads/global dashboard making\" show 076d3ea --stat)",
       "Bash(git -C \"c:/Users/LG/Downloads/global dashboard making\" show 076d3ea -- training.js)",
       "Bash(findstr /i \"pipeline\")",
-      "PowerShell($nodeExe = Get-ChildItem -Path \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\" -Filter node.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1; if \\($nodeExe\\) { & $nodeExe.FullName \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\check_pipeline_headers.js\" } else { Write-Output \"node.exe not found\" })"
+      "PowerShell($nodeExe = Get-ChildItem -Path \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\" -Filter node.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1; if \\($nodeExe\\) { & $nodeExe.FullName \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\check_pipeline_headers.js\" } else { Write-Output \"node.exe not found\" })",
+      "Bash(python -c ' *)",
+      "PowerShell($path = \"C:\\\\Users\\\\LG\\\\.claude\\\\projects\\\\c--Users-LG-Downloads-global-dashboard-making\\\\7498112c-d2ac-45e5-8cc0-d4aac1ad6ee5\\\\tool-results\\\\mcp-claude_ai_Google_Drive-read_file_content-1778133359925.txt\"; $j = Get-Content $path -Raw | ConvertFrom-Json; $c = $j.fileContent; $idx = $c.IndexOf\\(\"Lost Reason\"\\); Write-Output \"OFFSET: $idx / LEN: $\\($c.Length\\)\"; Write-Output \"---BEFORE---\"; Write-Output $c.Substring\\([Math]::Max\\(0,$idx-1500\\), 1500\\); Write-Output \"---LOST REASON SECTION---\"; Write-Output $c.Substring\\($idx, [Math]::Min\\(5000, $c.Length-$idx\\)\\))",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-0g-6k-sheets.googleusercontent.com)",
+      "Bash(curl -sL --max-time 60 \"https://docs.google.com/spreadsheets/d/1GLisAXT8E8a4Pqrt_nbQHupb7QkXrztWEgK_8YwyfWg/export?format=xlsx\" -o /tmp/main.xlsx)",
+      "Read(//tmp/**)",
+      "Bash(node -e ' *)",
+      "Bash(cp /tmp/main_extract/xl/sharedStrings.xml \"/c/Users/LG/Downloads/global dashboard making/_tmp_strings.xml\")",
+      "Bash(rm -f \"/c/Users/LG/Downloads/global dashboard making/_tmp_strings.xml\")"
     ]
   }
 }

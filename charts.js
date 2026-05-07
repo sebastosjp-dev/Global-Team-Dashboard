@@ -1655,3 +1655,222 @@ function _shortCurrency(val) {
     if (val >= 1000) return (val / 1000).toFixed(0) + 'K';
     return String(Math.round(val));
 }
+
+/* ═══ DEAL LOST Charts ═══ */
+export function initDealLostCharts(stats) {
+    chartRegistry.destroyTag('deallost');
+    if (!stats || stats.totalDeals === 0) return;
+
+    const reasonPalette = {
+        'Price / Budget': '#EF4444',
+        'Competitor Won': '#F97316',
+        'No Decision': '#9CA3AF',
+        'Technical Fit': '#0EA5E9',
+        'Timing': '#A855F7',
+        'Internal Build Issue': '#F59E0B',
+        'Ghosted': '#6B7280',
+        'Other': '#6366F1',
+        'Unspecified': '#94A3B8'
+    };
+    const fallback = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
+
+    /* Monthly trend — bar (count) + line (USD) */
+    const ctxMonthly = document.getElementById('deallost-monthly-chart');
+    if (ctxMonthly) {
+        chartRegistry.register('deallost-monthly', new Chart(ctxMonthly, {
+            data: {
+                labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Lost Deals',
+                        data: stats.lostPerMonth,
+                        backgroundColor: 'rgba(239,68,68,0.7)',
+                        borderRadius: 4,
+                        yAxisID: 'yCount'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Lost Value (USD)',
+                        data: stats.amountPerMonth,
+                        borderColor: '#F97316',
+                        backgroundColor: 'rgba(249,115,22,0.15)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#F97316',
+                        yAxisID: 'yAmount'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ctx.dataset.yAxisID === 'yAmount'
+                                ? ` ${ctx.dataset.label}: $${formatCurrency(ctx.raw)}`
+                                : ` ${ctx.dataset.label}: ${ctx.raw}`
+                        }
+                    }
+                },
+                scales: {
+                    yCount: {
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        title: { display: true, text: 'Deals' }
+                    },
+                    yAmount: {
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: { drawOnChartArea: false },
+                        ticks: { callback: (v) => '$' + _shortCurrency(v) },
+                        title: { display: true, text: 'USD' }
+                    }
+                }
+            }
+        }));
+    }
+
+    /* Lost reason — doughnut */
+    const ctxReason = document.getElementById('deallost-reason-chart');
+    if (ctxReason && stats.sortedReasons.length > 0) {
+        const colors = stats.sortedReasons.map((r, i) => reasonPalette[r.name] || fallback[i % fallback.length]);
+        chartRegistry.register('deallost-reason', new Chart(ctxReason, {
+            type: 'doughnut',
+            data: {
+                labels: stats.sortedReasons.map(r => r.name),
+                datasets: [{
+                    data: stats.sortedReasons.map(r => r.count),
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: '#FFFFFF'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '55%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const r = stats.sortedReasons[ctx.dataIndex];
+                                const pct = stats.totalDeals > 0 ? Math.round((r.count / stats.totalDeals) * 100) : 0;
+                                return ` ${r.name}: ${r.count} deals (${pct}%) · $${formatCurrency(r.amount)}`;
+                            }
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    /* Country — horizontal bar by amount */
+    const ctxCountry = document.getElementById('deallost-country-chart');
+    if (ctxCountry && stats.sortedCountries.length > 0) {
+        chartRegistry.register('deallost-country', new Chart(ctxCountry, {
+            type: 'bar',
+            data: {
+                labels: stats.sortedCountries.map(c => c.name),
+                datasets: [{
+                    label: 'Lost Value (USD)',
+                    data: stats.sortedCountries.map(c => c.amount),
+                    backgroundColor: 'rgba(14,165,233,0.75)',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const c = stats.sortedCountries[ctx.dataIndex];
+                                return ` $${formatCurrency(c.amount)} · ${c.count} deals`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { callback: (v) => '$' + _shortCurrency(v) } }
+                }
+            }
+        }));
+    }
+
+    /* Industry — horizontal bar by count */
+    const ctxIndustry = document.getElementById('deallost-industry-chart');
+    if (ctxIndustry && stats.sortedIndustries.length > 0) {
+        chartRegistry.register('deallost-industry', new Chart(ctxIndustry, {
+            type: 'bar',
+            data: {
+                labels: stats.sortedIndustries.slice(0, 10).map(i => i.name),
+                datasets: [{
+                    label: 'Lost Deals',
+                    data: stats.sortedIndustries.slice(0, 10).map(i => i.count),
+                    backgroundColor: 'rgba(168,85,247,0.75)',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const it = stats.sortedIndustries[ctx.dataIndex];
+                                return ` ${it.count} deals · $${formatCurrency(it.amount)}`;
+                            }
+                        }
+                    }
+                },
+                scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+            }
+        }));
+    }
+
+    /* Competitor — horizontal bar by amount */
+    const ctxCompetitor = document.getElementById('deallost-competitor-chart');
+    if (ctxCompetitor && stats.sortedCompetitors.length > 0) {
+        chartRegistry.register('deallost-competitor', new Chart(ctxCompetitor, {
+            type: 'bar',
+            data: {
+                labels: stats.sortedCompetitors.slice(0, 10).map(c => c.name),
+                datasets: [{
+                    label: 'Lost Value (USD)',
+                    data: stats.sortedCompetitors.slice(0, 10).map(c => c.amount),
+                    backgroundColor: 'rgba(249,115,22,0.8)',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const it = stats.sortedCompetitors[ctx.dataIndex];
+                                return ` $${formatCurrency(it.amount)} · ${it.count} deals`;
+                            }
+                        }
+                    }
+                },
+                scales: { x: { beginAtZero: true, ticks: { callback: (v) => '$' + _shortCurrency(v) } } }
+            }
+        }));
+    }
+}

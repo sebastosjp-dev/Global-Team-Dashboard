@@ -1627,3 +1627,138 @@ export function getTcvArrStats(data, filters = {}) {
         uniqueYears: ['All', ...Array.from(uniqueYears).sort()]
     };
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   DEAL LOST
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Compute aggregated stats for the DEAL LOST tab.
+ * Source columns: Country, Industry, Account Name, Partner,
+ * Pipeline Created Date, Lost Date, Competitor Won, Deal Amount (USD),
+ * Lost Reason, Description.
+ * @param {Object[]} data
+ * @param {string|null} filterCountry - 'All' or a specific country
+ * @returns {{stats:Object, uniqueValues:Object}}
+ */
+export function getDealLostStats(data, filterCountry) {
+    const currentYear = new Date().getFullYear();
+    const uniqueValues = {
+        countries: new Set(['All']),
+        reasons: new Set(),
+        industries: new Set()
+    };
+
+    const sample = data.find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
+    const keys = Object.keys(sample);
+    const countryKey = findCountryKey(keys);
+    const industryKey = findKey(keys, k => k.toLowerCase() === 'industry', k => k.toLowerCase().includes('industry'));
+    const accountKey = findKey(keys, k => k.toLowerCase().includes('account'));
+    const partnerKey = findKey(keys, k => k.toLowerCase() === 'partner');
+    const createdKey = findKey(keys, k => k.toLowerCase().includes('pipeline') && k.toLowerCase().includes('created'));
+    const lostDateKey = findKey(keys, k => k.toLowerCase().includes('lost') && k.toLowerCase().includes('date'));
+    const competitorKey = findKey(keys, k => k.toLowerCase().includes('competitor'));
+    const amountKey = findKey(keys, k => k.toLowerCase().includes('amount') && k.toLowerCase().includes('usd'), k => k.toLowerCase().includes('amount'));
+    const reasonKey = findKey(keys, k => k.toLowerCase().includes('reason'));
+    const descKey = findKey(keys, k => k.toLowerCase().includes('description'));
+
+    // Treat a row as "real" only when it carries some real signal:
+    // an account name, a non-zero deal amount, or a lost date.
+    // The template currently ships with 20 blank rows + a default reason value,
+    // so we cannot rely on the reason cell alone to mark a row as filled in.
+    const real = data.filter(r => {
+        const hasAccount = accountKey && String(r[accountKey] || '').trim() !== '';
+        const hasAmount = amountKey && parseCurrency(r[amountKey]) > 0;
+        const hasLostDate = lostDateKey && parseExcelDateSafe(r[lostDateKey]);
+        return hasAccount || hasAmount || hasLostDate;
+    });
+
+    real.forEach(r => {
+        if (countryKey && r[countryKey]) uniqueValues.countries.add(normalizeCountry(r[countryKey]));
+        if (reasonKey && r[reasonKey]) uniqueValues.reasons.add(String(r[reasonKey]).trim());
+        if (industryKey && r[industryKey]) uniqueValues.industries.add(String(r[industryKey]).trim());
+    });
+
+    const filtered = real.filter(r => {
+        if (filterCountry === 'All' || !filterCountry) return true;
+        const c = countryKey ? normalizeCountry(r[countryKey]) : '';
+        return c === filterCountry;
+    });
+
+    const s = {
+        totalDeals: 0,
+        totalAmount: 0,
+        avgDealSize: 0,
+        avgDaysInPipeline: null,
+        topReason: null,
+        byReason: {},
+        byCountry: {},
+        byIndustry: {},
+        byCompetitor: {},
+        byPartner: {},
+        lostPerMonth: Array(12).fill(0),
+        amountPerMonth: Array(12).fill(0),
+        entries: []
+    };
+
+    let pipelineDaysSum = 0;
+    let pipelineDaysCount = 0;
+
+    filtered.forEach(r => {
+        const country = countryKey ? (normalizeCountry(r[countryKey]) || '') : '';
+        const industry = String(r[industryKey] || '').trim() || 'Unknown';
+        const account = String(r[accountKey] || '').trim() || '(No name)';
+        const partner = String(r[partnerKey] || '').trim() || 'Direct';
+        const competitorRaw = String(r[competitorKey] || '').trim();
+        const competitor = competitorRaw || 'N/A';
+        const reason = String(r[reasonKey] || '').trim() || 'Unspecified';
+        const desc = String(r[descKey] || '').trim();
+        const amount = parseCurrency(r[amountKey]);
+        const createdDate = createdKey ? parseExcelDateSafe(r[createdKey]) : null;
+        const lostDate = lostDateKey ? parseExcelDateSafe(r[lostDateKey]) : null;
+
+        s.totalDeals++;
+        s.totalAmount += amount;
+
+        const bump = (bucket, key) => {
+            if (!bucket[key]) bucket[key] = { count: 0, amount: 0 };
+            bucket[key].count++;
+            bucket[key].amount += amount;
+        };
+
+        bump(s.byReason, reason);
+        if (country) bump(s.byCountry, country);
+        bump(s.byIndustry, industry);
+        if (competitorRaw) bump(s.byCompetitor, competitor);
+        bump(s.byPartner, partner);
+
+        if (lostDate && lostDate.getFullYear() === currentYear) {
+            s.lostPerMonth[lostDate.getMonth()]++;
+            s.amountPerMonth[lostDate.getMonth()] += amount;
+        }
+
+        if (createdDate && lostDate && lostDate >= createdDate) {
+            pipelineDaysSum += Math.floor((lostDate - createdDate) / 86400000);
+            pipelineDaysCount++;
+        }
+
+        s.entries.push({ country, industry, account, partner, competitor: competitorRaw, reason, desc, amount, createdDate, lostDate });
+    });
+
+    s.avgDealSize = s.totalDeals > 0 ? s.totalAmount / s.totalDeals : 0;
+    s.avgDaysInPipeline = pipelineDaysCount > 0 ? Math.round(pipelineDaysSum / pipelineDaysCount) : null;
+
+    const toSortedArr = (obj) => Object.entries(obj)
+        .map(([name, v]) => ({ name, count: v.count, amount: v.amount }));
+
+    s.sortedReasons = toSortedArr(s.byReason).sort((a, b) => b.count - a.count);
+    s.sortedCountries = toSortedArr(s.byCountry).sort((a, b) => b.amount - a.amount);
+    s.sortedIndustries = toSortedArr(s.byIndustry).sort((a, b) => b.count - a.count);
+    s.sortedCompetitors = toSortedArr(s.byCompetitor).sort((a, b) => b.amount - a.amount);
+    s.sortedPartners = toSortedArr(s.byPartner).sort((a, b) => b.count - a.count);
+
+    s.topReason = s.sortedReasons[0] || null;
+    s.entries.sort((a, b) => (b.lostDate?.getTime() || 0) - (a.lostDate?.getTime() || 0));
+
+    return { stats: s, uniqueValues };
+}

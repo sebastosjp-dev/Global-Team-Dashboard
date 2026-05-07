@@ -3517,3 +3517,174 @@ function _buildAccountSegmentationHTML(stats) {
         </div>
     `;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   DEAL LOST
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Render the Deal Lost analytics dashboard.
+ * @param {Object} stats - from getDealLostStats
+ * @param {string|null} filterCountry
+ * @param {Object} uniqueValues
+ * @returns {string} HTML
+ */
+export function getDealLostHTML(stats, filterCountry, uniqueValues) {
+    const country = filterCountry || 'All';
+    const escape = (str) => String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+
+    const reasonColor = (reason) => {
+        const r = String(reason || '').toLowerCase();
+        if (r.includes('price') || r.includes('budget')) return '#EF4444';
+        if (r.includes('competitor')) return '#F97316';
+        if (r.includes('no decision')) return '#9CA3AF';
+        if (r.includes('technical')) return '#0EA5E9';
+        if (r.includes('timing')) return '#A855F7';
+        if (r.includes('internal')) return '#F59E0B';
+        if (r.includes('ghosted')) return '#6B7280';
+        return '#6366F1';
+    };
+
+    const filterBar = `
+        <div class="stat-card" style="display:flex; flex-wrap:wrap; gap:20px; padding:18px; background:#FFFFFF; border:1px solid #F3F4F6; margin-bottom:24px;">
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:0.8rem; color:#6B7280; font-weight:600; text-transform:uppercase;"><i class="fa-solid fa-earth-americas" style="margin-right:6px;"></i>Country</label>
+                <select id="deallost-filter-country" style="background:#F9FAFB; color:#111827; border:1px solid #334155; padding:8px 12px; border-radius:6px; width:180px;">
+                    ${Array.from(uniqueValues.countries).map(c => `<option value="${c}" ${country === c ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+            </div>
+        </div>`;
+
+    if (stats.totalDeals === 0) {
+        return `
+            ${filterBar}
+            <div class="stat-card" style="padding:48px; background:#FFFFFF; border:1px solid #F3F4F6; text-align:center;">
+                <div style="display:inline-flex; align-items:center; justify-content:center; width:72px; height:72px; border-radius:50%; background:rgba(239,68,68,0.1); color:#EF4444; font-size:2rem; margin-bottom:18px;">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </div>
+                <h2 style="font-size:1.4rem; font-weight:700; color:#111827; margin:0 0 8px;">No Lost Deals Recorded</h2>
+                <p style="color:#6B7280; font-size:0.9rem; max-width:520px; margin:0 auto;">
+                    Once a row in the <strong>DEAL LOST</strong> sheet has an Account Name, Lost Date, or Deal Amount,
+                    it will be analyzed here. The 8 lost-reason categories will then be broken down by country,
+                    industry, and competitor.
+                </p>
+            </div>`;
+    }
+
+    const topReasonName = stats.topReason ? stats.topReason.name : '-';
+    const topReasonShare = stats.topReason ? Math.round((stats.topReason.count / stats.totalDeals) * 100) : 0;
+
+    const recent = stats.entries.slice(0, 20);
+    const thStyle = `padding:10px 14px; color:#6B7280; font-weight:600; font-size:0.78rem; white-space:nowrap; text-align:left;`;
+
+    const rowsHtml = recent.map((r, i) => `
+        <tr style="border-bottom:1px solid #E5E7EB; background:${i % 2 === 0 ? '#FAFAFA' : 'transparent'};">
+            <td style="padding:10px 14px; color:#9CA3AF; font-size:0.78rem;">${i + 1}</td>
+            <td style="padding:10px 14px; color:#374151; font-size:0.8rem;">${escape(r.country) || '-'}</td>
+            <td style="padding:10px 14px; font-weight:600; color:#111827; font-size:0.8rem;">${escape(r.account)}</td>
+            <td style="padding:10px 14px; color:#374151; font-size:0.78rem;">${escape(r.industry)}</td>
+            <td style="padding:10px 14px; color:#374151; font-size:0.78rem;">${escape(r.partner)}</td>
+            <td style="padding:10px 14px; color:#374151; font-size:0.78rem;">${escape(r.competitor) || '-'}</td>
+            <td style="padding:10px 14px; text-align:right; font-weight:700; color:#111827; font-size:0.8rem;">${r.amount > 0 ? '$' + formatCurrency(r.amount) : '-'}</td>
+            <td style="padding:10px 14px; text-align:center;">
+                <span style="background:${reasonColor(r.reason)}1A; color:${reasonColor(r.reason)}; padding:3px 10px; border-radius:6px; font-weight:700; font-size:0.7rem; text-transform:uppercase; white-space:nowrap;">${escape(r.reason)}</span>
+            </td>
+            <td style="padding:10px 14px; text-align:center; color:#374151; font-size:0.78rem;">${fmtDate(r.lostDate)}</td>
+            <td style="padding:10px 14px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#6B7280; font-size:0.78rem;" title="${escape(r.desc)}">${escape(r.desc) || '-'}</td>
+        </tr>
+    `).join('');
+
+    return `
+        ${filterBar}
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:20px; margin-bottom:30px;">
+            <div class="stat-card highlight-card" style="background:#FEF2F2; border:1px solid rgba(239,68,68,0.2); padding:24px; border-left:5px solid #EF4444;">
+                <div class="stat-icon" style="background:rgba(239,68,68,0.15); color:#EF4444; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-circle-xmark"></i></div>
+                <div>
+                    <h3 style="color:#DC2626; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Lost Deals</h3>
+                    <h2 style="color:#111827; font-size:2.2rem; font-weight:800; margin:0;">${stats.totalDeals} <span style="font-size:1rem; font-weight:400; opacity:0.7;">Deals</span></h2>
+                </div>
+            </div>
+            <div class="stat-card highlight-card" style="background:#FFF7ED; border:1px solid rgba(249,115,22,0.25); padding:24px; border-left:5px solid #F97316;">
+                <div class="stat-icon" style="background:rgba(249,115,22,0.15); color:#F97316; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+                <div>
+                    <h3 style="color:#C2410C; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Lost Value (USD)</h3>
+                    <h2 style="color:#111827; font-size:2.2rem; font-weight:800; margin:0;">$ ${formatCurrency(stats.totalAmount)}</h2>
+                </div>
+            </div>
+            <div class="stat-card highlight-card" style="background:#EFF6FF; border:1px solid rgba(0,122,255,0.2); padding:24px; border-left:5px solid #007AFF;">
+                <div class="stat-icon" style="background:rgba(0,122,255,0.15); color:#007AFF; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-coins"></i></div>
+                <div>
+                    <h3 style="color:#007AFF; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Avg Deal Size</h3>
+                    <h2 style="color:#111827; font-size:2.2rem; font-weight:800; margin:0;">$ ${formatCurrency(stats.avgDealSize)}</h2>
+                    ${stats.avgDaysInPipeline !== null ? `<p style="color:#2563EB; font-size:0.72rem; margin:4px 0 0; font-weight:500;">avg ${stats.avgDaysInPipeline} days in pipeline</p>` : ''}
+                </div>
+            </div>
+            <div class="stat-card highlight-card" style="background:#FDF2FF; border:1px solid rgba(168,85,247,0.25); padding:24px; border-left:5px solid #A855F7;">
+                <div class="stat-icon" style="background:rgba(168,85,247,0.15); color:#A855F7; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-flag"></i></div>
+                <div>
+                    <h3 style="color:#A855F7; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Top Lost Reason</h3>
+                    <h2 style="color:#111827; font-size:1.4rem; font-weight:800; margin:0; line-height:1.25;">${escape(topReasonName)}</h2>
+                    <p style="color:#7C3AED; font-size:0.72rem; margin:4px 0 0; font-weight:500;">${topReasonShare}% of all losses</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card highlight-card" style="padding:24px; margin-bottom:30px; background:#FFFFFF; border:1px solid #F3F4F6; display:block;">
+            <h3 style="font-size:1.1rem; font-weight:700; color:#111827; margin-bottom:6px;">Monthly Lost Deals (${new Date().getFullYear()})</h3>
+            <p style="font-size:0.78rem; color:#6B7280; margin:0 0 16px;">Bars: deal count · Line: lost value (USD)</p>
+            <div style="position:relative; height:340px;"><canvas id="deallost-monthly-chart"></canvas></div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:30px;">
+            <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
+                <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-chart-pie" style="margin-right:8px; color:#EF4444;"></i>Lost Reason Breakdown</h4>
+                <div style="position:relative; flex:1; min-height:280px;"><canvas id="deallost-reason-chart"></canvas></div>
+            </div>
+            <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
+                <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-earth-americas" style="margin-right:8px; color:#0EA5E9;"></i>Lost Value by Country</h4>
+                <div style="position:relative; flex:1; min-height:280px;"><canvas id="deallost-country-chart"></canvas></div>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:30px;">
+            <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
+                <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-industry" style="margin-right:8px; color:#A855F7;"></i>Lost Deals by Industry</h4>
+                <div style="position:relative; flex:1; min-height:280px;"><canvas id="deallost-industry-chart"></canvas></div>
+            </div>
+            <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
+                <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-trophy" style="margin-right:8px; color:#F97316;"></i>Top Competitors (by lost value)</h4>
+                <div style="position:relative; flex:1; min-height:280px;">${stats.sortedCompetitors.length > 0 ? '<canvas id="deallost-competitor-chart"></canvas>' : '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9CA3AF; font-size:0.85rem;">No competitor data recorded yet.</div>'}</div>
+            </div>
+        </div>
+
+        <div class="stat-card highlight-card" style="padding:24px; display:block;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                <div>
+                    <h3 style="font-size:1.05rem; font-weight:700; color:#111827; margin:0;">Recent Lost Deals</h3>
+                    <p style="font-size:0.75rem; color:#6B7280; margin:4px 0 0;">Showing ${recent.length} of ${stats.totalDeals} deals</p>
+                </div>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <thead>
+                        <tr style="background:#F3F4F6; border-bottom:2px solid #E5E7EB;">
+                            <th style="${thStyle}">#</th>
+                            <th style="${thStyle}">Country</th>
+                            <th style="${thStyle}">Account</th>
+                            <th style="${thStyle}">Industry</th>
+                            <th style="${thStyle}">Partner</th>
+                            <th style="${thStyle}">Competitor</th>
+                            <th style="${thStyle} text-align:right;">Amount (USD)</th>
+                            <th style="${thStyle} text-align:center;">Reason</th>
+                            <th style="${thStyle} text-align:center;">Lost Date</th>
+                            <th style="${thStyle}">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
