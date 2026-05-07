@@ -203,6 +203,15 @@ window.selectQuarter = function (element) {
         </tr>
     `).join('');
 
+    const totalWeighted = deals.reduce((sum, d) => sum + (Number(d.w) || 0), 0);
+    const totalRowHtml = deals.length > 0 ? `
+        <tr style="background: #FEF2F2; border-top: 2px solid #FCA5A5;">
+            <td style="padding: 18px 24px;"></td>
+            <td style="padding: 18px 24px; color: #DC2626; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Weighted Pipeline Value</td>
+            <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalWeighted)}</td>
+        </tr>
+    ` : '';
+
     if (deals.length === 0) {
         rowsHtml = '<tr><td colspan="3" style="padding: 60px 20px; text-align: center; color: #94A3B8; font-style: italic;">No active deals found for this quarter.</td></tr>';
     }
@@ -235,6 +244,7 @@ window.selectQuarter = function (element) {
                     <tbody style="background: #FFFFFF;">
                         ${rowsHtml}
                     </tbody>
+                    ${totalRowHtml ? `<tfoot>${totalRowHtml}</tfoot>` : ''}
                 </table>
             </div>
         </div>
@@ -748,7 +758,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 </div>
             `).join('');
 
-        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted) })));
+        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted })));
         const dealListAttr = dealListJson
             .replace(/&/g, '&amp;')
             .replace(/'/g, '&apos;')
