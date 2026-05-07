@@ -1165,6 +1165,37 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
             </div>
             ` : ''}
 
+            <div style="border-top: 1px solid #E5E7EB; margin-top: 4px; padding-top: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(20, 184, 166, 0.15); color: #14b8a6;"><i class="fa-solid fa-globe"></i></div>
+                    <h2 style="font-size: 0.95rem; font-weight: 600; color: #111827;">${new Date().getFullYear()} Pipeline Quarter</h2>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start;">
+                    <!-- Quarterly Grid and Pie Chart in a flex/grid container -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                        <!-- Left: Quarter Cards -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); grid-auto-rows: 1fr; gap: 10px; height: 100%; min-height: 400px;">
+                            ${quarterlyItemsHtml}
+                        </div>
+
+                        <!-- Right: Pie Chart Card -->
+                        <div class="stat-card" style="background: #FFFFFF; padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; height: 100%; min-height: 400px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                                <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Pipeline % by Quarter</h3>
+                                <span style="font-size: 0.7rem; color: #6B7280; background: #F3F4F6; padding: 2px 8px; border-radius: 10px; font-weight: 600;">VALUE BASE</span>
+                            </div>
+                            <div style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center;">
+                                <canvas id="pipeline-quarter-pie-chart" style="max-height: 320px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="pipeline-selected-quarter-container" style="margin-top: 20px; display: none;"></div>
+            </div>
+            <div id="pipeline-quarter-tooltip" class="pipeline-tooltip" style="width: 280px; pointer-events: none;"></div>
+
             ${stageSummaryHtml}
 
             <div style="border-top: 1px solid #E5E7EB; padding-top: 12px;">
@@ -1216,37 +1247,6 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                     </table>
                 </div>
             </div>
-
-            <div style="border-top: 1px solid #E5E7EB; margin-top: 4px; padding-top: 12px;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-                    <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(20, 184, 166, 0.15); color: #14b8a6;"><i class="fa-solid fa-globe"></i></div>
-                    <h2 style="font-size: 0.95rem; font-weight: 600; color: #111827;">${new Date().getFullYear()} Pipeline Quarter</h2>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start;">
-                    <!-- Quarterly Grid and Pie Chart in a flex/grid container -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
-                        <!-- Left: Quarter Cards -->
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); grid-auto-rows: 1fr; gap: 10px; height: 100%; min-height: 400px;">
-                            ${quarterlyItemsHtml}
-                        </div>
-                        
-                        <!-- Right: Pie Chart Card -->
-                        <div class="stat-card" style="background: #FFFFFF; padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; height: 100%; min-height: 400px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                                <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Pipeline % by Quarter</h3>
-                                <span style="font-size: 0.7rem; color: #6B7280; background: #F3F4F6; padding: 2px 8px; border-radius: 10px; font-weight: 600;">VALUE BASE</span>
-                            </div>
-                            <div style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center;">
-                                <canvas id="pipeline-quarter-pie-chart" style="max-height: 320px;"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="pipeline-selected-quarter-container" style="margin-top: 20px; display: none;"></div>
-            </div>
-            <div id="pipeline-quarter-tooltip" class="pipeline-tooltip" style="width: 280px; pointer-events: none;"></div>
 
             <div style="border-top: 1px solid #E5E7EB; padding-top: 16px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
