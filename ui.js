@@ -870,35 +870,6 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
     const stageGrandWeighted = stageEntries.reduce((s, [, v]) => s + (v.weighted || 0), 0);
     const stageGrandCount = stageEntries.reduce((s, [, v]) => s + (v.count || 0), 0);
 
-    const stageCardsHtml = stageEntries.length === 0
-        ? '<div style="grid-column: 1 / -1; padding: 16px; text-align: center; color: #9ca3af; font-size: 0.78rem;">No stage data available.</div>'
-        : stageEntries.map(([stageName, v]) => {
-            const t = getStageTheme(stageName);
-            const weightedPct = stageGrandWeighted > 0 ? (v.weighted / stageGrandWeighted * 100) : 0;
-            return `
-                <div class="stat-card" style="background:#FFFFFF; padding:14px; border-top: 4px solid ${t.fg}; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:8px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        ${renderStageBadge(stageName, { fontSize: '0.72rem', padding: '4px 10px' })}
-                        <span style="background: rgba(99,102,241,0.1); color:#6366f1; font-size:0.65rem; font-weight:800; padding: 2px 8px; border-radius: 10px;">${v.count || 0} deals</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
-                            <span style="font-size:0.62rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Pipeline</span>
-                            <span style="font-size:0.95rem; color:#34C759; font-weight:800;">$${formatCurrency(v.amount || 0)}</span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
-                            <span style="font-size:0.62rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Weighted Pipeline Value</span>
-                            <span style="font-size:0.95rem; color:#007AFF; font-weight:800;">$${formatCurrency(v.weighted || 0)}</span>
-                        </div>
-                    </div>
-                    <div style="height:6px; background:#F3F4F6; border-radius: 4px; overflow:hidden;">
-                        <div style="height:100%; width:${weightedPct.toFixed(1)}%; background:${t.fg};"></div>
-                    </div>
-                    <div style="font-size:0.6rem; color:#9ca3af; text-align:right;">${weightedPct.toFixed(1)}% of weighted pipeline</div>
-                </div>
-            `;
-        }).join('');
-
     const stageTableRowsHtml = stageEntries.length === 0
         ? `<tr><td colspan="4" style="padding:14px; text-align:center; color:#9ca3af; font-size:0.78rem;">No stage data available.</td></tr>`
         : stageEntries.map(([stageName, v]) => `
@@ -929,9 +900,6 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                         <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Aggregated across Q1–Q4 — counts, Pipeline (TCV) and Weighted Pipeline Value per stage.</p>
                     </div>
                 </div>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 12px;">
-                ${stageCardsHtml}
             </div>
             <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow-x: auto;">
                 <table style="width:100%; border-collapse:collapse; min-width:520px;">
