@@ -176,6 +176,7 @@ window.copyDecisionList = function () {
 window.selectQuarter = function (element) {
     const quarter = element.getAttribute('data-q');
     const deals = JSON.parse(element.getAttribute('data-deals'));
+    const showCountry = element.getAttribute('data-show-country') === 'true';
     const container = document.getElementById('pipeline-selected-quarter-container');
     if (!container) return;
 
@@ -195,13 +196,16 @@ window.selectQuarter = function (element) {
     element.style.transform = 'translateY(-4px)';
     element.style.boxShadow = '0 10px 25px rgba(16, 185, 129, 0.15)';
 
-    let rowsHtml = deals.map((d, index) => `
+    let rowsHtml = deals.map((d, index) => {
+        const countryBadge = (showCountry && d.c) ? `<span style="display: inline-block; background: rgba(16,185,129,0.1); color: #059669; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-right: 10px; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle;">${d.c}</span>` : '';
+        return `
         <tr style="border-bottom: 1px solid #F3F4F6; transition: background 0.2s;">
             <td style="padding: 16px 24px; color: #94A3B8; font-weight: 700; width: 60px; font-family: monospace;">${String(index + 1).padStart(2, '0')}</td>
-            <td style="padding: 16px 24px; color: #1E293B; font-weight: 700; font-size: 0.95rem;">${d.n}</td>
+            <td style="padding: 16px 24px; color: #1E293B; font-weight: 700; font-size: 0.95rem;">${countryBadge}${d.n}</td>
             <td style="padding: 16px 24px; text-align: right; color: #10B981; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.a}</td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 
     const totalWeighted = deals.reduce((sum, d) => sum + (Number(d.w) || 0), 0);
     const totalRowHtml = deals.length > 0 ? `
@@ -758,7 +762,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 </div>
             `).join('');
 
-        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted })));
+        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted, c: d.country || '' })));
         const dealListAttr = dealListJson
             .replace(/&/g, '&amp;')
             .replace(/'/g, '&apos;')
@@ -768,6 +772,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
         return `
             <div class="quarter-card"
                  data-q="${q}"
+                 data-show-country="${filterCountry ? 'false' : 'true'}"
                  data-deals='${dealListAttr}'
                  style="display: flex; flex-direction: column; padding: 10px; background: #F9FAFB; border-radius: 8px; border-top: 3px solid #10b981; cursor: pointer; transition: all 0.2s;"
                  onmouseover="showQuarterTooltip(event, this)" 
