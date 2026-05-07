@@ -196,12 +196,22 @@ window.copyDecisionList = function () {
 
 window.selectQuarter = function (element) {
     const quarter = element.getAttribute('data-q');
-    const deals = JSON.parse(element.getAttribute('data-deals'));
+    const deals = JSON.parse(element.getAttribute('data-deals'))
+        .slice()
+        .sort((a, b) => (Number(b.w) || 0) - (Number(a.w) || 0));
     const uniqueCountries = new Set(deals.map(d => d.c).filter(Boolean));
     const showCountry = uniqueCountries.size > 1
         || element.getAttribute('data-show-country') === 'true';
     const container = document.getElementById('pipeline-selected-quarter-container');
     if (!container) return;
+
+    const COUNTRY_FLAGS = {
+        'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Malaysia': '🇲🇾',
+        'USA': '🇺🇸', 'Philippines': '🇵🇭', 'Vietnam': '🇻🇳',
+        'Singapore': '🇸🇬', 'Turkey': '🇹🇷', 'Japan': '🇯🇵',
+        'India': '🇮🇳', 'Australia': '🇦🇺', 'Taiwan': '🇹🇼',
+        'Hong Kong': '🇭🇰',
+    };
 
     // Reset all cards styling
     document.querySelectorAll('.quarter-card').forEach(c => {
@@ -220,7 +230,10 @@ window.selectQuarter = function (element) {
     element.style.boxShadow = '0 10px 25px rgba(16, 185, 129, 0.15)';
 
     let rowsHtml = deals.map((d, index) => {
-        const countryBadge = (showCountry && d.c) ? `<span style="display: inline-block; background: rgba(16,185,129,0.1); color: #059669; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-right: 10px; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle;">${d.c}</span>` : '';
+        const flag = d.c ? (COUNTRY_FLAGS[d.c] || '') : '';
+        const countryBadge = (showCountry && d.c)
+            ? `<span title="${d.c}" style="display: inline-block; font-size: 1.1rem; margin-right: 10px; vertical-align: middle; line-height: 1;">${flag || d.c}</span>`
+            : '';
         const stageBadge = renderStageBadge(d.s || 'Unknown', { fontSize: '0.7rem', padding: '4px 10px' });
         return `
         <tr style="border-bottom: 1px solid #F3F4F6; transition: background 0.2s;">
