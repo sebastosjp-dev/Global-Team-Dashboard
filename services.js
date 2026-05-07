@@ -130,11 +130,34 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * Compute aggregated stats for the PIPELINE tab.
- * @param {Object[]} pData
- * @param {Object[]} [orderData=[]]
- * @returns {Object}
+ * Estimate contract years from a pipeline deal name. Used to derive ARR ≈ TCV / years
+ * because the PIPELINE sheet lacks an explicit ARR column.
+ * Recognized patterns: "_5yr" / "5 year(s)", "24.04-26.04" / "24.04.15-26.04.14",
+ * "2024-2026". Falls back to 1.
+ * @param {string} dealName
+ * @returns {number} years (>=1)
  */
+export function parseContractYears(dealName) {
+    if (!dealName) return 1;
+    const s = String(dealName);
+    let m = s.match(/(\d+)\s*(?:yr|years?)\b/i);
+    if (m) {
+        const y = parseInt(m[1], 10);
+        if (y >= 1 && y <= 10) return y;
+    }
+    m = s.match(/\b(\d{2})\.\d{1,2}(?:\.\d{1,2})?\s*[-~]\s*(\d{2})\.\d{1,2}/);
+    if (m) {
+        const diff = parseInt(m[2], 10) - parseInt(m[1], 10);
+        if (diff >= 1 && diff <= 10) return diff;
+    }
+    m = s.match(/\b(20\d{2})\s*[-~]\s*(20\d{2})\b/);
+    if (m) {
+        const diff = parseInt(m[2], 10) - parseInt(m[1], 10);
+        if (diff >= 1 && diff <= 10) return diff;
+    }
+    return 1;
+}
+
 export function getPipelineStats(pData, orderData = []) {
     let pipelineByCountry = {};
     let pipelineByQuarter = {
@@ -161,11 +184,11 @@ export function getPipelineStats(pData, orderData = []) {
 
             if (tcv > 0 && d && d.getFullYear() === currentYear) {
                 const qId = `Q${Math.floor(d.getMonth() / 3) + 1}`;
-                if (!pipelineByCountry[country]) pipelineByCountry[country] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
+                if (!pipelineByCountry[country]) pipelineByCountry[country] = { amount: 0, weighted: 0, arr: 0, tcv: 0, count: 0 };
                 pipelineByCountry[country].tcv = (pipelineByCountry[country].tcv || 0) + tcv;
                 pipelineByCountry[country].count++;
 
-                if (!pipelineByQuarter[qId].countries[country]) pipelineByQuarter[qId].countries[country] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
+                if (!pipelineByQuarter[qId].countries[country]) pipelineByQuarter[qId].countries[country] = { amount: 0, weighted: 0, arr: 0, tcv: 0, count: 0 };
                 pipelineByQuarter[qId].countries[country].tcv = (pipelineByQuarter[qId].countries[country].tcv || 0) + tcv;
                 pipelineByQuarter[qId].countries[country].count++;
             }
@@ -202,21 +225,26 @@ export function getPipelineStats(pData, orderData = []) {
             else if (qRaw.includes('Q4')) qMatch = 'Q4';
         }
 
+        const years = parseContractYears(dealName);
+        const arr = years > 0 ? amt / years : amt;
+
         // Only count rows tagged with a current-year quarter. Untagged rows are
         // legacy/Lost/Won/Dropped entries that should not inflate the global hero.
         if (qMatch) {
-            if (!pipelineByCountry[c]) pipelineByCountry[c] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
+            if (!pipelineByCountry[c]) pipelineByCountry[c] = { amount: 0, weighted: 0, arr: 0, tcv: 0, count: 0 };
             pipelineByCountry[c].amount += amt;
             pipelineByCountry[c].weighted += wAmt;
+            pipelineByCountry[c].arr = (pipelineByCountry[c].arr || 0) + arr;
             pipelineByCountry[c].count++;
 
             if (!pipelineByQuarter[qMatch].countries[c]) {
-                pipelineByQuarter[qMatch].countries[c] = { amount: 0, weighted: 0, tcv: 0, count: 0 };
+                pipelineByQuarter[qMatch].countries[c] = { amount: 0, weighted: 0, arr: 0, tcv: 0, count: 0 };
             }
             pipelineByQuarter[qMatch].countries[c].amount += amt;
             pipelineByQuarter[qMatch].countries[c].weighted += wAmt;
+            pipelineByQuarter[qMatch].countries[c].arr = (pipelineByQuarter[qMatch].countries[c].arr || 0) + arr;
             pipelineByQuarter[qMatch].countries[c].count++;
-            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, country: c, year });
+            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year });
         }
 
         if (year === currentYearStr && d) {
@@ -244,6 +272,7 @@ export function getPipelineStats(pData, orderData = []) {
         sortedQuarterly: Object.entries(pipelineByQuarter).sort((a, b) => a[0].localeCompare(b[0])),
         globalTotalAmount: Object.values(pipelineByCountry).reduce((acc, curr) => acc + curr.amount, 0),
         globalTotalWeighted: Object.values(pipelineByCountry).reduce((acc, curr) => acc + curr.weighted, 0),
+        globalTotalArr: Object.values(pipelineByCountry).reduce((acc, curr) => acc + (curr.arr || 0), 0),
         globalTotalTcv: Object.values(pipelineByCountry).reduce((acc, curr) => acc + (curr.tcv || 0), 0),
         globalTotalCount: Object.values(pipelineByCountry).reduce((acc, curr) => acc + (curr.count || 0), 0)
     };

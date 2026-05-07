@@ -833,6 +833,80 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
 
     injectPipelineTooltipStyles();
 
+    // ── New Pipeline Volume Matrix (Country × Quarter, ARR & TCV) ──────────
+    const matrixCountrySet = new Set();
+    stats.sortedQuarterly.forEach(([, qData]) => Object.keys(qData.countries).forEach(c => matrixCountrySet.add(c)));
+    const matrixCountries = Array.from(matrixCountrySet).sort();
+
+    const matrixRowData = matrixCountries.map(country => {
+        const byQ = {};
+        let totalTcv = 0, totalArr = 0, totalCount = 0;
+        stats.sortedQuarterly.forEach(([q, qData]) => {
+            const v = qData.countries[country] || { amount: 0, arr: 0, count: 0 };
+            byQ[q] = { tcv: v.amount || 0, arr: v.arr || 0, count: v.count || 0 };
+            totalTcv += v.amount || 0;
+            totalArr += v.arr || 0;
+            totalCount += v.count || 0;
+        });
+        return { country, byQ, totalTcv, totalArr, totalCount };
+    }).sort((a, b) => b.totalTcv - a.totalTcv);
+
+    const matrixColumnTotals = { Q1: { tcv: 0, arr: 0, count: 0 }, Q2: { tcv: 0, arr: 0, count: 0 }, Q3: { tcv: 0, arr: 0, count: 0 }, Q4: { tcv: 0, arr: 0, count: 0 } };
+    let matrixGrandTcv = 0, matrixGrandArr = 0, matrixGrandCount = 0;
+    matrixRowData.forEach(r => {
+        ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+            const c = r.byQ[q] || { tcv: 0, arr: 0, count: 0 };
+            matrixColumnTotals[q].tcv += c.tcv;
+            matrixColumnTotals[q].arr += c.arr;
+            matrixColumnTotals[q].count += c.count;
+        });
+        matrixGrandTcv += r.totalTcv;
+        matrixGrandArr += r.totalArr;
+        matrixGrandCount += r.totalCount;
+    });
+
+    const matrixQuarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const matrixHeaderHtml = matrixQuarters.map(q => `
+        <th colspan="2" style="padding: 8px 6px; text-align: center; font-size: 0.7rem; font-weight: 800; color: #047857; border-bottom: 2px solid #d1fae5; background: #ecfdf5; letter-spacing: 0.04em;">${q} Target</th>
+    `).join('');
+    const matrixSubHeaderHtml = matrixQuarters.map(() => `
+        <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 700; color: #ef4444; background: #fef2f2; border-bottom: 1px solid #fecaca;">TCV</th>
+        <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 700; color: #6366f1; background: #eef2ff; border-bottom: 1px solid #c7d2fe;">ARR</th>
+    `).join('');
+
+    const fmtCell = (v) => v > 0 ? `$${formatCurrency(v)}` : '<span style="color:#cbd5e1;">—</span>';
+
+    const matrixBodyHtml = matrixRowData.length === 0 ? `
+        <tr><td colspan="${2 + matrixQuarters.length * 2 + 2}" style="padding: 16px; text-align: center; color: #9ca3af; font-size: 0.78rem;">No pipeline deals tagged with a quarter for ${currentYear}.</td></tr>
+    ` : matrixRowData.map(r => `
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 8px 10px; font-size: 0.78rem; font-weight: 700; color: #111827; white-space: nowrap;">${r.country}</td>
+            <td style="padding: 8px 10px; font-size: 0.7rem; color: #6b7280; text-align: center;">${r.totalCount}</td>
+            ${matrixQuarters.map(q => {
+                const c = r.byQ[q] || { tcv: 0, arr: 0 };
+                return `
+                    <td style="padding: 8px 8px; font-size: 0.76rem; text-align: right; color: #ef4444; font-weight: 600;">${fmtCell(c.tcv)}</td>
+                    <td style="padding: 8px 8px; font-size: 0.76rem; text-align: right; color: #6366f1; font-weight: 600;">${fmtCell(c.arr)}</td>
+                `;
+            }).join('')}
+            <td style="padding: 8px 10px; font-size: 0.8rem; text-align: right; color: #ef4444; font-weight: 800; background: #fef2f2;">${fmtCell(r.totalTcv)}</td>
+            <td style="padding: 8px 10px; font-size: 0.8rem; text-align: right; color: #6366f1; font-weight: 800; background: #eef2ff;">${fmtCell(r.totalArr)}</td>
+        </tr>
+    `).join('');
+
+    const matrixFooterHtml = matrixRowData.length === 0 ? '' : `
+        <tr style="border-top: 2px solid #10b981; background: #f8fafc;">
+            <td style="padding: 10px 10px; font-size: 0.78rem; font-weight: 800; color: #047857;">Total</td>
+            <td style="padding: 10px 10px; font-size: 0.72rem; font-weight: 800; color: #6b7280; text-align: center;">${matrixGrandCount}</td>
+            ${matrixQuarters.map(q => `
+                <td style="padding: 10px 8px; font-size: 0.78rem; text-align: right; color: #ef4444; font-weight: 800;">${fmtCell(matrixColumnTotals[q].tcv)}</td>
+                <td style="padding: 10px 8px; font-size: 0.78rem; text-align: right; color: #6366f1; font-weight: 800;">${fmtCell(matrixColumnTotals[q].arr)}</td>
+            `).join('')}
+            <td style="padding: 10px 10px; font-size: 0.85rem; text-align: right; color: #ef4444; font-weight: 900; background: #fee2e2;">${fmtCell(matrixGrandTcv)}</td>
+            <td style="padding: 10px 10px; font-size: 0.85rem; text-align: right; color: #6366f1; font-weight: 900; background: #e0e7ff;">${fmtCell(matrixGrandArr)}</td>
+        </tr>
+    `;
+
     return `
         <div style="padding: 16px; background: #EDFAF1; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.15); display: flex; flex-direction: column; gap: 16px;">
             ${tabName === 'PIPELINE' ? `
@@ -882,6 +956,43 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 </div>
             </div>
             ` : ''}
+
+            <div style="border-top: 1px solid #E5E7EB; padding-top: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-table-cells"></i></div>
+                        <div>
+                            <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">New Pipeline Volume by Country (${currentYear})</h2>
+                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly target — TCV & ARR side by side. ARR = TCV ÷ contract years (parsed from Deal Name; default 1y)</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; font-size: 0.65rem; font-weight: 700;">
+                        <span style="background:#fef2f2; color:#ef4444; padding: 3px 10px; border-radius: 10px; border:1px solid #fecaca;">TCV</span>
+                        <span style="background:#eef2ff; color:#6366f1; padding: 3px 10px; border-radius: 10px; border:1px solid #c7d2fe;">ARR</span>
+                    </div>
+                </div>
+                <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-family: inherit; min-width: 720px;">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="padding: 10px 12px; text-align: left; font-size: 0.7rem; font-weight: 800; color: #374151; border-bottom: 2px solid #d1fae5; background: #f9fafb; letter-spacing: 0.05em; text-transform: uppercase;">Country</th>
+                                <th rowspan="2" style="padding: 10px 8px; text-align: center; font-size: 0.7rem; font-weight: 800; color: #374151; border-bottom: 2px solid #d1fae5; background: #f9fafb; letter-spacing: 0.05em; text-transform: uppercase;">Deals</th>
+                                ${matrixHeaderHtml}
+                                <th colspan="2" style="padding: 8px 6px; text-align: center; font-size: 0.7rem; font-weight: 800; color: #047857; border-bottom: 2px solid #10b981; background: #d1fae5; letter-spacing: 0.04em;">Total</th>
+                            </tr>
+                            <tr>
+                                ${matrixSubHeaderHtml}
+                                <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #ef4444; background: #fee2e2; border-bottom: 1px solid #fecaca;">TCV</th>
+                                <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #6366f1; background: #e0e7ff; border-bottom: 1px solid #c7d2fe;">ARR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${matrixBodyHtml}
+                            ${matrixFooterHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             <div style="border-top: 1px solid #E5E7EB; margin-top: 4px; padding-top: 12px;">
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
