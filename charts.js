@@ -672,6 +672,125 @@ export function initOrderSheetCharts(stats) {
         }));
     }
 
+    // ARR/MRR Growth line charts — show per-year added ARR/MRR (the deltas behind the cumulative
+    // sparklines). Line form makes the trend (accelerating, slowing, declining) immediately
+    // legible. Each point is labeled with the year's added value; tooltip adds YoY % vs the
+    // prior year's delta and the cumulative footer.
+    const renderGrowthLine = (canvasId, headlineId, regKey, years, snapshots, baseColor, baseRgb) => {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx || years.length === 0) return;
+        const deltas = snapshots.map((v, i) => v - (snapshots[i - 1] || 0));
+        const headline = document.getElementById(headlineId);
+        if (headline) {
+            const latest = deltas[deltas.length - 1] || 0;
+            const sign = latest >= 0 ? '+' : '−';
+            headline.textContent = `${sign}US$ ${formatCurrency(Math.abs(latest))}`;
+            headline.style.color = latest >= 0 ? '#111827' : '#ef4444';
+        }
+        chartRegistry.register(regKey, new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: years,
+                datasets: [{
+                    data: deltas,
+                    borderColor: baseColor,
+                    backgroundColor: `rgba(${baseRgb}, 0.18)`,
+                    fill: true,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: baseColor,
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false, axis: 'x' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#f1f5f9',
+                        bodyColor: '#cbd5e1',
+                        padding: 10,
+                        cornerRadius: 6,
+                        callbacks: {
+                            title: (items) => items[0].label,
+                            label: (item) => {
+                                const v = item.parsed.y;
+                                const prev = deltas[item.dataIndex - 1];
+                                let line = ` ${v >= 0 ? '+' : '−'}US$ ${formatCurrency(Math.abs(v))} added`;
+                                if (item.dataIndex > 0 && prev > 0) {
+                                    const yoy = ((v / prev) - 1) * 100;
+                                    line += `  (${yoy >= 0 ? '+' : ''}${yoy.toFixed(1)}% vs prior yr)`;
+                                }
+                                return line;
+                            },
+                            afterLabel: (item) => `Cumulative: US$ ${formatCurrency(snapshots[item.dataIndex])}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false }, ticks: { color: '#94a3b8', font: { size: 9, weight: '700' }, padding: 4 } },
+                    y: { display: false, beginAtZero: true }
+                },
+                elements: {
+                    point: { radius: 3, hoverRadius: 7, hitRadius: 20, hoverBorderWidth: 3 },
+                    line: { borderWidth: 2, tension: 0.4 }
+                },
+                layout: { padding: { top: 18, bottom: 0, left: 8, right: 8 } }
+            },
+            plugins: [{
+                id: 'growthLineLabels',
+                afterDatasetsDraw(chart) {
+                    const { ctx: c, chartArea } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta || !meta.data) return;
+                    c.save();
+                    c.font = '700 9px Inter, system-ui, sans-serif';
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    meta.data.forEach((point, i) => {
+                        const v = deltas[i];
+                        const label = `${v >= 0 ? '+' : '−'}$${formatCurrency(Math.abs(v))}`;
+                        const padX = 4, h = 14;
+                        const w = c.measureText(label).width + padX * 2;
+                        let x = point.x;
+                        const minX = chartArea.left + w / 2;
+                        const maxX = chartArea.right - w / 2;
+                        if (x < minX) x = minX;
+                        if (x > maxX) x = maxX;
+                        let y = point.y - 12;
+                        if (y - h / 2 < chartArea.top) y = chartArea.top + h / 2;
+                        const color = v >= 0 ? baseColor : '#ef4444';
+                        c.fillStyle = 'rgba(255,255,255,0.95)';
+                        c.strokeStyle = color;
+                        c.lineWidth = 1;
+                        const rx = x - w / 2, ry = y - h / 2, r = 3;
+                        c.beginPath();
+                        c.moveTo(rx + r, ry);
+                        c.lineTo(rx + w - r, ry);
+                        c.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
+                        c.lineTo(rx + w, ry + h - r);
+                        c.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
+                        c.lineTo(rx + r, ry + h);
+                        c.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
+                        c.lineTo(rx, ry + r);
+                        c.quadraticCurveTo(rx, ry, rx + r, ry);
+                        c.closePath();
+                        c.fill();
+                        c.stroke();
+                        c.fillStyle = color;
+                        c.fillText(label, x, y);
+                    });
+                    c.restore();
+                }
+            }]
+        }));
+    };
+
+    renderGrowthLine('arr-growth-bar', 'arr-growth-headline', 'order-arr-growth', arrYears, arrYears.map(y => stats.yearlyArr[y]), '#8b5cf6', '139, 92, 246');
+    renderGrowthLine('mrr-growth-bar', 'mrr-growth-headline', 'order-mrr-growth', mrrYears, mrrYears.map(y => stats.yearlyMrr[y]), '#a855f7', '168, 85, 247');
+
     // Country TCV donut chart
     const donutCtx = document.getElementById('country-tcv-donut');
     if (donutCtx && stats.tcvByCountry) {
