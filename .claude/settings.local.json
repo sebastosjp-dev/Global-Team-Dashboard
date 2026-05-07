@@ -21,7 +21,8 @@
       "Read(//tmp/**)",
       "Bash(node -e ' *)",
       "Bash(cp /tmp/main_extract/xl/sharedStrings.xml \"/c/Users/LG/Downloads/global dashboard making/_tmp_strings.xml\")",
-      "Bash(rm -f \"/c/Users/LG/Downloads/global dashboard making/_tmp_strings.xml\")"
+      "Bash(rm -f \"/c/Users/LG/Downloads/global dashboard making/_tmp_strings.xml\")",
+      "Bash(node --check charts.js)"
     ]
   }
 }

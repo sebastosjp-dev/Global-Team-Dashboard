@@ -1023,7 +1023,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
         const t = QUARTER_THEME[q];
         return `
             <th colspan="2" style="padding: 10px 8px; text-align: center; font-size: 0.78rem; font-weight: 900; color: ${t.header}; background: ${t.headerBg}; letter-spacing: 0.05em; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 2px solid ${t.divider};">
-                <span style="display:inline-block; background: ${t.header}; color:#fff; width:18px; height:18px; line-height:18px; border-radius:50%; font-size:0.7rem; margin-right:6px; text-align:center; font-weight:900;">${q.charAt(1)}</span>${q} TARGET
+                <span style="display:inline-block; background: ${t.header}; color:#fff; width:18px; height:18px; line-height:18px; border-radius:50%; font-size:0.7rem; margin-right:6px; text-align:center; font-weight:900;">${q.charAt(1)}</span>${q} PIPELINE
             </th>
         `;
     }).join('');
@@ -1171,24 +1171,19 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                     <h2 style="font-size: 0.95rem; font-weight: 600; color: #111827;">${new Date().getFullYear()} Pipeline Quarter</h2>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start;">
-                    <!-- Quarterly Grid and Pie Chart in a flex/grid container -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
-                        <!-- Left: Quarter Cards -->
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); grid-auto-rows: 1fr; gap: 10px; height: 100%; min-height: 400px;">
-                            ${quarterlyItemsHtml}
-                        </div>
+                <!-- Quarter Cards (full width) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                    ${quarterlyItemsHtml}
+                </div>
 
-                        <!-- Right: Pie Chart Card -->
-                        <div class="stat-card" style="background: #FFFFFF; padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; height: 100%; min-height: 400px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                                <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Pipeline % by Quarter</h3>
-                                <span style="font-size: 0.7rem; color: #6B7280; background: #F3F4F6; padding: 2px 8px; border-radius: 10px; font-weight: 600;">VALUE BASE</span>
-                            </div>
-                            <div style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center;">
-                                <canvas id="pipeline-quarter-pie-chart" style="max-height: 320px;"></canvas>
-                            </div>
-                        </div>
+                <!-- Pipeline % by Quarter — horizontal bar (placed below quarter cards) -->
+                <div class="stat-card" style="background: #FFFFFF; padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-top: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Pipeline % by Quarter</h3>
+                        <span style="font-size: 0.7rem; color: #6B7280; background: #F3F4F6; padding: 2px 8px; border-radius: 10px; font-weight: 600;">VALUE BASE</span>
+                    </div>
+                    <div style="position: relative; height: 200px;">
+                        <canvas id="pipeline-quarter-pie-chart"></canvas>
                     </div>
                 </div>
 
@@ -1204,7 +1199,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                         <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-table-cells"></i></div>
                         <div>
                             <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">New Pipeline Volume by Country (${currentYear})</h2>
-                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly target — TCV & ARR side by side. ARR = TCV ÷ Contract Yr (PIPELINE 시트의 Contract Yr 컬럼 값. 비어있으면 1년 가정)</p>
+                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly pipeline — TCV & ARR side by side. ARR = TCV ÷ Contract Yr (PIPELINE 시트의 Contract Yr 컬럼 값. 비어있으면 1년 가정)</p>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; font-size: 0.65rem; font-weight: 700;">

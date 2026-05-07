@@ -467,250 +467,38 @@ export function initOrderSheetCharts(stats) {
         }));
     }
 
-    // Sparklines for ARR and MRR Growth
-    // metric: 'ARR' shows MRR equivalent (÷12); 'MRR' shows ARR equivalent (×12)
-    const buildSparklineOptions = (metric) => ({
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-            mode: 'index',
-            intersect: false,
-            axis: 'x'
-        },
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                enabled: true,
-                mode: 'index',
-                intersect: false,
-                axis: 'x',
-                backgroundColor: '#1e293b',
-                titleColor: '#f1f5f9',
-                bodyColor: '#f1f5f9',
-                padding: 12,
-                cornerRadius: 6,
-                displayColors: false,
-                callbacks: {
-                    label: (ctx) => ` ${metric}: US$ ${formatCurrency(ctx.parsed.y)}`,
-                    afterLabel: (ctx) => {
-                        const data = ctx.chart.data.datasets[0].data;
-                        const labels = ctx.chart.data.labels;
-                        const i = ctx.dataIndex;
-                        const curr = data[i];
-                        const lines = [];
-
-                        // ARR↔MRR conversion equivalent
-                        if (metric === 'ARR') {
-                            lines.push(` ≈ US$ ${formatCurrency(curr / 12)} / mo (MRR)`);
-                        } else if (metric === 'MRR') {
-                            lines.push(` ≈ US$ ${formatCurrency(curr * 12)} / yr (ARR)`);
-                        }
-
-                        // YoY
-                        if (i === 0) {
-                            lines.push(' YoY: baseline year');
-                        } else {
-                            const prev = data[i - 1];
-                            if (!prev || prev <= 0) {
-                                lines.push(' YoY: N/A (prior year is 0)');
-                            } else {
-                                const yoy = ((curr / prev) - 1) * 100;
-                                const sign = yoy >= 0 ? '+' : '';
-                                const delta = curr - prev;
-                                const dSign = delta >= 0 ? '+' : '−';
-                                lines.push(` YoY: ${sign}${yoy.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(delta))})`);
-                            }
-                        }
-
-                        // vs baseline (first year) + CAGR
-                        const baseline = data[0];
-                        const baselineYear = labels[0];
-                        const currYear = labels[i];
-                        if (i > 0 && baseline > 0) {
-                            const totalGrowth = ((curr / baseline) - 1) * 100;
-                            const sign = totalGrowth >= 0 ? '+' : '';
-                            const totalDelta = curr - baseline;
-                            const dSign = totalDelta >= 0 ? '+' : '−';
-                            lines.push(` vs ${baselineYear}: ${sign}${totalGrowth.toFixed(1)}%  (${dSign}US$ ${formatCurrency(Math.abs(totalDelta))})`);
-                            const yearsElapsed = i;
-                            if (yearsElapsed >= 1) {
-                                const cagr = (Math.pow(curr / baseline, 1 / yearsElapsed) - 1) * 100;
-                                const cSign = cagr >= 0 ? '+' : '';
-                                lines.push(` CAGR (${baselineYear}→${currYear}): ${cSign}${cagr.toFixed(1)}%`);
-                            }
-                        }
-
-                        // Series position
-                        const max = Math.max(...data);
-                        const min = Math.min(...data);
-                        if (curr === max && data.length > 1) {
-                            lines.push(' ★ Series high');
-                        } else if (curr === min && data.length > 1 && i !== 0) {
-                            lines.push(' ▼ Series low');
-                        }
-
-                        return lines.join('\n');
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                display: true,
-                grid: { display: false },
-                border: { display: false },
-                ticks: {
-                    color: '#94a3b8',
-                    font: { size: 9, weight: '700' },
-                    padding: 4
-                }
-            },
-            y: { display: false, beginAtZero: true }
-        },
-        elements: {
-            point: { radius: 3, hoverRadius: 7, hitRadius: 20, hoverBorderWidth: 3 },
-            line: { borderWidth: 2, tension: 0.4 }
-        },
-        layout: {
-            padding: { top: 18, bottom: 0, left: 8, right: 8 }
-        }
-    });
-
-    const sparkYoyLabelsPlugin = (values) => ({
-        id: 'sparkYoyLabels',
-        afterDatasetsDraw(chart) {
-            const { ctx, chartArea } = chart;
-            const meta = chart.getDatasetMeta(0);
-            if (!meta || !meta.data) return;
-            ctx.save();
-            ctx.font = '700 9px Inter, system-ui, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            meta.data.forEach((point, i) => {
-                if (i === 0) return;
-                const prev = values[i - 1];
-                const curr = values[i];
-                let label, color;
-                if (!prev || prev <= 0) {
-                    if (curr > 0) { label = 'N/A'; color = '#94a3b8'; }
-                    else { label = '0%'; color = '#94a3b8'; }
-                } else {
-                    const yoy = ((curr / prev) - 1) * 100;
-                    const sign = yoy >= 0 ? '+' : '';
-                    label = `${sign}${yoy.toFixed(1)}%`;
-                    color = yoy < 0 ? '#ef4444' : '#10b981';
-                }
-                const padX = 4, h = 14;
-                const w = ctx.measureText(label).width + padX * 2;
-                let x = point.x;
-                const minX = chartArea.left + w / 2;
-                const maxX = chartArea.right - w / 2;
-                if (x < minX) x = minX;
-                if (x > maxX) x = maxX;
-                let y = point.y - 12;
-                if (y - h / 2 < chartArea.top) y = chartArea.top + h / 2;
-                ctx.fillStyle = 'rgba(255,255,255,0.95)';
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 1;
-                const rx = x - w / 2, ry = y - h / 2, r = 3;
-                ctx.beginPath();
-                ctx.moveTo(rx + r, ry);
-                ctx.lineTo(rx + w - r, ry);
-                ctx.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
-                ctx.lineTo(rx + w, ry + h - r);
-                ctx.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
-                ctx.lineTo(rx + r, ry + h);
-                ctx.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
-                ctx.lineTo(rx, ry + r);
-                ctx.quadraticCurveTo(rx, ry, rx + r, ry);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-                ctx.fillStyle = color;
-                ctx.fillText(label, x, y);
-            });
-            ctx.restore();
-        }
-    });
-
-    // Year-segmented shading underneath the line: each year contributes its own band
-    // (light → dark by year via yearShade), so the area visually decomposes into the
-    // same per-year stack the top TCV/KTCV bars show. The top of layer i traces the
-    // line itself for j ≥ i and stays at val_j (the line) for j < i, so layers nest
-    // cleanly without crossing.
-    const yoyStackedAreaPlugin = (values, baseRgb) => ({
-        id: 'yoyStackedArea',
-        beforeDatasetsDraw(chart) {
-            const { ctx, scales } = chart;
-            const xScale = scales.x;
-            const yScale = scales.y;
-            if (!xScale || !yScale || !values.length) return;
-            ctx.save();
-            for (let i = 0; i < values.length; i++) {
-                ctx.fillStyle = yearShade(baseRgb, i, values.length);
-                ctx.beginPath();
-                for (let j = 0; j < values.length; j++) {
-                    const x = xScale.getPixelForValue(j);
-                    const y = yScale.getPixelForValue(values[Math.min(i, j)] || 0);
-                    if (j === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                }
-                for (let j = values.length - 1; j >= 0; j--) {
-                    const x = xScale.getPixelForValue(j);
-                    const yVal = i === 0 ? 0 : (values[Math.min(i - 1, j)] || 0);
-                    const y = yScale.getPixelForValue(yVal);
-                    ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-    });
-
+    // ARR/MRR are stored as cumulative snapshots (each year = total active ARR at year-end).
+    // Convert to per-year deltas so they stack the same way TCV does — each segment shows the
+    // ARR/MRR newly added that year, and the total bar height equals that year's snapshot.
     const arrYears = Object.keys(stats.yearlyArr).sort();
     const arrCtx = document.getElementById('arr-sparkline');
     if (arrCtx && arrYears.length > 0) {
-        const arrValues = arrYears.map(y => stats.yearlyArr[y]);
+        const arrSnapshots = arrYears.map(y => stats.yearlyArr[y]);
+        const arrYearly = arrSnapshots.map((v, i) => v - (arrSnapshots[i - 1] || 0));
         chartRegistry.register('order-arr-spark', new Chart(arrCtx, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: arrYears,
-                datasets: [{
-                    data: arrValues,
-                    borderColor: '#7c3aed',
-                    backgroundColor: '#7c3aed',
-                    fill: false,
-                    pointBackgroundColor: '#ffffff',
-                    pointBorderColor: '#7c3aed',
-                    pointBorderWidth: 2
-                }]
+                datasets: buildStackedDatasets('139, 92, 246', arrYearly, arrYears)
             },
-            options: buildSparklineOptions('ARR'),
-            plugins: [yoyStackedAreaPlugin(arrValues, '139, 92, 246'), sparkYoyLabelsPlugin(arrValues)]
+            options: cumulativeStackedOptions(arrYearly, 'US$ '),
+            plugins: [yoyGrowthLabelsPlugin(arrYearly)]
         }));
     }
 
     const mrrYears = Object.keys(stats.yearlyMrr).sort();
     const mrrCtx = document.getElementById('mrr-sparkline');
     if (mrrCtx && mrrYears.length > 0) {
-        const mrrValues = mrrYears.map(y => stats.yearlyMrr[y]);
+        const mrrSnapshots = mrrYears.map(y => stats.yearlyMrr[y]);
+        const mrrYearly = mrrSnapshots.map((v, i) => v - (mrrSnapshots[i - 1] || 0));
         chartRegistry.register('order-mrr-spark', new Chart(mrrCtx, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: mrrYears,
-                datasets: [{
-                    data: mrrValues,
-                    borderColor: '#9333ea',
-                    backgroundColor: '#9333ea',
-                    fill: false,
-                    pointBackgroundColor: '#ffffff',
-                    pointBorderColor: '#9333ea',
-                    pointBorderWidth: 2
-                }]
+                datasets: buildStackedDatasets('168, 85, 247', mrrYearly, mrrYears)
             },
-            options: buildSparklineOptions('MRR'),
-            plugins: [yoyStackedAreaPlugin(mrrValues, '168, 85, 247'), sparkYoyLabelsPlugin(mrrValues)]
+            options: cumulativeStackedOptions(mrrYearly, 'US$ '),
+            plugins: [yoyGrowthLabelsPlugin(mrrYearly)]
         }));
     }
 
@@ -964,7 +752,7 @@ export function initPipelineCharts(stats) {
         chartRegistry.register('pipeline-influx', chart);
     }
 
-    // New: Pipeline % by Quarter Pie Chart
+    // Pipeline % by Quarter — horizontal bar chart (space-efficient layout)
     const pieCtx = document.getElementById('pipeline-quarter-pie-chart');
     if (pieCtx) {
         chartRegistry.destroyTag('pipeline-quarter-pie');
@@ -972,58 +760,34 @@ export function initPipelineCharts(stats) {
         const qValues = qLabels.map(q => {
             const qData = stats.pipelineByQuarter[q];
             if (!qData) return 0;
-            // Sum up values from countries in that quarter
             return Object.values(qData.countries).reduce((acc, curr) => acc + curr.amount, 0);
         });
 
         const totalValue = qValues.reduce((a, b) => a + b, 0);
+        const qPercents = qValues.map(v => totalValue > 0 ? (v / totalValue) * 100 : 0);
+        const colors = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444'];
 
         const pieChart = new Chart(pieCtx, {
-            type: 'pie',
+            type: 'bar',
             data: {
                 labels: qLabels,
                 datasets: [{
-                    data: qValues,
-                    backgroundColor: [
-                        '#10B981', // green-500
-                        '#3B82F6', // blue-500
-                        '#F59E0B', // amber-500
-                        '#EF4444'  // red-500
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#ffffff',
-                    hoverOffset: 15
+                    label: 'Pipeline %',
+                    data: qPercents,
+                    backgroundColor: colors,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    barPercentage: 0.72,
+                    categoryPercentage: 0.78
                 }]
             },
             options: {
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { right: 56, left: 4, top: 4, bottom: 4 } },
                 plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            boxWidth: 8,
-                            padding: 15,
-                            font: { size: 11, family: "'Inter', sans-serif", weight: '600' },
-                            generateLabels: (chart) => {
-                                const data = chart.data;
-                                if (data.labels.length && data.datasets.length) {
-                                    return data.labels.map((label, i) => {
-                                        const value = data.datasets[0].data[i];
-                                        const percentage = totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0;
-                                        return {
-                                            text: `${label}: ${percentage}%`,
-                                            fillStyle: data.datasets[0].backgroundColor[i],
-                                            hidden: isNaN(data.datasets[0].data[i]) || chart.getDatasetMeta(0).data[i].hidden,
-                                            index: i
-                                        };
-                                    });
-                                }
-                                return [];
-                            }
-                        }
-                    },
+                    legend: { display: false },
                     tooltip: {
                         backgroundColor: '#FFFFFF',
                         titleColor: '#111827',
@@ -1036,14 +800,63 @@ export function initPipelineCharts(stats) {
                         bodyFont: { size: 12 },
                         callbacks: {
                             label: function (context) {
-                                const value = context.raw;
-                                const percentage = totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0;
+                                const value = qValues[context.dataIndex];
+                                const percentage = qPercents[context.dataIndex].toFixed(1);
                                 return ` US$ ${formatCurrency(value)} (${percentage}%)`;
                             }
                         }
                     }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: Math.max(100, Math.ceil(Math.max(...qPercents) / 10) * 10),
+                        ticks: {
+                            callback: v => v + '%',
+                            font: { size: 10, family: "'Inter', sans-serif" },
+                            color: '#6B7280',
+                            stepSize: 20
+                        },
+                        grid: { color: '#F3F4F6', drawBorder: false }
+                    },
+                    y: {
+                        ticks: {
+                            font: { size: 12, family: "'Inter', sans-serif", weight: '700' },
+                            color: '#374151'
+                        },
+                        grid: { display: false, drawBorder: false }
+                    }
+                },
+                animation: { duration: 700 }
+            },
+            plugins: [{
+                id: 'quarterBarLabels',
+                afterDatasetsDraw(chart) {
+                    const { ctx, data, scales: { x, y } } = chart;
+                    ctx.save();
+                    ctx.font = "800 12px 'Inter', sans-serif";
+                    ctx.textBaseline = 'middle';
+                    data.datasets[0].data.forEach((val, i) => {
+                        const xEnd = x.getPixelForValue(val);
+                        const xStart = x.getPixelForValue(0);
+                        const yPos = y.getPixelForValue(i);
+                        const barWidth = xEnd - xStart;
+                        const label = `${val.toFixed(1)}%`;
+                        const textW = ctx.measureText(label).width;
+                        // Inside bar (white) when wide enough, otherwise outside in bar color
+                        if (barWidth >= textW + 16) {
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.textAlign = 'right';
+                            ctx.fillText(label, xEnd - 8, yPos);
+                        } else {
+                            ctx.fillStyle = colors[i];
+                            ctx.textAlign = 'left';
+                            ctx.fillText(label, xEnd + 8, yPos);
+                        }
+                    });
+                    ctx.restore();
                 }
-            }
+            }]
         });
         chartRegistry.register('pipeline-quarter-pie', pieChart);
     }
