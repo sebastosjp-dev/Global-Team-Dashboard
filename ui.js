@@ -866,44 +866,69 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
     });
 
     const matrixQuarters = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const matrixHeaderHtml = matrixQuarters.map(q => `
-        <th colspan="2" style="padding: 8px 6px; text-align: center; font-size: 0.7rem; font-weight: 800; color: #047857; border-bottom: 2px solid #d1fae5; background: #ecfdf5; letter-spacing: 0.04em;">${q} Target</th>
-    `).join('');
-    const matrixSubHeaderHtml = matrixQuarters.map(() => `
-        <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 700; color: #ef4444; background: #fef2f2; border-bottom: 1px solid #fecaca;">TCV</th>
-        <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 700; color: #6366f1; background: #eef2ff; border-bottom: 1px solid #c7d2fe;">ARR</th>
-    `).join('');
+    // Per-quarter color palette — distinct hue for each Q so the eye can group columns at a glance
+    const QUARTER_THEME = {
+        Q1: { header: '#1e40af', headerBg: '#dbeafe', cellBg: '#f5f9ff', divider: '#93c5fd', emoji: '①' },
+        Q2: { header: '#047857', headerBg: '#d1fae5', cellBg: '#f3fbf7', divider: '#6ee7b7', emoji: '②' },
+        Q3: { header: '#b45309', headerBg: '#fef3c7', cellBg: '#fffbf2', divider: '#fcd34d', emoji: '③' },
+        Q4: { header: '#6d28d9', headerBg: '#ede9fe', cellBg: '#faf7ff', divider: '#c4b5fd', emoji: '④' }
+    };
+    const Q_DIVIDER = '3px solid';
+    const TOTAL_DIVIDER = '4px double #10b981';
+
+    const matrixHeaderHtml = matrixQuarters.map((q) => {
+        const t = QUARTER_THEME[q];
+        return `
+            <th colspan="2" style="padding: 10px 8px; text-align: center; font-size: 0.78rem; font-weight: 900; color: ${t.header}; background: ${t.headerBg}; letter-spacing: 0.05em; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 2px solid ${t.divider};">
+                <span style="display:inline-block; background: ${t.header}; color:#fff; width:18px; height:18px; line-height:18px; border-radius:50%; font-size:0.7rem; margin-right:6px; text-align:center; font-weight:900;">${q.charAt(1)}</span>${q} TARGET
+            </th>
+        `;
+    }).join('');
+
+    const matrixSubHeaderHtml = matrixQuarters.map((q) => {
+        const t = QUARTER_THEME[q];
+        return `
+            <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #b91c1c; background: ${t.cellBg}; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 1px solid ${t.divider};">TCV</th>
+            <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #4338ca; background: ${t.cellBg}; border-bottom: 1px solid ${t.divider};">ARR</th>
+        `;
+    }).join('');
 
     const fmtCell = (v) => v > 0 ? `$${formatCurrency(v)}` : '<span style="color:#cbd5e1;">—</span>';
 
     const matrixBodyHtml = matrixRowData.length === 0 ? `
         <tr><td colspan="${2 + matrixQuarters.length * 2 + 2}" style="padding: 16px; text-align: center; color: #9ca3af; font-size: 0.78rem;">No pipeline deals tagged with a quarter for ${currentYear}.</td></tr>
-    ` : matrixRowData.map(r => `
-        <tr style="border-bottom: 1px solid #f1f5f9;">
-            <td style="padding: 8px 10px; font-size: 0.78rem; font-weight: 700; color: #111827; white-space: nowrap;">${r.country}</td>
-            <td style="padding: 8px 10px; font-size: 0.7rem; color: #6b7280; text-align: center;">${r.totalCount}</td>
+    ` : matrixRowData.map((r, idx) => {
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        return `
+        <tr style="border-bottom: 1px solid #e5e7eb; background: ${rowBg};">
+            <td style="padding: 9px 12px; font-size: 0.8rem; font-weight: 700; color: #111827; white-space: nowrap; border-right: 2px solid #e5e7eb;">${r.country}</td>
+            <td style="padding: 9px 10px; font-size: 0.72rem; color: #6b7280; text-align: center; border-right: ${Q_DIVIDER} #cbd5e1;">${r.totalCount}</td>
             ${matrixQuarters.map(q => {
                 const c = r.byQ[q] || { tcv: 0, arr: 0 };
+                const t = QUARTER_THEME[q];
                 return `
-                    <td style="padding: 8px 8px; font-size: 0.76rem; text-align: right; color: #ef4444; font-weight: 600;">${fmtCell(c.tcv)}</td>
-                    <td style="padding: 8px 8px; font-size: 0.76rem; text-align: right; color: #6366f1; font-weight: 600;">${fmtCell(c.arr)}</td>
+                    <td style="padding: 9px 10px; font-size: 0.78rem; text-align: right; color: #b91c1c; font-weight: 600; background: ${t.cellBg}; border-left: ${Q_DIVIDER} ${t.divider};">${fmtCell(c.tcv)}</td>
+                    <td style="padding: 9px 10px; font-size: 0.78rem; text-align: right; color: #4338ca; font-weight: 600; background: ${t.cellBg};">${fmtCell(c.arr)}</td>
                 `;
             }).join('')}
-            <td style="padding: 8px 10px; font-size: 0.8rem; text-align: right; color: #ef4444; font-weight: 800; background: #fef2f2;">${fmtCell(r.totalTcv)}</td>
-            <td style="padding: 8px 10px; font-size: 0.8rem; text-align: right; color: #6366f1; font-weight: 800; background: #eef2ff;">${fmtCell(r.totalArr)}</td>
+            <td style="padding: 9px 12px; font-size: 0.82rem; text-align: right; color: #b91c1c; font-weight: 800; background: #fee2e2; border-left: ${TOTAL_DIVIDER};">${fmtCell(r.totalTcv)}</td>
+            <td style="padding: 9px 12px; font-size: 0.82rem; text-align: right; color: #4338ca; font-weight: 800; background: #e0e7ff;">${fmtCell(r.totalArr)}</td>
         </tr>
-    `).join('');
+    `;}).join('');
 
     const matrixFooterHtml = matrixRowData.length === 0 ? '' : `
-        <tr style="border-top: 2px solid #10b981; background: #f8fafc;">
-            <td style="padding: 10px 10px; font-size: 0.78rem; font-weight: 800; color: #047857;">Total</td>
-            <td style="padding: 10px 10px; font-size: 0.72rem; font-weight: 800; color: #6b7280; text-align: center;">${matrixGrandCount}</td>
-            ${matrixQuarters.map(q => `
-                <td style="padding: 10px 8px; font-size: 0.78rem; text-align: right; color: #ef4444; font-weight: 800;">${fmtCell(matrixColumnTotals[q].tcv)}</td>
-                <td style="padding: 10px 8px; font-size: 0.78rem; text-align: right; color: #6366f1; font-weight: 800;">${fmtCell(matrixColumnTotals[q].arr)}</td>
-            `).join('')}
-            <td style="padding: 10px 10px; font-size: 0.85rem; text-align: right; color: #ef4444; font-weight: 900; background: #fee2e2;">${fmtCell(matrixGrandTcv)}</td>
-            <td style="padding: 10px 10px; font-size: 0.85rem; text-align: right; color: #6366f1; font-weight: 900; background: #e0e7ff;">${fmtCell(matrixGrandArr)}</td>
+        <tr style="background: #f1f5f9; border-top: 3px solid #10b981;">
+            <td style="padding: 12px 12px; font-size: 0.82rem; font-weight: 900; color: #047857; border-right: 2px solid #cbd5e1;">Total</td>
+            <td style="padding: 12px 10px; font-size: 0.78rem; font-weight: 900; color: #475569; text-align: center; border-right: ${Q_DIVIDER} #94a3b8;">${matrixGrandCount}</td>
+            ${matrixQuarters.map(q => {
+                const t = QUARTER_THEME[q];
+                return `
+                    <td style="padding: 12px 10px; font-size: 0.82rem; text-align: right; color: #b91c1c; font-weight: 900; background: ${t.headerBg}; border-left: ${Q_DIVIDER} ${t.divider};">${fmtCell(matrixColumnTotals[q].tcv)}</td>
+                    <td style="padding: 12px 10px; font-size: 0.82rem; text-align: right; color: #4338ca; font-weight: 900; background: ${t.headerBg};">${fmtCell(matrixColumnTotals[q].arr)}</td>
+                `;
+            }).join('')}
+            <td style="padding: 12px 12px; font-size: 0.9rem; text-align: right; color: #b91c1c; font-weight: 900; background: #fecaca; border-left: ${TOTAL_DIVIDER};">${fmtCell(matrixGrandTcv)}</td>
+            <td style="padding: 12px 12px; font-size: 0.9rem; text-align: right; color: #4338ca; font-weight: 900; background: #c7d2fe;">${fmtCell(matrixGrandArr)}</td>
         </tr>
     `;
 
@@ -963,7 +988,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                         <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-table-cells"></i></div>
                         <div>
                             <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">New Pipeline Volume by Country (${currentYear})</h2>
-                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly target — TCV & ARR side by side. ARR = TCV ÷ contract years (parsed from Deal Name; default 1y)</p>
+                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly target — TCV & ARR side by side. ARR = TCV ÷ Contract Yr (PIPELINE 시트의 Contract Yr 컬럼 값. 비어있으면 1년 가정)</p>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; font-size: 0.65rem; font-weight: 700;">
@@ -972,18 +997,20 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                     </div>
                 </div>
                 <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; font-family: inherit; min-width: 720px;">
+                    <table style="width: 100%; border-collapse: collapse; font-family: inherit; min-width: 880px;">
                         <thead>
                             <tr>
-                                <th rowspan="2" style="padding: 10px 12px; text-align: left; font-size: 0.7rem; font-weight: 800; color: #374151; border-bottom: 2px solid #d1fae5; background: #f9fafb; letter-spacing: 0.05em; text-transform: uppercase;">Country</th>
-                                <th rowspan="2" style="padding: 10px 8px; text-align: center; font-size: 0.7rem; font-weight: 800; color: #374151; border-bottom: 2px solid #d1fae5; background: #f9fafb; letter-spacing: 0.05em; text-transform: uppercase;">Deals</th>
+                                <th rowspan="2" style="padding: 12px 14px; text-align: left; font-size: 0.72rem; font-weight: 800; color: #374151; border-bottom: 2px solid #cbd5e1; background: #f8fafc; letter-spacing: 0.06em; text-transform: uppercase; border-right: 2px solid #e5e7eb;">Country</th>
+                                <th rowspan="2" style="padding: 12px 10px; text-align: center; font-size: 0.72rem; font-weight: 800; color: #374151; border-bottom: 2px solid #cbd5e1; background: #f8fafc; letter-spacing: 0.06em; text-transform: uppercase; border-right: 3px solid #cbd5e1;">Deals</th>
                                 ${matrixHeaderHtml}
-                                <th colspan="2" style="padding: 8px 6px; text-align: center; font-size: 0.7rem; font-weight: 800; color: #047857; border-bottom: 2px solid #10b981; background: #d1fae5; letter-spacing: 0.04em;">Total</th>
+                                <th colspan="2" style="padding: 10px 8px; text-align: center; font-size: 0.78rem; font-weight: 900; color: #047857; border-bottom: 2px solid #10b981; background: #a7f3d0; letter-spacing: 0.05em; border-left: ${TOTAL_DIVIDER};">
+                                    <span style="display:inline-block; background:#047857; color:#fff; padding:2px 10px; border-radius: 12px; font-size:0.72rem; font-weight:900;">∑ TOTAL</span>
+                                </th>
                             </tr>
                             <tr>
                                 ${matrixSubHeaderHtml}
-                                <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #ef4444; background: #fee2e2; border-bottom: 1px solid #fecaca;">TCV</th>
-                                <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #6366f1; background: #e0e7ff; border-bottom: 1px solid #c7d2fe;">ARR</th>
+                                <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #b91c1c; background: #fee2e2; border-bottom: 1px solid #fca5a5; border-left: ${TOTAL_DIVIDER};">TCV</th>
+                                <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #4338ca; background: #c7d2fe; border-bottom: 1px solid #a5b4fc;">ARR</th>
                             </tr>
                         </thead>
                         <tbody>

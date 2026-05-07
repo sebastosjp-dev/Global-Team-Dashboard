@@ -225,7 +225,24 @@ export function getPipelineStats(pData, orderData = []) {
             else if (qRaw.includes('Q4')) qMatch = 'Q4';
         }
 
-        const years = parseContractYears(dealName);
+        // Resolve contract years for ARR = TCV / years.
+        // 1) explicit "Contract Yr" column (Perpetual → 1, matching collection logic)
+        // 2) pattern parsed from Deal Name
+        // 3) default 1
+        const yrKey = findKey(keys,
+            k => k.toUpperCase().replace(/\s/g, '') === 'CONTRACTYR',
+            k => k.toUpperCase().replace(/\s/g, '').includes('CONTRACTYR'));
+        const yrRaw = yrKey ? r[yrKey] : '';
+        let years = 0;
+        if (yrRaw !== undefined && yrRaw !== null && String(yrRaw).trim() !== '') {
+            if (String(yrRaw).toLowerCase().includes('perpetual')) {
+                years = 1;
+            } else {
+                const parsed = parseInt(yrRaw, 10);
+                if (parsed >= 1) years = parsed;
+            }
+        }
+        if (years < 1) years = parseContractYears(dealName);
         const arr = years > 0 ? amt / years : amt;
 
         // Only count rows tagged with a current-year quarter. Untagged rows are
