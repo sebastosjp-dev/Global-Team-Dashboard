@@ -91,7 +91,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
             if (startYear === currentYear) {
                 qSums[qId] += kTcv;
                 const name = dealNameKey ? String(row[dealNameKey] || 'N/A').trim() : 'N/A';
-                qDeals[qId].push({ name, tcv: kTcv });
+                qDeals[qId].push({ name, tcv: kTcv, arr: arrVal });
             } else if (startYear === currentYear - 1) {
                 lastYearQSums[qId] += kTcv;
             }
@@ -307,6 +307,120 @@ export function getPipelineStats(pData, orderData = []) {
         globalTotalTcv: Object.values(pipelineByCountry).reduce((acc, curr) => acc + (curr.tcv || 0), 0),
         globalTotalCount: Object.values(pipelineByCountry).reduce((acc, curr) => acc + (curr.count || 0), 0)
     };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   QUARTERLY FORECAST (per-country, Q1–Q4, current year)
+   Combines:
+     - ORDER SHEET (booked: ARR + TCV by contract start)
+     - PIPELINE   (weighted forecast: wARR + wTCV by quarter tag)
+     - END USER (CSM) (renewal target: ARR by license end date)
+   Used for the COO Quarterly panel on ORDER SHEET > {Country}.
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Build a per-quarter forecast snapshot.
+ * @param {Object} workbookData - Full workbook (needs ORDER SHEET, PIPELINE, END USER (CSM))
+ * @param {string|null} filterCountry - When null/falsy, aggregates across all countries (Global view)
+ * @returns {Object}
+ */
+export function getQuarterlyForecastStats(workbookData, filterCountry) {
+    const countryLabel = filterCountry || 'Global (All Countries)';
+
+    const currentYear = new Date().getFullYear();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const currentQuarter = `Q${Math.floor(today.getMonth() / 3) + 1}`;
+
+    const mkQ = () => ({
+        booked:   { arr: 0, tcv: 0, deals: [] },
+        forecast: { wArr: 0, wTcv: 0, deals: [] },
+        renewal:  { arr: 0, deals: [] }
+    });
+    const quarters = { Q1: mkQ(), Q2: mkQ(), Q3: mkQ(), Q4: mkQ() };
+
+    /* ── BOOKED (ORDER SHEET, current year) ── */
+    const orderData = (workbookData['ORDER SHEET'] || []).filter(r => isCountryMatch(r, filterCountry));
+    if (orderData.length > 0) {
+        const oKeys = Object.keys(orderData[0]);
+        const oTcvKey = findKorTcvKey(oKeys);
+        const oArrKey = findArrKey(oKeys);
+        const oStartKey = findContractStartKey(oKeys);
+        const oNameKey = findDealNameKey(oKeys);
+
+        orderData.forEach(row => {
+            const d = parseExcelDateSafe(row[oStartKey]);
+            if (!d || d.getFullYear() !== currentYear) return;
+            const qId = `Q${Math.floor(d.getMonth() / 3) + 1}`;
+            const arrVal = oArrKey ? parseCurrency(row[oArrKey]) : 0;
+            const tcvVal = oTcvKey ? parseCurrency(row[oTcvKey]) : 0;
+            const name = oNameKey ? String(row[oNameKey] || 'N/A').trim() : 'N/A';
+            quarters[qId].booked.arr += arrVal;
+            quarters[qId].booked.tcv += tcvVal;
+            quarters[qId].booked.deals.push({ name, arr: arrVal, tcv: tcvVal });
+        });
+    }
+
+    /* ── FORECAST (PIPELINE, weighted by stage probability) ── */
+    const pipelineData = (workbookData['PIPELINE'] || []).filter(r => isCountryMatch(r, filterCountry));
+    if (pipelineData.length > 0) {
+        const pStats = getPipelineStats(pipelineData, []);
+        ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+            const qData = pStats.pipelineByQuarter[q];
+            if (!qData) return;
+            qData.deals.forEach(d => {
+                const wTcv = d.weighted || 0;
+                const years = d.years > 0 ? d.years : 1;
+                const wArr = wTcv / years;
+                quarters[q].forecast.wTcv += wTcv;
+                quarters[q].forecast.wArr += wArr;
+                quarters[q].forecast.deals.push({
+                    name: d.name,
+                    weighted: wTcv,
+                    wArr,
+                    stage: d.stage || 'Unknown'
+                });
+            });
+        });
+    }
+
+    /* ── RENEWAL (END USER (CSM), license end date in current year) ── */
+    const csmData = (workbookData['END USER (CSM)'] || []).filter(r => isCountryMatch(r, filterCountry));
+    csmData.forEach(row => {
+        const endDate = parseExcelDateSafe(row['End License Date']);
+        if (!endDate || endDate.getFullYear() !== currentYear) return;
+        const qId = `Q${Math.floor(endDate.getMonth() / 3) + 1}`;
+        const arrVal = parseCurrency(row['ARR Amount']);
+        const name = String(row['End User'] || 'Unknown').trim();
+        const status = row['Status'] || '';
+        const diffDays = Math.ceil((endDate - today) / 86400000);
+        const dDay = diffDays === 0 ? 'D-Day' : (diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`);
+        quarters[qId].renewal.arr += arrVal;
+        quarters[qId].renewal.deals.push({
+            name,
+            currentArr: arrVal,
+            targetArr: arrVal,
+            endDate: endDate.toISOString().split('T')[0],
+            dDay,
+            status
+        });
+    });
+
+    /* ── Sort each list (largest first) and trim deals to N for display ── */
+    ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
+        quarters[q].booked.deals.sort((a, b) => (b.arr || b.tcv) - (a.arr || a.tcv));
+        quarters[q].forecast.deals.sort((a, b) => b.weighted - a.weighted);
+        quarters[q].renewal.deals.sort((a, b) => b.currentArr - a.currentArr);
+    });
+
+    /* ── Annual KPI totals ── */
+    const kpiTotals = ['Q1', 'Q2', 'Q3', 'Q4'].reduce((acc, q) => ({
+        bookedArr:   acc.bookedArr   + quarters[q].booked.arr,
+        bookedTcv:   acc.bookedTcv   + quarters[q].booked.tcv,
+        renewalArr:  acc.renewalArr  + quarters[q].renewal.arr,
+        weightedArr: acc.weightedArr + quarters[q].forecast.wArr
+    }), { bookedArr: 0, bookedTcv: 0, renewalArr: 0, weightedArr: 0 });
+
+    return { country: countryLabel, currentYear, currentQuarter, quarters, kpiTotals };
 }
 
 /* ═══════════════════════════════════════════════════════════════

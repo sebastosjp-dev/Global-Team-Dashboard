@@ -648,6 +648,280 @@ export function getRenewalHTML(filtered) {
     return tableHtml;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Quarterly Forecast Panel (per-country, Q1–Q4)
+   New (Booked) + New (Forecast, weighted) + Renewal targets
+   ═══════════════════════════════════════════════════════════════ */
+export function getQuarterlyForecastHTML(stats) {
+    if (!stats) return '';
+    const { country, currentYear, currentQuarter, quarters, kpiTotals } = stats;
+    const qOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const qIdx = q => qOrder.indexOf(q);
+    const qIdxNow = qIdx(currentQuarter);
+
+    const kpiCard = (label, value, color, sub) => `
+        <div style="background:#fff; border-radius:10px; padding:14px 16px; border-left:4px solid ${color}; box-shadow:0 1px 4px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:4px; min-width:0;">
+            <div style="font-size:0.66rem; font-weight:800; color:${color}; text-transform:uppercase; letter-spacing:0.06em;">${label}</div>
+            <div style="font-size:1.35rem; font-weight:800; color:#111827; line-height:1.1;">$${formatCurrency(value)}</div>
+            <div style="font-size:0.62rem; color:#9ca3af; font-weight:600;">${sub}</div>
+        </div>
+    `;
+
+    const kpiStrip = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+            ${kpiCard('Booked TCV (Annual)', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4')}
+            ${kpiCard('Booked ARR (Annual)', kpiTotals.bookedArr, '#10b981', 'Closed-won, Q1–Q4')}
+            ${kpiCard('Weighted Pipeline ARR', kpiTotals.weightedArr, '#f59e0b', 'Stage-prob × ARR/yr')}
+            ${kpiCard('Renewal Target ARR', kpiTotals.renewalArr, '#a855f7', 'Contracts ending in ' + currentYear)}
+        </div>
+    `;
+
+    const renderBooked = (b) => {
+        if (b.deals.length === 0) {
+            return `<div style="text-align:center; padding:8px; color:#9ca3af; font-size:0.66rem; font-style:italic;">No booked deals</div>`;
+        }
+        return b.deals.slice(0, 6).map((d, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-bottom:1px solid #F1F5F9; font-size:0.66rem; gap:6px;">
+                <span style="color:#94A3B8; font-family:monospace; font-weight:700; flex-shrink:0; width:14px;">${String(i + 1).padStart(2, '0')}</span>
+                <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
+                <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
+                    <span style="color:#10B981; font-weight:800; font-size:0.66rem;">ARR $${formatCurrency(d.arr)}</span>
+                    <span style="color:#0EA5E9; font-weight:700; font-size:0.6rem;">TCV $${formatCurrency(d.tcv)}</span>
+                </span>
+            </div>
+        `).join('') + (b.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${b.deals.length - 6} more</div>` : '');
+    };
+
+    const renderForecast = (f) => {
+        if (f.deals.length === 0) {
+            return `<div style="text-align:center; padding:8px; color:#9ca3af; font-size:0.66rem; font-style:italic;">No forecast deals</div>`;
+        }
+        return f.deals.slice(0, 6).map((d, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-bottom:1px solid #F1F5F9; font-size:0.66rem; gap:4px;">
+                <span style="color:#94A3B8; font-family:monospace; font-weight:700; flex-shrink:0; width:14px;">${String(i + 1).padStart(2, '0')}</span>
+                <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
+                ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.5rem', padding: '1px 5px' })}
+                <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
+                    <span style="color:#F59E0B; font-weight:800; font-size:0.66rem;">wARR $${formatCurrency(d.wArr)}</span>
+                    <span style="color:#fb923c; font-weight:700; font-size:0.6rem;">wTCV $${formatCurrency(d.weighted)}</span>
+                </span>
+            </div>
+        `).join('') + (f.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${f.deals.length - 6} more</div>` : '');
+    };
+
+    const renderRenewal = (r) => {
+        if (r.deals.length === 0) {
+            return `<div style="text-align:center; padding:8px; color:#9ca3af; font-size:0.66rem; font-style:italic;">No renewals</div>`;
+        }
+        return r.deals.slice(0, 6).map((d, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-bottom:1px solid #F1F5F9; font-size:0.66rem; gap:4px;">
+                <span style="color:#94A3B8; font-family:monospace; font-weight:700; flex-shrink:0; width:14px;">${String(i + 1).padStart(2, '0')}</span>
+                <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
+                <span style="background:rgba(168,85,247,0.12); color:#7e22ce; font-size:0.55rem; font-weight:800; padding:1px 5px; border-radius:6px; flex-shrink:0;">${d.dDay}</span>
+                <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
+                    <span style="color:#a855f7; font-weight:800; font-size:0.66rem;">Target $${formatCurrency(d.targetArr)}</span>
+                    <span style="color:#9ca3af; font-weight:600; font-size:0.58rem;">prev $${formatCurrency(d.currentArr)}</span>
+                </span>
+            </div>
+        `).join('') + (r.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${r.deals.length - 6} more</div>` : '');
+    };
+
+    const quarterCol = (q) => {
+        const data = quarters[q];
+        const qi = qIdx(q);
+        const isPast = qi < qIdxNow;
+        const isCurrent = q === currentQuarter;
+        const headerBg = isPast ? '#F3F4F6' : (isCurrent ? 'linear-gradient(135deg, #DBEAFE 0%, #EFF6FF 100%)' : '#F9FAFB');
+        const borderColor = isPast ? '#D1D5DB' : (isCurrent ? '#3B82F6' : '#E5E7EB');
+        const headerColor = isPast ? '#6B7280' : (isCurrent ? '#1D4ED8' : '#111827');
+        const tagText = isPast ? '✓ Closed' : (isCurrent ? '• Active' : 'Upcoming');
+        const tagBg = isPast ? '#E5E7EB' : (isCurrent ? '#DBEAFE' : '#FEF3C7');
+        const tagColor = isPast ? '#374151' : (isCurrent ? '#1E40AF' : '#92400E');
+
+        const subSection = (title, color, totalLine, body) => `
+            <div style="margin-top:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 8px; background:rgba(255,255,255,0.7); border-radius:6px; border-left:3px solid ${color}; margin-bottom:4px;">
+                    <span style="font-size:0.62rem; font-weight:800; color:${color}; text-transform:uppercase; letter-spacing:0.04em;">${title}</span>
+                    <span style="font-size:0.62rem; font-weight:700; color:#111827;">${totalLine}</span>
+                </div>
+                ${body}
+            </div>
+        `;
+
+        const newBookedTotal = `ARR $${formatCurrency(data.booked.arr)} · TCV $${formatCurrency(data.booked.tcv)}`;
+        const forecastTotal = `wARR $${formatCurrency(data.forecast.wArr)} · wTCV $${formatCurrency(data.forecast.wTcv)}`;
+        const renewalTotal = `$${formatCurrency(data.renewal.arr)}`;
+
+        return `
+            <div onclick="window.openQuarterlyForecastModal('${q}')"
+                 style="display:flex; flex-direction:column; padding:12px; background:${headerBg}; border:1px solid ${borderColor}; border-top:3px solid ${borderColor}; border-radius:10px; min-width:0; opacity:${isPast ? 0.85 : 1}; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;"
+                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)';"
+                 onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid ${borderColor};">
+                    <span style="font-size:1rem; font-weight:800; color:${headerColor};">${q}</span>
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:0.6rem; font-weight:800; padding:3px 8px; border-radius:10px; background:${tagBg}; color:${tagColor};">${tagText}</span>
+                        <i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.55rem; color:#9ca3af;" title="Click to expand"></i>
+                    </span>
+                </div>
+                ${subSection('NEW · Booked', '#10b981', newBookedTotal, renderBooked(data.booked))}
+                ${subSection('NEW · Forecast (Stage-Weighted)', '#f59e0b', forecastTotal, renderForecast(data.forecast))}
+                ${subSection('Renewal Target', '#a855f7', renewalTotal, renderRenewal(data.renewal))}
+            </div>
+        `;
+    };
+
+    const quartersGrid = qOrder.map(quarterCol).join('');
+
+    return `
+        <div style="display:block; width:100%; padding:20px 22px; background:#fff; border-radius:14px; border:1px solid #E5E7EB; box-shadow:0 4px 16px rgba(0,0,0,0.04); box-sizing:border-box;">
+            <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #F3F4F6; flex-wrap:wrap; row-gap:8px;">
+                <div style="background:rgba(99,102,241,0.1); color:#6366f1; width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-chart-line" style="font-size:1.05rem;"></i></div>
+                <div style="flex-shrink:0;">
+                    <h3 style="margin:0; font-size:0.7rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; line-height:1.2;">QUARTERLY FORECAST · ${currentYear}</h3>
+                    <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827; line-height:1.3;">${country} — Q1 to Q4 (New + Renewal)</h2>
+                </div>
+                <div style="margin-left:auto; font-size:0.65rem; color:#6b7280; font-weight:600;">w = stage-weighted (확도 반영) · prev = existing ARR · <span style="color:#6366f1; font-weight:700;">Click any quarter to expand</span></div>
+            </div>
+            ${kpiStrip}
+            <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px;">
+                ${quartersGrid}
+            </div>
+        </div>
+        <div id="qf-modal"
+             style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); padding:24px; backdrop-filter:blur(2px);"
+             onclick="if(event.target===this) window.closeQuarterlyForecastModal()">
+            <div id="qf-modal-body" style="background:#fff; border-radius:16px; max-width:1100px; width:100%; max-height:88vh; overflow:auto; padding:0; position:relative; box-shadow:0 25px 60px rgba(0,0,0,0.25);"></div>
+        </div>
+    `;
+}
+
+/* ── Modal: full-detail Quarter view ─────────────────────────── */
+window.openQuarterlyForecastModal = function (qId) {
+    const stats = window.__qForecastStats;
+    if (!stats) return;
+    const q = stats.quarters[qId];
+    if (!q) return;
+
+    const qOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const qIdxNow = qOrder.indexOf(stats.currentQuarter);
+    const qi = qOrder.indexOf(qId);
+    const isPast = qi < qIdxNow;
+    const isCurrent = qId === stats.currentQuarter;
+    const tagText = isPast ? '✓ Closed' : (isCurrent ? '• Active' : 'Upcoming');
+    const tagBg = isPast ? '#E5E7EB' : (isCurrent ? '#DBEAFE' : '#FEF3C7');
+    const tagColor = isPast ? '#374151' : (isCurrent ? '#1E40AF' : '#92400E');
+    const accent = isCurrent ? '#3B82F6' : (isPast ? '#9CA3AF' : '#F59E0B');
+
+    const fmt = window.__qfFmt || (n => Math.round(n || 0).toLocaleString('en-US'));
+
+    const fullBookedRows = q.booked.deals.length === 0
+        ? `<tr><td colspan="3" style="padding:18px; text-align:center; color:#9ca3af; font-style:italic;">No booked deals</td></tr>`
+        : q.booked.deals.map((d, i) => `
+            <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
+                <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
+                <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
+                    <span style="color:#10B981; font-weight:800;">ARR $${fmt(d.arr)}</span>
+                    <span style="color:#0EA5E9; font-weight:700; margin-left:10px;">TCV $${fmt(d.tcv)}</span>
+                </td>
+            </tr>
+        `).join('');
+
+    const fullForecastRows = q.forecast.deals.length === 0
+        ? `<tr><td colspan="4" style="padding:18px; text-align:center; color:#9ca3af; font-style:italic;">No forecast deals</td></tr>`
+        : q.forecast.deals.map((d, i) => `
+            <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
+                <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
+                <td style="padding:9px 12px;">${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.62rem', padding: '2px 8px' })}</td>
+                <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
+                    <span style="color:#F59E0B; font-weight:800;">wARR $${fmt(d.wArr)}</span>
+                    <span style="color:#fb923c; font-weight:700; margin-left:10px;">wTCV $${fmt(d.weighted)}</span>
+                </td>
+            </tr>
+        `).join('');
+
+    const fullRenewalRows = q.renewal.deals.length === 0
+        ? `<tr><td colspan="5" style="padding:18px; text-align:center; color:#9ca3af; font-style:italic;">No renewals</td></tr>`
+        : q.renewal.deals.map((d, i) => `
+            <tr style="border-bottom:1px solid #F3F4F6;">
+                <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
+                <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
+                <td style="padding:9px 12px; color:#6B7280; font-size:0.78rem;">${d.endDate}</td>
+                <td style="padding:9px 12px;"><span style="background:rgba(168,85,247,0.12); color:#7e22ce; font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px;">${d.dDay}</span></td>
+                <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
+                    <span style="color:#a855f7; font-weight:800;">Target $${fmt(d.targetArr)}</span>
+                    <span style="color:#9ca3af; font-weight:600; margin-left:10px;">prev $${fmt(d.currentArr)}</span>
+                </td>
+            </tr>
+        `).join('');
+
+    const sectionWrap = (title, color, total, headerCols, rows) => `
+        <div style="margin-bottom:22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:${color}11; border-left:4px solid ${color}; border-radius:8px; margin-bottom:8px;">
+                <span style="font-size:0.78rem; font-weight:800; color:${color}; text-transform:uppercase; letter-spacing:0.05em;">${title}</span>
+                <span style="font-size:0.78rem; font-weight:800; color:#111827;">${total}</span>
+            </div>
+            <div style="overflow:auto; border:1px solid #F3F4F6; border-radius:8px;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                    <thead style="background:#F9FAFB;">
+                        <tr>${headerCols.map(h => `<th style="padding:9px 12px; text-align:${h.right ? 'right' : 'left'}; font-size:0.66rem; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em;">${h.label}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    const body = document.getElementById('qf-modal-body');
+    if (!body) return;
+
+    body.innerHTML = `
+        <div style="position:sticky; top:0; background:#fff; padding:20px 26px 16px; border-bottom:1px solid #F3F4F6; z-index:1; display:flex; align-items:center; gap:14px;">
+            <div style="background:${accent}1A; color:${accent}; width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span style="font-size:1.15rem; font-weight:800;">${qId}</span>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">${stats.country} · ${stats.currentYear}</div>
+                <div style="font-size:1.15rem; font-weight:800; color:#111827; line-height:1.2;">${qId} — All Deals</div>
+            </div>
+            <span style="font-size:0.7rem; font-weight:800; padding:5px 12px; border-radius:14px; background:${tagBg}; color:${tagColor};">${tagText}</span>
+            <button onclick="window.closeQuarterlyForecastModal()" style="background:#F3F4F6; border:none; width:36px; height:36px; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#374151; font-size:1rem;" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='#F3F4F6'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div style="padding:22px 26px 26px;">
+            ${sectionWrap('NEW · Booked',  '#10b981',
+                `ARR $${fmt(q.booked.arr)} · TCV $${fmt(q.booked.tcv)} · ${q.booked.deals.length} deals`,
+                [{label:'#'},{label:'Deal Name'},{label:'Value', right:true}],
+                fullBookedRows)}
+            ${sectionWrap('NEW · Forecast (Stage-Weighted)', '#f59e0b',
+                `wARR $${fmt(q.forecast.wArr)} · wTCV $${fmt(q.forecast.wTcv)} · ${q.forecast.deals.length} deals`,
+                [{label:'#'},{label:'Deal Name'},{label:'Stage'},{label:'Weighted Value', right:true}],
+                fullForecastRows)}
+            ${sectionWrap('Renewal Target', '#a855f7',
+                `$${fmt(q.renewal.arr)} · ${q.renewal.deals.length} contracts`,
+                [{label:'#'},{label:'Contract'},{label:'End Date'},{label:'D-Day'},{label:'ARR', right:true}],
+                fullRenewalRows)}
+        </div>
+    `;
+    document.getElementById('qf-modal').style.display = 'flex';
+};
+
+window.closeQuarterlyForecastModal = function () {
+    const m = document.getElementById('qf-modal');
+    if (m) m.style.display = 'none';
+};
+
+if (typeof window !== 'undefined' && !window.__qfEscBound) {
+    window.__qfEscBound = true;
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') window.closeQuarterlyForecastModal();
+    });
+    window.__qfFmt = (n) => Math.round(n || 0).toLocaleString('en-US');
+}
+
 export function getOrderSheetHTML(stats, filterCountry = null) {
     const currentYear = new Date().getFullYear();
     return `
@@ -763,9 +1037,13 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 <span style="color: var(--text-muted);">WEIGHTED PIPELINE VALUE</span>
                 <span style="color: #007AFF; font-weight: 600;">$${formatCurrency(values.weighted)}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
                 <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
                 <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem;">
+                <span style="color: #a855f7; opacity: 0.85;">ARR (${currentYear})</span>
+                <span style="color: #a855f7; font-weight: 600;">$${formatCurrency(values.arr || 0)}</span>
             </div>
         </div>
     `).join('');
@@ -775,6 +1053,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
         const qTotalAmount = countryEntries.reduce((acc, curr) => acc + curr[1].amount, 0);
         const qTotalWeighted = countryEntries.reduce((acc, curr) => acc + curr[1].weighted, 0);
         const qTotalTcv = countryEntries.reduce((acc, curr) => acc + (curr[1].tcv || 0), 0);
+        const qTotalArr = countryEntries.reduce((acc, curr) => acc + (curr[1].arr || 0), 0);
         const qTotalCount = countryEntries.reduce((acc, curr) => acc + (curr[1].count || 0), 0);
         const currentYear = new Date().getFullYear();
 
@@ -794,9 +1073,13 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                         <span style="color: var(--text-muted);">WEIGHTED PIPELINE VALUE</span>
                         <span style="color: #007AFF;">$${formatCurrency(values.weighted)}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
                         <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
                         <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem;">
+                        <span style="color: #a855f7; opacity: 0.85;">ARR (${currentYear})</span>
+                        <span style="color: #a855f7; font-weight: 600;">$${formatCurrency(values.arr || 0)}</span>
                     </div>
                 </div>
             `).join('');
@@ -835,6 +1118,10 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                             <span style="font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">TCV (${currentYear})</span>
                             <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
                         </div>
+                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                            <span style="font-size: 0.6rem; color: #a855f7; text-transform: uppercase;">ARR (${currentYear})</span>
+                            <span style="font-size: 0.85rem; color: #a855f7; font-weight: 800;">$${formatCurrency(qTotalArr)}</span>
+                        </div>
                     </div>
                 </div>
                 ${filterCountry ? `
@@ -852,7 +1139,10 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                                     <span style="color: #94A3B8; font-family: monospace; font-weight: 700; flex-shrink: 0; width: 18px;">${String(idx + 1).padStart(2, '0')}</span>
                                     <span style="color: #1F2937; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
                                     ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.55rem', padding: '1px 6px' })}
-                                    <span style="color: #10B981; font-weight: 800; flex-shrink: 0;">$${formatCurrency(d.weighted)}</span>
+                                    <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex-shrink:0; line-height:1;">
+                                        <span style="color: #10B981; font-weight: 800; font-size:0.7rem;" title="Weighted">W $${formatCurrency(d.weighted)}</span>
+                                        <span style="color: #a855f7; font-weight: 700; font-size:0.6rem;" title="ARR">ARR $${formatCurrency(d.arr || 0)}</span>
+                                    </span>
                                 </div>
                             `).join('')}
                         </div>

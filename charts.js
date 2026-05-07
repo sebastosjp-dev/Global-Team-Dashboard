@@ -467,22 +467,184 @@ export function initOrderSheetCharts(stats) {
         }));
     }
 
-    // ARR/MRR are stored as cumulative snapshots (each year = total active ARR at year-end).
-    // Convert to per-year deltas so they stack the same way TCV does — each segment shows the
-    // ARR/MRR newly added that year, and the total bar height equals that year's snapshot.
+    // External HTML tooltip for the ARR/MRR sparklines — single-dataset line charts can't
+    // produce per-year color swatches the way the stacked TCV bars do, so we render a custom
+    // tooltip that mirrors the TCV layout: per-year list (newest first) with shade swatches,
+    // YoY % on per-year deltas, and a Cumulative footer equal to the snapshot at that year.
+    const sparklineExternalTooltip = (deltas, snapshots, years, baseRgb, currencyPrefix) => (context) => {
+        const { chart, tooltip } = context;
+        let el = chart.canvas.parentNode.querySelector('.spark-tooltip');
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'spark-tooltip';
+            el.style.cssText = 'position:absolute;background:#1e293b;color:#f1f5f9;padding:8px 10px;border-radius:6px;font:11px Inter,system-ui,sans-serif;line-height:1.45;pointer-events:none;opacity:0;transition:opacity .12s;z-index:50;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+            chart.canvas.parentNode.appendChild(el);
+        }
+        if (tooltip.opacity === 0) { el.style.opacity = 0; return; }
+
+        const idx = tooltip.dataPoints && tooltip.dataPoints[0] && tooltip.dataPoints[0].dataIndex;
+        if (idx == null) return;
+
+        const rows = [`<div style="font-weight:700;margin-bottom:4px;">${years[idx]}</div>`];
+        for (let i = idx; i >= 0; i--) {
+            const swatch = yearShade(baseRgb, i, years.length);
+            const prev = i > 0 ? deltas[i - 1] : 0;
+            const yoy = (i > 0 && prev > 0)
+                ? ` <span style="color:#cbd5e1;">(${(((deltas[i] / prev) - 1) * 100).toFixed(1)}% YoY)</span>`
+                : '';
+            rows.push(`<div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:10px;height:10px;background:${swatch};border-radius:2px;flex-shrink:0;"></span><span>${years[i]}: ${currencyPrefix}${formatCurrency(deltas[i])}${yoy}</span></div>`);
+        }
+        rows.push(`<div style="margin-top:5px;padding-top:5px;border-top:1px solid #334155;font-weight:700;">Cumulative: ${currencyPrefix}${formatCurrency(snapshots[idx])}</div>`);
+        el.innerHTML = rows.join('');
+
+        const parentRect = chart.canvas.parentNode.getBoundingClientRect();
+        let left = chart.canvas.offsetLeft + tooltip.caretX + 12;
+        const top = chart.canvas.offsetTop + tooltip.caretY - el.offsetHeight / 2;
+        if (left + el.offsetWidth > parentRect.width) {
+            left = chart.canvas.offsetLeft + tooltip.caretX - el.offsetWidth - 12;
+        }
+        el.style.left = Math.max(0, left) + 'px';
+        el.style.top = Math.max(0, top) + 'px';
+        el.style.opacity = 1;
+    };
+
+    const buildSparklineOptions = (externalTooltipFn) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false, axis: 'x' },
+        plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false, external: externalTooltipFn, mode: 'index', intersect: false, axis: 'x' }
+        },
+        scales: {
+            x: {
+                display: true,
+                grid: { display: false },
+                border: { display: false },
+                ticks: { color: '#94a3b8', font: { size: 9, weight: '700' }, padding: 4 }
+            },
+            y: { display: false, beginAtZero: true }
+        },
+        elements: {
+            point: { radius: 3, hoverRadius: 7, hitRadius: 20, hoverBorderWidth: 3 },
+            line: { borderWidth: 2, tension: 0.4 }
+        },
+        layout: { padding: { top: 18, bottom: 0, left: 8, right: 8 } }
+    });
+
+    // YoY % labels above each point — based on the snapshot trajectory the line traces.
+    const sparkYoyLabelsPlugin = (values) => ({
+        id: 'sparkYoyLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx, chartArea } = chart;
+            const meta = chart.getDatasetMeta(0);
+            if (!meta || !meta.data) return;
+            ctx.save();
+            ctx.font = '700 9px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            meta.data.forEach((point, i) => {
+                if (i === 0) return;
+                const prev = values[i - 1];
+                const curr = values[i];
+                let label, color;
+                if (!prev || prev <= 0) {
+                    label = curr > 0 ? 'N/A' : '0%';
+                    color = '#94a3b8';
+                } else {
+                    const yoy = ((curr / prev) - 1) * 100;
+                    label = `${yoy >= 0 ? '+' : ''}${yoy.toFixed(1)}%`;
+                    color = yoy < 0 ? '#ef4444' : '#10b981';
+                }
+                const padX = 4, h = 14;
+                const w = ctx.measureText(label).width + padX * 2;
+                let x = point.x;
+                const minX = chartArea.left + w / 2;
+                const maxX = chartArea.right - w / 2;
+                if (x < minX) x = minX;
+                if (x > maxX) x = maxX;
+                let y = point.y - 12;
+                if (y - h / 2 < chartArea.top) y = chartArea.top + h / 2;
+                ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                const rx = x - w / 2, ry = y - h / 2, r = 3;
+                ctx.beginPath();
+                ctx.moveTo(rx + r, ry);
+                ctx.lineTo(rx + w - r, ry);
+                ctx.quadraticCurveTo(rx + w, ry, rx + w, ry + r);
+                ctx.lineTo(rx + w, ry + h - r);
+                ctx.quadraticCurveTo(rx + w, ry + h, rx + w - r, ry + h);
+                ctx.lineTo(rx + r, ry + h);
+                ctx.quadraticCurveTo(rx, ry + h, rx, ry + h - r);
+                ctx.lineTo(rx, ry + r);
+                ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = color;
+                ctx.fillText(label, x, y);
+            });
+            ctx.restore();
+        }
+    });
+
+    // Year-segmented shading underneath the line: each year contributes its own band
+    // (light → dark via yearShade) so the area visually decomposes into the same per-year
+    // structure the TCV stacked bars show.
+    const yoyStackedAreaPlugin = (values, baseRgb) => ({
+        id: 'yoyStackedArea',
+        beforeDatasetsDraw(chart) {
+            const { ctx, scales } = chart;
+            const xScale = scales.x;
+            const yScale = scales.y;
+            if (!xScale || !yScale || !values.length) return;
+            ctx.save();
+            for (let i = 0; i < values.length; i++) {
+                ctx.fillStyle = yearShade(baseRgb, i, values.length);
+                ctx.beginPath();
+                for (let j = 0; j < values.length; j++) {
+                    const x = xScale.getPixelForValue(j);
+                    const y = yScale.getPixelForValue(values[Math.min(i, j)] || 0);
+                    if (j === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                for (let j = values.length - 1; j >= 0; j--) {
+                    const x = xScale.getPixelForValue(j);
+                    const yVal = i === 0 ? 0 : (values[Math.min(i - 1, j)] || 0);
+                    const y = yScale.getPixelForValue(yVal);
+                    ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+    });
+
+    // ARR/MRR are cumulative snapshots — line traces snapshot trajectory; tooltip uses per-year
+    // deltas + Cumulative footer to match the TCV bar tooltip layout.
     const arrYears = Object.keys(stats.yearlyArr).sort();
     const arrCtx = document.getElementById('arr-sparkline');
     if (arrCtx && arrYears.length > 0) {
         const arrSnapshots = arrYears.map(y => stats.yearlyArr[y]);
-        const arrYearly = arrSnapshots.map((v, i) => v - (arrSnapshots[i - 1] || 0));
+        const arrDeltas = arrSnapshots.map((v, i) => v - (arrSnapshots[i - 1] || 0));
         chartRegistry.register('order-arr-spark', new Chart(arrCtx, {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels: arrYears,
-                datasets: buildStackedDatasets('139, 92, 246', arrYearly, arrYears)
+                datasets: [{
+                    data: arrSnapshots,
+                    borderColor: '#7c3aed',
+                    backgroundColor: '#7c3aed',
+                    fill: false,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#7c3aed',
+                    pointBorderWidth: 2
+                }]
             },
-            options: cumulativeStackedOptions(arrYearly, 'US$ '),
-            plugins: [yoyGrowthLabelsPlugin(arrYearly)]
+            options: buildSparklineOptions(sparklineExternalTooltip(arrDeltas, arrSnapshots, arrYears, '139, 92, 246', 'US$ ')),
+            plugins: [yoyStackedAreaPlugin(arrSnapshots, '139, 92, 246'), sparkYoyLabelsPlugin(arrSnapshots)]
         }));
     }
 
@@ -490,15 +652,23 @@ export function initOrderSheetCharts(stats) {
     const mrrCtx = document.getElementById('mrr-sparkline');
     if (mrrCtx && mrrYears.length > 0) {
         const mrrSnapshots = mrrYears.map(y => stats.yearlyMrr[y]);
-        const mrrYearly = mrrSnapshots.map((v, i) => v - (mrrSnapshots[i - 1] || 0));
+        const mrrDeltas = mrrSnapshots.map((v, i) => v - (mrrSnapshots[i - 1] || 0));
         chartRegistry.register('order-mrr-spark', new Chart(mrrCtx, {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels: mrrYears,
-                datasets: buildStackedDatasets('168, 85, 247', mrrYearly, mrrYears)
+                datasets: [{
+                    data: mrrSnapshots,
+                    borderColor: '#9333ea',
+                    backgroundColor: '#9333ea',
+                    fill: false,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#9333ea',
+                    pointBorderWidth: 2
+                }]
             },
-            options: cumulativeStackedOptions(mrrYearly, 'US$ '),
-            plugins: [yoyGrowthLabelsPlugin(mrrYearly)]
+            options: buildSparklineOptions(sparklineExternalTooltip(mrrDeltas, mrrSnapshots, mrrYears, '168, 85, 247', 'US$ ')),
+            plugins: [yoyStackedAreaPlugin(mrrSnapshots, '168, 85, 247'), sparkYoyLabelsPlugin(mrrSnapshots)]
         }));
     }
 

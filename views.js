@@ -19,7 +19,8 @@ import {
     getCollectionStats, getDetailedCollectionAnalysis,
     getTcvArrStats, getChurnRiskStats,
     getPartnerROIStats, getPipelineCoverageStats,
-    getProjectStats, getDealLostStats
+    getProjectStats, getDealLostStats,
+    getQuarterlyForecastStats
 } from './services.js';
 import {
                                                 getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
@@ -30,7 +31,8 @@ import {
     getTcvArrHTML, getChurnRiskHTML,
     getPartnerROIHTML, getPipelineCoverageHTML,
     getPipelineChangeLogHTML, getCurrentPipelineListHTML,
-    getProjectHTML, getDealLostHTML
+    getProjectHTML, getDealLostHTML,
+    getQuarterlyForecastHTML
 } from './ui.js';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -55,6 +57,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
         !isGlobalTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
+        _renderQuarterlyForecast(workbookData, filterCountry, metricsGrid);
         _renderOrderSheet(data, filterCountry, metricsGrid, tabName, workbookData);
         _renderChurnRisk(data, workbookData, metricsGrid);
         hasMetrics = true;
@@ -158,6 +161,21 @@ function _renderOrderSheet(data, filterCountry, metricsGrid, tabName, workbookDa
     container.innerHTML = getOrderSheetHTML(stats, filterCountry);
     metricsGrid.appendChild(container);
     setTimeout(() => initOrderSheetCharts(stats), 120);
+}
+
+/**
+ * Quarterly Forecast panel — country or Global.
+ * Shows Q1–Q4 New (Booked + Forecast) + Renewal targets. Stats are
+ * stashed on window so the click-to-expand modal can read full deals.
+ */
+function _renderQuarterlyForecast(workbookData, filterCountry, metricsGrid) {
+    const stats = getQuarterlyForecastStats(workbookData, filterCountry);
+    if (!stats) return;
+    window.__qForecastStats = stats;
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    container.innerHTML = getQuarterlyForecastHTML(stats);
+    metricsGrid.appendChild(container);
 }
 
 function _renderPipeline(workbookData, filterCountry, tabName, metricsGrid, searchInput) {
