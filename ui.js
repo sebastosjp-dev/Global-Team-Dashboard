@@ -176,7 +176,9 @@ window.copyDecisionList = function () {
 window.selectQuarter = function (element) {
     const quarter = element.getAttribute('data-q');
     const deals = JSON.parse(element.getAttribute('data-deals'));
-    const showCountry = element.getAttribute('data-show-country') === 'true';
+    const uniqueCountries = new Set(deals.map(d => d.c).filter(Boolean));
+    const showCountry = uniqueCountries.size > 1
+        || element.getAttribute('data-show-country') === 'true';
     const container = document.getElementById('pipeline-selected-quarter-container');
     if (!container) return;
 
