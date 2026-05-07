@@ -25,7 +25,11 @@
       "Bash(node --check charts.js)",
       "Bash(cd \"/c/Users/LG/Downloads/global dashboard making\" && ls -la --ignore=node_portable)",
       "Read(//c/c/Users/LG/Downloads/**)",
-      "Bash(py --version)"
+      "Bash(py --version)",
+      "PowerShell(python --version)",
+      "PowerShell(python -c \"import openpyxl; print\\('openpyxl ok'\\)\" 2>&1)",
+      "PowerShell($env:PATH = \"$PWD\\\\node_portable\\\\node-v20.11.1-win-x64;$env:PATH\"; node --version; npm --version)",
+      "PowerShell($env:PATH = \"$PWD\\\\node_portable\\\\node-v20.11.1-win-x64;$env:PATH\"; npm install xlsx --no-save --prefix . 2>&1 | Select-Object -Last 10)"
     ]
   }
 }
