@@ -776,7 +776,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                  data-q="${q}"
                  data-show-country="${filterCountry ? 'false' : 'true'}"
                  data-deals='${dealListAttr}'
-                 style="display: flex; flex-direction: column; padding: 10px; background: #F9FAFB; border-radius: 8px; border-top: 3px solid #10b981; cursor: pointer; transition: all 0.2s;"
+                 style="display: flex; flex-direction: column; padding: 10px; background: #F9FAFB; border-radius: 8px; border-top: 3px solid #10b981; cursor: pointer; transition: all 0.2s; height: 100%; min-height: 0;"
                  onmouseover="showQuarterTooltip(event, this)" 
                  onmouseout="hideQuarterTooltip()"
                  onclick="selectQuarter(this)">
@@ -821,8 +821,8 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                     `}
                 </div>
                 ` : `
-                <div style="background: rgba(0,0,0,0.05); border-radius: 8px; padding: 10px; margin-top: 8px;">
-                    <div style="max-height: 120px; overflow-y: auto;">
+                <div style="background: rgba(0,0,0,0.05); border-radius: 8px; padding: 10px; margin-top: 8px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                    <div style="flex: 1; overflow-y: auto; min-height: 0;">
                         ${countryBreakdown}
                     </div>
                 </div>
