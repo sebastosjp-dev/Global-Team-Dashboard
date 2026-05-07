@@ -749,11 +749,16 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
             `).join('');
 
         const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted) })));
+        const dealListAttr = dealListJson
+            .replace(/&/g, '&amp;')
+            .replace(/'/g, '&apos;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
 
         return `
-            <div class="quarter-card" 
-                 data-q="${q}" 
-                 data-deals='${dealListJson.replace(/'/g, "&apos;")}'
+            <div class="quarter-card"
+                 data-q="${q}"
+                 data-deals='${dealListAttr}'
                  style="display: flex; flex-direction: column; padding: 10px; background: #F9FAFB; border-radius: 8px; border-top: 3px solid #10b981; cursor: pointer; transition: all 0.2s;"
                  onmouseover="showQuarterTooltip(event, this)" 
                  onmouseout="hideQuarterTooltip()"
@@ -778,13 +783,33 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                         </div>
                     </div>
                 </div>
-                ${!filterCountry ? `
+                ${filterCountry ? `
+                <div style="background: rgba(0,0,0,0.04); border-radius: 8px; padding: 8px 10px; margin-top: 8px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">All Deals</span>
+                        <span style="font-size: 0.6rem; color: #6b7280; font-weight: 700; background: rgba(99,102,241,0.1); padding: 1px 6px; border-radius: 8px;">${qData.deals.length}</span>
+                    </div>
+                    ${qData.deals.length === 0 ? `
+                        <div style="text-align: center; padding: 16px 8px; color: #9CA3AF; font-size: 0.7rem; font-style: italic;">No active deals</div>
+                    ` : `
+                        <div style="overflow-y: auto; flex: 1; max-height: 360px; padding-right: 2px;">
+                            ${qData.deals.map((d, idx) => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid #EEF2F6; font-size: 0.7rem;">
+                                    <span style="color: #94A3B8; font-family: monospace; font-weight: 700; flex-shrink: 0; width: 18px;">${String(idx + 1).padStart(2, '0')}</span>
+                                    <span style="color: #1F2937; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
+                                    <span style="color: #10B981; font-weight: 800; flex-shrink: 0;">$${formatCurrency(d.weighted)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>
+                ` : `
                 <div style="background: rgba(0,0,0,0.05); border-radius: 8px; padding: 10px; margin-top: 8px;">
                     <div style="max-height: 120px; overflow-y: auto;">
                         ${countryBreakdown}
                     </div>
                 </div>
-                ` : ''}
+                `}
             </div>
         `;
     }).join('');
