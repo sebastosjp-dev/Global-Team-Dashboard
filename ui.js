@@ -236,13 +236,13 @@ window.selectQuarter = function (element) {
     const totalRowHtml = deals.length > 0 ? `
         <tr style="background: #FEF2F2; border-top: 2px solid #FCA5A5;">
             <td style="padding: 18px 24px;"></td>
-            <td style="padding: 18px 24px; color: #DC2626; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Weighted Pipeline Value</td>
+            <td colspan="2" style="padding: 18px 24px; color: #DC2626; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Weighted Pipeline Value</td>
             <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalWeighted)}</td>
         </tr>
     ` : '';
 
     if (deals.length === 0) {
-        rowsHtml = '<tr><td colspan="3" style="padding: 60px 20px; text-align: center; color: #94A3B8; font-style: italic;">No active deals found for this quarter.</td></tr>';
+        rowsHtml = '<tr><td colspan="4" style="padding: 60px 20px; text-align: center; color: #94A3B8; font-style: italic;">No active deals found for this quarter.</td></tr>';
     }
 
     container.innerHTML = `
@@ -267,6 +267,7 @@ window.selectQuarter = function (element) {
                         <tr style="background: #F8FAFC; border-bottom: 2px solid #F1F5F9;">
                             <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 80px;">NO.</th>
                             <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">CRM DEAL NAME</th>
+                            <th style="padding: 16px 24px; text-align: center; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 140px;">DEAL STAGE</th>
                             <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">WEIGHTED PIPELINE VALUE (USD)</th>
                         </tr>
                     </thead>
@@ -787,7 +788,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 </div>
             `).join('');
 
-        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted, c: d.country || '' })));
+        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted, c: d.country || '', s: d.stage || 'Unknown' })));
         const dealListAttr = dealListJson
             .replace(/&/g, '&amp;')
             .replace(/'/g, '&apos;')
@@ -837,6 +838,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid #EEF2F6; font-size: 0.7rem;">
                                     <span style="color: #94A3B8; font-family: monospace; font-weight: 700; flex-shrink: 0; width: 18px;">${String(idx + 1).padStart(2, '0')}</span>
                                     <span style="color: #1F2937; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
+                                    ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.55rem', padding: '1px 6px' })}
                                     <span style="color: #10B981; font-weight: 800; flex-shrink: 0;">$${formatCurrency(d.weighted)}</span>
                                 </div>
                             `).join('')}
