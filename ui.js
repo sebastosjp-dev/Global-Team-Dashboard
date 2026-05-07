@@ -14,6 +14,27 @@ export function injectPipelineTooltipStyles() {
     injectServiceAnalysisStyles();
 }
 
+const PIPELINE_STAGE_THEME = {
+    'Discovery':   { bg: '#eef2ff', fg: '#4338ca', border: '#c7d2fe' },
+    'PoC':         { bg: '#fef3c7', fg: '#b45309', border: '#fcd34d' },
+    'Quotation':   { bg: '#dbeafe', fg: '#1e40af', border: '#93c5fd' },
+    'Negotiation': { bg: '#fce7f3', fg: '#be185d', border: '#f9a8d4' },
+    'Lost':        { bg: '#fee2e2', fg: '#b91c1c', border: '#fca5a5' },
+    'Won':         { bg: '#d1fae5', fg: '#047857', border: '#6ee7b7' },
+    'Unknown':     { bg: '#f3f4f6', fg: '#6b7280', border: '#d1d5db' }
+};
+function getStageTheme(stage) {
+    if (!stage) return PIPELINE_STAGE_THEME['Unknown'];
+    const k = String(stage).trim();
+    return PIPELINE_STAGE_THEME[k] || { bg: '#f3f4f6', fg: '#6b7280', border: '#d1d5db' };
+}
+function renderStageBadge(stage, opts = {}) {
+    const t = getStageTheme(stage);
+    const fontSize = opts.fontSize || '0.62rem';
+    const padding = opts.padding || '2px 8px';
+    return `<span style="display:inline-block; background:${t.bg}; color:${t.fg}; border:1px solid ${t.border}; font-size:${fontSize}; font-weight:800; padding:${padding}; border-radius:8px; text-transform:uppercase; letter-spacing:0.04em; line-height:1.2; white-space:nowrap;">${stage || 'Unknown'}</span>`;
+}
+
 // Globally expose tooltip functions
 window.showQuarterTooltip = function (event, element) {
     const tooltip = document.getElementById('pipeline-quarter-tooltip');
@@ -200,10 +221,12 @@ window.selectQuarter = function (element) {
 
     let rowsHtml = deals.map((d, index) => {
         const countryBadge = (showCountry && d.c) ? `<span style="display: inline-block; background: rgba(16,185,129,0.1); color: #059669; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-right: 10px; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle;">${d.c}</span>` : '';
+        const stageBadge = renderStageBadge(d.s || 'Unknown', { fontSize: '0.7rem', padding: '4px 10px' });
         return `
         <tr style="border-bottom: 1px solid #F3F4F6; transition: background 0.2s;">
             <td style="padding: 16px 24px; color: #94A3B8; font-weight: 700; width: 60px; font-family: monospace;">${String(index + 1).padStart(2, '0')}</td>
             <td style="padding: 16px 24px; color: #1E293B; font-weight: 700; font-size: 0.95rem;">${countryBadge}${d.n}</td>
+            <td style="padding: 16px 24px; text-align: center;">${stageBadge}</td>
             <td style="padding: 16px 24px; text-align: right; color: #10B981; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.a}</td>
         </tr>
     `;

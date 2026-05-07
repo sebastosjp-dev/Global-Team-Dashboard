@@ -166,6 +166,7 @@ export function getPipelineStats(pData, orderData = []) {
         Q3: { countries: {}, deals: [] },
         Q4: { countries: {}, deals: [] }
     };
+    let pipelineByStage = {};
 
     // --- TCV FROM ORDER SHEET ---
     const orderTcvByQuarterCountry = { Q1: {}, Q2: {}, Q3: {}, Q4: {} };
@@ -225,6 +226,11 @@ export function getPipelineStats(pData, orderData = []) {
             else if (qRaw.includes('Q4')) qMatch = 'Q4';
         }
 
+        const stageKey = findKey(keys,
+            k => k.toLowerCase().replace(/\s/g, '') === 'dealstage',
+            k => k.toLowerCase().includes('stage'));
+        const stage = stageKey && r[stageKey] ? String(r[stageKey]).trim() : 'Unknown';
+
         // Resolve contract years for ARR = TCV / years.
         // 1) explicit "Contract Yr" column (Perpetual → 1, matching collection logic)
         // 2) pattern parsed from Deal Name
@@ -261,7 +267,13 @@ export function getPipelineStats(pData, orderData = []) {
             pipelineByQuarter[qMatch].countries[c].weighted += wAmt;
             pipelineByQuarter[qMatch].countries[c].arr = (pipelineByQuarter[qMatch].countries[c].arr || 0) + arr;
             pipelineByQuarter[qMatch].countries[c].count++;
-            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year });
+            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year, stage });
+
+            if (!pipelineByStage[stage]) pipelineByStage[stage] = { amount: 0, weighted: 0, arr: 0, count: 0 };
+            pipelineByStage[stage].amount += amt;
+            pipelineByStage[stage].weighted += wAmt;
+            pipelineByStage[stage].arr += arr;
+            pipelineByStage[stage].count++;
         }
 
         if (year === currentYearStr && d) {
@@ -283,10 +295,12 @@ export function getPipelineStats(pData, orderData = []) {
     return {
         pipelineByCountry,
         pipelineByQuarter,
+        pipelineByStage,
         pipelineInfluxData,
         pipelineByYearCountry,
         sortedPipeline: Object.entries(pipelineByCountry).sort((a, b) => b[1].amount - a[1].amount),
         sortedQuarterly: Object.entries(pipelineByQuarter).sort((a, b) => a[0].localeCompare(b[0])),
+        sortedStage: Object.entries(pipelineByStage).sort((a, b) => b[1].weighted - a[1].weighted),
         globalTotalAmount: Object.values(pipelineByCountry).reduce((acc, curr) => acc + curr.amount, 0),
         globalTotalWeighted: Object.values(pipelineByCountry).reduce((acc, curr) => acc + curr.weighted, 0),
         globalTotalArr: Object.values(pipelineByCountry).reduce((acc, curr) => acc + (curr.arr || 0), 0),
