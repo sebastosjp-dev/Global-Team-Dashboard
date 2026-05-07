@@ -893,7 +893,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                     <!-- Quarterly Grid and Pie Chart in a flex/grid container -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
                         <!-- Left: Quarter Cards -->
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); grid-auto-rows: 1fr; gap: 10px; height: 100%; min-height: 400px;">
                             ${quarterlyItemsHtml}
                         </div>
                         
