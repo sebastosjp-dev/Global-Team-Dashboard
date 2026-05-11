@@ -1324,16 +1324,16 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 <span style="background: rgba(16,185,129,0.12); color: #059669; font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">${values.count || 0} deals</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
+                <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
+                <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
                 <span style="color: var(--text-muted);">PIPELINE</span>
                 <span style="color: #34C759; font-weight: 600;">$${formatCurrency(values.amount)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
                 <span style="color: var(--text-muted);">WEIGHTED PIPELINE VALUE</span>
                 <span style="color: #007AFF; font-weight: 600;">$${formatCurrency(values.weighted)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
-                <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
-                <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.7rem;">
                 <span style="color: #a855f7; opacity: 0.85;">ARR (${currentYear})</span>
@@ -1360,16 +1360,16 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                         <span style="background: rgba(99,102,241,0.1); color: #6366f1; font-size: 0.6rem; font-weight: 700; padding: 1px 6px; border-radius: 8px;">${values.count || 0}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
+                        <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
+                        <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
                         <span style="color: var(--text-muted);">PIPELINE</span>
                         <span style="color: #34C759;">$${formatCurrency(values.amount)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
                         <span style="color: var(--text-muted);">WEIGHTED PIPELINE VALUE</span>
                         <span style="color: #007AFF;">$${formatCurrency(values.weighted)}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
-                        <span style="color: #ef4444; opacity: 0.8;">TCV (${currentYear})</span>
-                        <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.68rem;">
                         <span style="color: #a855f7; opacity: 0.85;">ARR (${currentYear})</span>
@@ -1401,16 +1401,16 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                     </div>
                     <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                            <span style="font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">TCV (${currentYear})</span>
+                            <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                             <span style="font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">PIPELINE</span>
                             <span style="font-size: 0.85rem; color: #34C759; font-weight: 800;">$${formatCurrency(qTotalAmount)}</span>
                         </div>
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                             <span style="font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">WEIGHTED PIPELINE VALUE</span>
                             <span style="font-size: 0.85rem; color: #34C759; font-weight: 800;">$${formatCurrency(qTotalWeighted)}</span>
-                        </div>
-                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                            <span style="font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">TCV (${currentYear})</span>
-                            <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
                         </div>
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                             <span style="font-size: 0.6rem; color: #a855f7; text-transform: uppercase;">ARR (${currentYear})</span>
