@@ -685,8 +685,8 @@ export function getQuarterlyForecastHTML(stats) {
                 <span style="color:#94A3B8; font-family:monospace; font-weight:700; flex-shrink:0; width:14px;">${String(i + 1).padStart(2, '0')}</span>
                 <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
                 <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
-                    <span style="color:#10B981; font-weight:800; font-size:0.66rem;">ARR $${formatCurrency(d.arr)}</span>
-                    <span style="color:#0EA5E9; font-weight:700; font-size:0.6rem;">TCV $${formatCurrency(d.tcv)}</span>
+                    <span style="color:#0EA5E9; font-weight:800; font-size:0.66rem;">TCV $${formatCurrency(d.tcv)}</span>
+                    <span style="color:#10B981; font-weight:700; font-size:0.6rem;">ARR $${formatCurrency(d.arr)}</span>
                 </span>
             </div>
         `).join('') + (b.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${b.deals.length - 6} more</div>` : '');
@@ -702,8 +702,8 @@ export function getQuarterlyForecastHTML(stats) {
                 <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
                 ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.5rem', padding: '1px 5px' })}
                 <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
-                    <span style="color:#F59E0B; font-weight:800; font-size:0.66rem;">wARR $${formatCurrency(d.wArr)}</span>
-                    <span style="color:#fb923c; font-weight:700; font-size:0.6rem;">wTCV $${formatCurrency(d.weighted)}</span>
+                    <span style="color:#fb923c; font-weight:800; font-size:0.66rem;">wTCV $${formatCurrency(d.weighted)}</span>
+                    <span style="color:#F59E0B; font-weight:700; font-size:0.6rem;">wARR $${formatCurrency(d.wArr)}</span>
                 </span>
             </div>
         `).join('') + (f.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${f.deals.length - 6} more</div>` : '');
@@ -748,8 +748,8 @@ export function getQuarterlyForecastHTML(stats) {
             </div>
         `;
 
-        const newBookedTotal = `ARR $${formatCurrency(data.booked.arr)} · TCV $${formatCurrency(data.booked.tcv)}`;
-        const forecastTotal = `wARR $${formatCurrency(data.forecast.wArr)} · wTCV $${formatCurrency(data.forecast.wTcv)}`;
+        const newBookedTotal = `TCV $${formatCurrency(data.booked.tcv)} · ARR $${formatCurrency(data.booked.arr)}`;
+        const forecastTotal = `wTCV $${formatCurrency(data.forecast.wTcv)} · wARR $${formatCurrency(data.forecast.wArr)}`;
         const renewalTotal = `$${formatCurrency(data.renewal.arr)}`;
 
         return `
