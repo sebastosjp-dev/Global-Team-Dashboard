@@ -822,8 +822,8 @@ window.openQuarterlyForecastModal = function (qId) {
                 <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
                 <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
-                    <span style="color:#10B981; font-weight:800;">ARR $${fmt(d.arr)}</span>
-                    <span style="color:#0EA5E9; font-weight:700; margin-left:10px;">TCV $${fmt(d.tcv)}</span>
+                    <span style="color:#0EA5E9; font-weight:800;">TCV $${fmt(d.tcv)}</span>
+                    <span style="color:#10B981; font-weight:700; margin-left:10px;">ARR $${fmt(d.arr)}</span>
                 </td>
             </tr>
         `).join('');
@@ -836,8 +836,8 @@ window.openQuarterlyForecastModal = function (qId) {
                 <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
                 <td style="padding:9px 12px;">${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.62rem', padding: '2px 8px' })}</td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
-                    <span style="color:#F59E0B; font-weight:800;">wARR $${fmt(d.wArr)}</span>
-                    <span style="color:#fb923c; font-weight:700; margin-left:10px;">wTCV $${fmt(d.weighted)}</span>
+                    <span style="color:#fb923c; font-weight:800;">wTCV $${fmt(d.weighted)}</span>
+                    <span style="color:#F59E0B; font-weight:700; margin-left:10px;">wARR $${fmt(d.wArr)}</span>
                 </td>
             </tr>
         `).join('');
@@ -893,11 +893,11 @@ window.openQuarterlyForecastModal = function (qId) {
         </div>
         <div style="padding:22px 26px 26px;">
             ${sectionWrap('NEW · Booked',  '#10b981',
-                `ARR $${fmt(q.booked.arr)} · TCV $${fmt(q.booked.tcv)} · ${q.booked.deals.length} deals`,
+                `TCV $${fmt(q.booked.tcv)} · ARR $${fmt(q.booked.arr)} · ${q.booked.deals.length} deals`,
                 [{label:'#'},{label:'Deal Name'},{label:'Value', right:true}],
                 fullBookedRows)}
             ${sectionWrap('NEW · Forecast (Stage-Weighted)', '#f59e0b',
-                `wARR $${fmt(q.forecast.wArr)} · wTCV $${fmt(q.forecast.wTcv)} · ${q.forecast.deals.length} deals`,
+                `wTCV $${fmt(q.forecast.wTcv)} · wARR $${fmt(q.forecast.wArr)} · ${q.forecast.deals.length} deals`,
                 [{label:'#'},{label:'Deal Name'},{label:'Stage'},{label:'Weighted Value', right:true}],
                 fullForecastRows)}
             ${sectionWrap('Renewal Target', '#a855f7',
