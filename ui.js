@@ -700,20 +700,24 @@ export function getQuarterlyForecastHTML(stats) {
         const tagColor = isPast ? '#374151' : (isCurrent ? '#1E40AF' : '#92400E');
         return `
             <div onclick="window.openQuarterlyForecastModal('${q}')"
-                 style="background:${bg}; border:1px solid ${borderColor}; border-radius:8px; padding:8px 4px; opacity:${isPast ? 0.85 : 1}; min-width:0; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;"
-                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)';"
-                 onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:0 6px 6px; margin-bottom:2px; border-bottom:1px solid ${borderColor};">
-                    <span style="font-size:0.7rem; font-weight:800; color:${labelColor}; letter-spacing:0.1em;">${q}</span>
-                    <span style="display:flex; align-items:center; gap:5px;">
-                        <span style="font-size:0.52rem; font-weight:800; padding:2px 6px; border-radius:8px; background:${tagBg}; color:${tagColor};">${tagText}</span>
-                        <i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.5rem; color:#9ca3af;" title="Click to expand"></i>
+                 style="background:${bg}; border:1px solid ${borderColor}; border-radius:8px; padding:10px 6px 8px; opacity:${isPast ? 0.85 : 1}; min-width:0; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s, border-color 0.15s;"
+                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 24px rgba(59,130,246,0.18)'; this.style.borderColor='#3B82F6';"
+                 onmouseout="this.style.transform='none'; this.style.boxShadow='none'; this.style.borderColor='${borderColor}';"
+                 title="Click to view ${q} deal details">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:0 4px 8px; margin-bottom:4px; border-bottom:1px solid ${borderColor};">
+                    <span style="font-size:0.75rem; font-weight:800; color:${labelColor}; letter-spacing:0.1em;">${q}</span>
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:0.55rem; font-weight:800; padding:2px 7px; border-radius:8px; background:${tagBg}; color:${tagColor}; white-space:nowrap;">${tagText}</span>
+                        <i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.6rem; color:#6366f1;" title="Click to expand"></i>
                     </span>
                 </div>
                 ${miniKpiRow('Booked TCV', data.booked.tcv, '#0ea5e9')}
                 ${miniKpiRow('Booked ARR', data.booked.arr, '#10b981')}
                 ${miniKpiRow('wPipeline ARR', data.forecast.wArr, '#f59e0b')}
                 ${miniKpiRow('Renewal ARR', data.renewal.arr, '#a855f7')}
+                <div style="text-align:center; padding-top:6px; margin-top:4px; border-top:1px dashed ${borderColor}; font-size:0.55rem; font-weight:700; color:#6366f1; letter-spacing:0.05em;">
+                    <i class="fa-solid fa-hand-pointer" style="font-size:0.55rem;"></i> Click for details
+                </div>
             </div>
         `;
     };
