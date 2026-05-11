@@ -934,8 +934,8 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                     <canvas id="tcv-yearly-bar"></canvas>
                 </div>
             </div>
-            <div class="stat-card" style="border-left: 5px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px;">
-                <div class="metric-title-row"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV</h3><span class="metric-info" data-tooltip="Total Contract Value converted to USD (Korea headquarters currency), aggregating global revenue in a single comparable unit.">i</span></div>
+            <div class="stat-card" onclick="window.openAccumulatedTcvModal()" style="border-left: 5px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px -4px rgba(99,102,241,0.25)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.1)';">
+                <div class="metric-title-row"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV</h3><span class="metric-info" data-tooltip="Total Contract Value converted to USD (Korea headquarters currency), aggregating global revenue in a single comparable unit.">i</span><span style="margin-left:auto; font-size:0.6rem; font-weight:700; color:#6366f1; background:rgba(99,102,241,0.1); padding:2px 8px; border-radius:10px; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.55rem;"></i>Compare vs Local TCV</span></div>
                 <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.sumKorTcv)}</h2>
                 <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">&nbsp;</div>
                 <div style="flex: 1; position: relative; min-height: 70px;">
@@ -1011,7 +1011,210 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 </div>
             </div>` : ''}
         </div>
+        <div id="accum-tcv-modal"
+             style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); padding:24px; backdrop-filter:blur(2px);"
+             onclick="if(event.target===this) window.closeAccumulatedTcvModal()">
+            <div id="accum-tcv-modal-body" style="background:#fff; border-radius:16px; max-width:1100px; width:100%; max-height:88vh; overflow:auto; padding:0; position:relative; box-shadow:0 25px 60px rgba(0,0,0,0.25);"></div>
+        </div>
     `;
+}
+
+/* ── Modal: ACCUMULATED TCV vs ACCUMULATED KTCV comparison ───────── */
+window.openAccumulatedTcvModal = function () {
+    const stats = window.__orderSheetStats;
+    if (!stats) return;
+    const body = document.getElementById('accum-tcv-modal-body');
+    if (!body) return;
+
+    const years = Object.keys(stats.yearlyTcv || {}).sort();
+    const localYearly = years.map(y => stats.yearlyTcv[y].local || 0);
+    const koreaYearly = years.map(y => stats.yearlyTcv[y].korea || 0);
+
+    body.innerHTML = `
+        <div style="position:sticky; top:0; background:#fff; padding:20px 26px 16px; border-bottom:1px solid #F3F4F6; z-index:1; display:flex; align-items:center; gap:14px;">
+            <div style="background:rgba(99,102,241,0.1); color:#6366f1; width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="fa-solid fa-scale-balanced" style="font-size:1.15rem;"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Currency Comparison</div>
+                <div style="font-size:1.15rem; font-weight:800; color:#111827; line-height:1.2;">ACCUMULATED TCV vs ACCUMULATED KTCV</div>
+            </div>
+            <button onclick="window.closeAccumulatedTcvModal()" style="background:#F3F4F6; border:none; width:36px; height:36px; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#374151; font-size:1rem;" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='#F3F4F6'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div style="padding:22px 26px 26px;">
+            <div style="font-size:0.78rem; color:#475569; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:12px 14px; margin-bottom:18px; line-height:1.55;">
+                <b style="color:#0ea5e9;">ACCUMULATED TCV</b> is in each country's <b>local currency</b> (not directly comparable across countries).
+                <b style="color:#6366f1;"> ACCUMULATED KTCV</b> converts every contract to <b>USD (Korea HQ basis)</b> for a single comparable revenue view.
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px;">
+                <div class="stat-card" style="border-left:5px solid #0ea5e9; background:#FFF; padding:18px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:stretch; min-height:340px;">
+                    <div class="metric-title-row"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED TCV</h3><span class="metric-globe" data-tooltip="Local currency basis"><i class="fa-solid fa-globe"></i></span></div>
+                    <div style="font-size:0.65rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">Local currency · ${stats.dealCount} deals</div>
+                    <h2 style="font-size:1.8rem; font-weight:800; margin:6px 0 4px;">${formatCurrency(stats.sumLocalTcv)}</h2>
+                    <div style="flex:1; position:relative; min-height:240px; margin-top:8px;">
+                        <canvas id="tcv-yearly-bar-modal"></canvas>
+                    </div>
+                </div>
+                <div class="stat-card" style="border-left:5px solid #6366f1; background:#FFF; padding:18px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:stretch; min-height:340px;">
+                    <div class="metric-title-row"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV</h3></div>
+                    <div style="font-size:0.65rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">Korea (USD) basis</div>
+                    <h2 style="font-size:1.8rem; font-weight:800; margin:6px 0 4px;">US$ ${formatCurrency(stats.sumKorTcv)}</h2>
+                    <div style="flex:1; position:relative; min-height:240px; margin-top:8px;">
+                        <canvas id="ktcv-yearly-bar-modal"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('accum-tcv-modal').style.display = 'flex';
+
+    /* Render stacked yearly bars inside the modal — mirrors the dashboard cards. */
+    setTimeout(() => _renderAccumTcvCompareCharts(years, localYearly, koreaYearly), 50);
+};
+
+window.closeAccumulatedTcvModal = function () {
+    const m = document.getElementById('accum-tcv-modal');
+    if (m) m.style.display = 'none';
+    if (window.__accumTcvCharts) {
+        Object.values(window.__accumTcvCharts).forEach(c => { try { c.destroy(); } catch {} });
+        window.__accumTcvCharts = null;
+    }
+};
+
+if (typeof window !== 'undefined' && !window.__accumTcvEscBound) {
+    window.__accumTcvEscBound = true;
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') window.closeAccumulatedTcvModal();
+    });
+}
+
+/**
+ * Draw the two stacked cumulative bars (Local TCV + KTCV) inside the modal.
+ * Mirrors the chart style used on the main ORDER SHEET dashboard so the
+ * comparison is visually consistent with the small cards the user clicked from.
+ */
+function _renderAccumTcvCompareCharts(years, localYearly, koreaYearly) {
+    if (typeof Chart === 'undefined') return;
+    if (window.__accumTcvCharts) {
+        Object.values(window.__accumTcvCharts).forEach(c => { try { c.destroy(); } catch {} });
+    }
+    window.__accumTcvCharts = {};
+
+    const yearShade = (rgb, idx, total) => {
+        const minOpacity = 0.28, maxOpacity = 0.92;
+        const t = total <= 1 ? 1 : idx / (total - 1);
+        const opacity = (minOpacity + t * (maxOpacity - minOpacity)).toFixed(2);
+        return `rgba(${rgb}, ${opacity})`;
+    };
+
+    const buildStackedDatasets = (rgb, yearlyValues) => years.map((year, yearIdx) => ({
+        label: year,
+        data: years.map((_, barIdx) => barIdx >= yearIdx ? (yearlyValues[yearIdx] || 0) : 0),
+        backgroundColor: yearShade(rgb, yearIdx, years.length),
+        borderColor: `rgb(${rgb})`,
+        borderWidth: 0,
+        borderRadius: (ctx) => {
+            const isTopOfBar = ctx.datasetIndex === ctx.dataIndex;
+            const isBottomOfBar = ctx.datasetIndex === 0;
+            return {
+                topLeft: isTopOfBar ? 4 : 0,
+                topRight: isTopOfBar ? 4 : 0,
+                bottomLeft: isBottomOfBar ? 4 : 0,
+                bottomRight: isBottomOfBar ? 4 : 0
+            };
+        },
+        borderSkipped: false
+    }));
+
+    const stackedOptions = (yearlyValues, currencyPrefix) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                mode: 'index',
+                intersect: false,
+                backgroundColor: '#1e293b',
+                padding: 10,
+                cornerRadius: 6,
+                filter: (ctx) => (ctx.parsed.y || 0) > 0,
+                itemSort: (a, b) => b.datasetIndex - a.datasetIndex,
+                callbacks: {
+                    label: (ctx) => {
+                        const yearly = ctx.parsed.y || 0;
+                        const prev = yearlyValues[ctx.datasetIndex - 1] || 0;
+                        const growth = (ctx.datasetIndex > 0 && prev > 0)
+                            ? `  (${(((yearly / prev) - 1) * 100).toFixed(1)}% YoY)`
+                            : '';
+                        return ` ${ctx.dataset.label}: ${currencyPrefix}${formatCurrency(yearly)}${growth}`;
+                    },
+                    footer: (items) => {
+                        const total = items.reduce((s, it) => s + (it.parsed.y || 0), 0);
+                        return `Cumulative: ${currencyPrefix}${formatCurrency(total)}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: '#94a3b8', font: { size: 10, weight: '700' } } },
+            y: { stacked: true, display: false }
+        },
+        layout: { padding: { top: 22, bottom: 0, left: 4, right: 4 } }
+    });
+
+    const yoyLabelsPlugin = (yearlyValues) => ({
+        id: 'accumTcvYoyLabels',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            ctx.save();
+            ctx.font = '700 11px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            for (let i = 1; i < yearlyValues.length; i++) {
+                const meta = chart.getDatasetMeta(i);
+                const bar = meta && meta.data && meta.data[i];
+                if (!bar) continue;
+                const prev = yearlyValues[i - 1] || 0;
+                const curr = yearlyValues[i] || 0;
+                let text, color;
+                if (prev <= 0) {
+                    if (curr <= 0) continue;
+                    text = 'N/A'; color = '#94a3b8';
+                } else {
+                    const growth = ((curr / prev) - 1) * 100;
+                    const sign = growth >= 0 ? '+' : '';
+                    text = `${sign}${growth.toFixed(1)}%`;
+                    color = growth >= 0 ? '#10b981' : '#ef4444';
+                }
+                ctx.fillStyle = color;
+                ctx.fillText(text, bar.x, bar.y - 4);
+            }
+            ctx.restore();
+        }
+    });
+
+    const tcvCanvas = document.getElementById('tcv-yearly-bar-modal');
+    if (tcvCanvas && years.length > 0) {
+        window.__accumTcvCharts.tcv = new Chart(tcvCanvas, {
+            type: 'bar',
+            data: { labels: years, datasets: buildStackedDatasets('14, 165, 233', localYearly) },
+            options: stackedOptions(localYearly, ''),
+            plugins: [yoyLabelsPlugin(localYearly)]
+        });
+    }
+
+    const ktcvCanvas = document.getElementById('ktcv-yearly-bar-modal');
+    if (ktcvCanvas && years.length > 0) {
+        window.__accumTcvCharts.ktcv = new Chart(ktcvCanvas, {
+            type: 'bar',
+            data: { labels: years, datasets: buildStackedDatasets('99, 102, 241', koreaYearly) },
+            options: stackedOptions(koreaYearly, 'US$ '),
+            plugins: [yoyLabelsPlugin(koreaYearly)]
+        });
+    }
 }
 
 

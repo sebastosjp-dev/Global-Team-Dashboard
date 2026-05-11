@@ -156,6 +156,8 @@ function _renderServiceAnalysis(data, filterCountry, tabName, metricsGrid, searc
 /** @param {function} renderTableData - closure from app.js */
 function _renderOrderSheet(data, filterCountry, metricsGrid, tabName, workbookData) {
     const stats = getOrderSheetStats(data, filterCountry, tabName, workbookData);
+    // Stash for the ACCUMULATED KTCV click-to-compare modal in ui.js
+    window.__orderSheetStats = stats;
     const container = document.createElement('div');
     container.style.gridColumn = '1 / -1';
     container.innerHTML = getOrderSheetHTML(stats, filterCountry);
