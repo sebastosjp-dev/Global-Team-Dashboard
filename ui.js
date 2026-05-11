@@ -695,9 +695,21 @@ export function getQuarterlyForecastHTML(stats) {
         const bg = isCurrent ? 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)' : '#FAFAFA';
         const borderColor = isCurrent ? '#3B82F6' : '#E5E7EB';
         const labelColor = isCurrent ? '#1D4ED8' : '#374151';
+        const tagText = isPast ? '✓ Closed' : (isCurrent ? '• Active' : 'Upcoming');
+        const tagBg = isPast ? '#E5E7EB' : (isCurrent ? '#DBEAFE' : '#FEF3C7');
+        const tagColor = isPast ? '#374151' : (isCurrent ? '#1E40AF' : '#92400E');
         return `
-            <div style="background:${bg}; border:1px solid ${borderColor}; border-radius:8px; padding:8px 4px; opacity:${isPast ? 0.85 : 1}; min-width:0;">
-                <div style="font-size:0.7rem; font-weight:800; color:${labelColor}; text-align:center; padding-bottom:6px; margin-bottom:2px; border-bottom:1px solid ${borderColor}; letter-spacing:0.1em;">${q}</div>
+            <div onclick="window.openQuarterlyForecastModal('${q}')"
+                 style="background:${bg}; border:1px solid ${borderColor}; border-radius:8px; padding:8px 4px; opacity:${isPast ? 0.85 : 1}; min-width:0; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;"
+                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)';"
+                 onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:0 6px 6px; margin-bottom:2px; border-bottom:1px solid ${borderColor};">
+                    <span style="font-size:0.7rem; font-weight:800; color:${labelColor}; letter-spacing:0.1em;">${q}</span>
+                    <span style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:0.52rem; font-weight:800; padding:2px 6px; border-radius:8px; background:${tagBg}; color:${tagColor};">${tagText}</span>
+                        <i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.5rem; color:#9ca3af;" title="Click to expand"></i>
+                    </span>
+                </div>
                 ${miniKpiRow('Booked TCV', data.booked.tcv, '#0ea5e9')}
                 ${miniKpiRow('Booked ARR', data.booked.arr, '#10b981')}
                 ${miniKpiRow('wPipeline ARR', data.forecast.wArr, '#f59e0b')}
@@ -716,103 +728,6 @@ export function getQuarterlyForecastHTML(stats) {
         </div>
     `;
 
-    const renderBooked = (b) => {
-        if (b.deals.length === 0) {
-            return `<div style="text-align:center; padding:8px; color:#9ca3af; font-size:0.66rem; font-style:italic;">No booked deals</div>`;
-        }
-        return b.deals.slice(0, 6).map((d, i) => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-bottom:1px solid #F1F5F9; font-size:0.66rem; gap:6px;">
-                <span style="color:#94A3B8; font-family:monospace; font-weight:700; flex-shrink:0; width:14px;">${String(i + 1).padStart(2, '0')}</span>
-                <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
-                <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
-                    <span style="color:#0EA5E9; font-weight:800; font-size:0.66rem;">TCV $${formatCurrency(d.tcv)}</span>
-                    <span style="color:#10B981; font-weight:700; font-size:0.6rem;">ARR $${formatCurrency(d.arr)}</span>
-                </span>
-            </div>
-        `).join('') + (b.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${b.deals.length - 6} more</div>` : '');
-    };
-
-    const renderForecast = (f) => {
-        if (f.deals.length === 0) {
-            return `<div style="text-align:center; padding:8px; color:#9ca3af; font-size:0.66rem; font-style:italic;">No forecast deals</div>`;
-        }
-        return f.deals.slice(0, 6).map((d, i) => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-bottom:1px solid #F1F5F9; font-size:0.66rem; gap:4px;">
-                <span style="color:#94A3B8; font-family:monospace; font-weight:700; flex-shrink:0; width:14px;">${String(i + 1).padStart(2, '0')}</span>
-                <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
-                ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.5rem', padding: '1px 5px' })}
-                <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
-                    <span style="color:#fb923c; font-weight:800; font-size:0.66rem;">wTCV $${formatCurrency(d.weighted)}</span>
-                    <span style="color:#F59E0B; font-weight:700; font-size:0.6rem;">wARR $${formatCurrency(d.wArr)}</span>
-                </span>
-            </div>
-        `).join('') + (f.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${f.deals.length - 6} more</div>` : '');
-    };
-
-    const renderRenewal = (r) => {
-        if (r.deals.length === 0) {
-            return `<div style="text-align:center; padding:8px; color:#9ca3af; font-size:0.66rem; font-style:italic;">No renewals</div>`;
-        }
-        return r.deals.slice(0, 6).map((d, i) => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-bottom:1px solid #F1F5F9; font-size:0.66rem; gap:4px;">
-                <span style="color:#94A3B8; font-family:monospace; font-weight:700; flex-shrink:0; width:14px;">${String(i + 1).padStart(2, '0')}</span>
-                <span style="color:#1F2937; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
-                <span style="background:rgba(168,85,247,0.12); color:#7e22ce; font-size:0.55rem; font-weight:800; padding:1px 5px; border-radius:6px; flex-shrink:0;">${d.dDay}</span>
-                <span style="display:flex; flex-direction:column; align-items:flex-end; gap:0; flex-shrink:0; line-height:1.15;">
-                    <span style="color:#a855f7; font-weight:800; font-size:0.66rem;">Target $${formatCurrency(d.targetArr)}</span>
-                    <span style="color:#9ca3af; font-weight:600; font-size:0.58rem;">prev $${formatCurrency(d.currentArr)}</span>
-                </span>
-            </div>
-        `).join('') + (r.deals.length > 6 ? `<div style="text-align:center; font-size:0.62rem; color:#9ca3af; padding-top:4px;">+${r.deals.length - 6} more</div>` : '');
-    };
-
-    const quarterCol = (q) => {
-        const data = quarters[q];
-        const qi = qIdx(q);
-        const isPast = qi < qIdxNow;
-        const isCurrent = q === currentQuarter;
-        const headerBg = isPast ? '#F3F4F6' : (isCurrent ? 'linear-gradient(135deg, #DBEAFE 0%, #EFF6FF 100%)' : '#F9FAFB');
-        const borderColor = isPast ? '#D1D5DB' : (isCurrent ? '#3B82F6' : '#E5E7EB');
-        const headerColor = isPast ? '#6B7280' : (isCurrent ? '#1D4ED8' : '#111827');
-        const tagText = isPast ? '✓ Closed' : (isCurrent ? '• Active' : 'Upcoming');
-        const tagBg = isPast ? '#E5E7EB' : (isCurrent ? '#DBEAFE' : '#FEF3C7');
-        const tagColor = isPast ? '#374151' : (isCurrent ? '#1E40AF' : '#92400E');
-
-        const subSection = (title, color, totalLine, body) => `
-            <div style="margin-top:10px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 8px; background:rgba(255,255,255,0.7); border-radius:6px; border-left:3px solid ${color}; margin-bottom:4px;">
-                    <span style="font-size:0.62rem; font-weight:800; color:${color}; text-transform:uppercase; letter-spacing:0.04em;">${title}</span>
-                    <span style="font-size:0.62rem; font-weight:700; color:#111827;">${totalLine}</span>
-                </div>
-                ${body}
-            </div>
-        `;
-
-        const newBookedTotal = `TCV $${formatCurrency(data.booked.tcv)} · ARR $${formatCurrency(data.booked.arr)}`;
-        const forecastTotal = `wTCV $${formatCurrency(data.forecast.wTcv)} · wARR $${formatCurrency(data.forecast.wArr)}`;
-        const renewalTotal = `$${formatCurrency(data.renewal.arr)}`;
-
-        return `
-            <div onclick="window.openQuarterlyForecastModal('${q}')"
-                 style="display:flex; flex-direction:column; padding:12px; background:${headerBg}; border:1px solid ${borderColor}; border-top:3px solid ${borderColor}; border-radius:10px; min-width:0; opacity:${isPast ? 0.85 : 1}; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;"
-                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)';"
-                 onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
-                <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid ${borderColor};">
-                    <span style="font-size:1rem; font-weight:800; color:${headerColor};">${q}</span>
-                    <span style="display:flex; align-items:center; gap:6px;">
-                        <span style="font-size:0.6rem; font-weight:800; padding:3px 8px; border-radius:10px; background:${tagBg}; color:${tagColor};">${tagText}</span>
-                        <i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.55rem; color:#9ca3af;" title="Click to expand"></i>
-                    </span>
-                </div>
-                ${subSection('NEW · Booked', '#10b981', newBookedTotal, renderBooked(data.booked))}
-                ${subSection('NEW · Forecast (Stage-Weighted)', '#f59e0b', forecastTotal, renderForecast(data.forecast))}
-                ${subSection('Renewal Target', '#a855f7', renewalTotal, renderRenewal(data.renewal))}
-            </div>
-        `;
-    };
-
-    const quartersGrid = qOrder.map(quarterCol).join('');
-
     return `
         <div style="display:block; width:100%; padding:20px 22px; background:#fff; border-radius:14px; border:1px solid #E5E7EB; box-shadow:0 4px 16px rgba(0,0,0,0.04); box-sizing:border-box;">
             <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #F3F4F6; flex-wrap:wrap; row-gap:8px;">
@@ -821,13 +736,10 @@ export function getQuarterlyForecastHTML(stats) {
                     <h3 style="margin:0; font-size:0.7rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; line-height:1.2;">QUARTERLY FORECAST · ${currentYear}</h3>
                     <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827; line-height:1.3;">${country} — Q1 to Q4 (New + Renewal)</h2>
                 </div>
-                <div style="margin-left:auto; font-size:0.65rem; color:#6b7280; font-weight:600;">w = stage-weighted (확도 반영) · prev = existing ARR · <span style="color:#6366f1; font-weight:700;">Click any quarter to expand</span></div>
+                <div style="margin-left:auto; font-size:0.65rem; color:#6b7280; font-weight:600;">w = stage-weighted (확도 반영) · prev = existing ARR · <span style="color:#6366f1; font-weight:700;">Click any quarter to view deal details</span></div>
             </div>
             ${annualKpiStrip}
             ${quarterKpiRow}
-            <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px;">
-                ${quartersGrid}
-            </div>
         </div>
         <div id="qf-modal"
              style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.55); padding:24px; backdrop-filter:blur(2px);"
