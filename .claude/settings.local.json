@@ -31,7 +31,9 @@
       "PowerShell($env:PATH = \"$PWD\\\\node_portable\\\\node-v20.11.1-win-x64;$env:PATH\"; node --version; npm --version)",
       "PowerShell($env:PATH = \"$PWD\\\\node_portable\\\\node-v20.11.1-win-x64;$env:PATH\"; npm install xlsx --no-save --prefix . 2>&1 | Select-Object -Last 10)",
       "PowerShell($env:PATH = \"$PWD\\\\node_portable\\\\node-v20.11.1-win-x64;$env:PATH\"; node _query_indonesia.js 2>&1)",
-      "Bash(node -e \"import\\('./charts.js'\\).then\\(\\(\\)=>console.log\\('OK'\\)\\).catch\\(e=>console.error\\('ERR:', e.message\\)\\)\")"
+      "Bash(node -e \"import\\('./charts.js'\\).then\\(\\(\\)=>console.log\\('OK'\\)\\).catch\\(e=>console.error\\('ERR:', e.message\\)\\)\")",
+      "Bash(node --check \"c:/Users/LG/Downloads/global dashboard making/ui.js\")",
+      "Bash(node --check \"c:/Users/LG/Downloads/global dashboard making/services.js\")"
     ]
   }
 }

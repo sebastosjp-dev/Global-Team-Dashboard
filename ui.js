@@ -194,6 +194,176 @@ window.copyDecisionList = function () {
     });
 };
 
+const QUARTER_MONTHS = {
+    Q1: [{ num: 1, label: 'Jan' }, { num: 2, label: 'Feb' }, { num: 3, label: 'Mar' }],
+    Q2: [{ num: 4, label: 'Apr' }, { num: 5, label: 'May' }, { num: 6, label: 'Jun' }],
+    Q3: [{ num: 7, label: 'Jul' }, { num: 8, label: 'Aug' }, { num: 9, label: 'Sep' }],
+    Q4: [{ num: 10, label: 'Oct' }, { num: 11, label: 'Nov' }, { num: 12, label: 'Dec' }],
+};
+
+function renderQuarterPanelHtml() {
+    const state = window.__quarterPanelState;
+    if (!state) return '';
+    const { quarter, deals, showCountry, selectedMonth } = state;
+
+    const COUNTRY_FLAGS = {
+        'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Malaysia': '🇲🇾',
+        'USA': '🇺🇸', 'Philippines': '🇵🇭', 'Vietnam': '🇻🇳',
+        'Singapore': '🇸🇬', 'Turkey': '🇹🇷', 'Japan': '🇯🇵',
+        'India': '🇮🇳', 'Australia': '🇦🇺', 'Taiwan': '🇹🇼',
+        'Hong Kong': '🇭🇰',
+    };
+
+    const months = QUARTER_MONTHS[quarter] || [];
+    const monthStats = months.map(m => {
+        const md = deals.filter(d => d.m === m.num);
+        return {
+            ...m,
+            count: md.length,
+            tcv: md.reduce((s, d) => s + (Number(d.t) || 0), 0),
+            weighted: md.reduce((s, d) => s + (Number(d.w) || 0), 0),
+        };
+    });
+    const noDateDeals = deals.filter(d => d.m == null);
+
+    const filteredDeals = selectedMonth == null
+        ? deals
+        : selectedMonth === 'none'
+            ? noDateDeals
+            : deals.filter(d => d.m === selectedMonth);
+
+    const activeStyle = 'background: #10B981; color: #FFFFFF; border-color: #10B981; box-shadow: 0 4px 10px rgba(16,185,129,0.25);';
+    const inactiveStyle = 'background: #FFFFFF; color: #1E293B; border-color: #E5E7EB;';
+
+    const allBtn = `
+        <button type="button" onclick="filterQuarterByMonth(null)"
+            style="cursor:pointer; flex:0 0 auto; min-width:96px; padding:10px 14px; border-radius:10px; border:1px solid; text-align:left; font-family:inherit; transition:all 0.15s; ${selectedMonth == null ? activeStyle : inactiveStyle}">
+            <div style="font-size:0.7rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; opacity:0.85;">All</div>
+            <div style="font-size:1.05rem; font-weight:900; margin-top:2px;">${deals.length} <span style="font-size:0.65rem; font-weight:700; opacity:0.8;">deals</span></div>
+        </button>
+    `;
+
+    const monthBtns = monthStats.map(m => {
+        const active = selectedMonth === m.num;
+        return `
+            <button type="button" onclick="filterQuarterByMonth(${m.num})"
+                style="cursor:pointer; flex:1 1 0; min-width:140px; padding:10px 14px; border-radius:10px; border:1px solid; text-align:left; font-family:inherit; transition:all 0.15s; ${active ? activeStyle : inactiveStyle}">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <span style="font-size:0.72rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; opacity:0.9;">${m.label}</span>
+                    <span style="font-size:0.6rem; font-weight:800; padding:1px 7px; border-radius:8px; background:${active ? 'rgba(255,255,255,0.25)' : 'rgba(16,185,129,0.12)'}; color:${active ? '#FFFFFF' : '#059669'};">${m.count}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:6px; gap:6px; font-size:0.65rem;">
+                    <span style="opacity:0.7;">TCV</span>
+                    <span style="font-weight:800; color:${active ? '#FFFFFF' : '#EF4444'};">$${formatCurrency(m.tcv)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:2px; gap:6px; font-size:0.65rem;">
+                    <span style="opacity:0.7;">Weighted</span>
+                    <span style="font-weight:800; color:${active ? '#FFFFFF' : '#10B981'};">$${formatCurrency(m.weighted)}</span>
+                </div>
+            </button>
+        `;
+    }).join('');
+
+    const noDateBtn = noDateDeals.length > 0 ? `
+        <button type="button" onclick="filterQuarterByMonth('none')"
+            style="cursor:pointer; flex:0 0 auto; min-width:110px; padding:10px 14px; border-radius:10px; border:1px dashed; text-align:left; font-family:inherit; transition:all 0.15s; ${selectedMonth === 'none' ? activeStyle : inactiveStyle}">
+            <div style="font-size:0.7rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; opacity:0.85;">No Date</div>
+            <div style="font-size:1.05rem; font-weight:900; margin-top:2px;">${noDateDeals.length} <span style="font-size:0.65rem; font-weight:700; opacity:0.8;">deals</span></div>
+        </button>
+    ` : '';
+
+    const monthBarHtml = `
+        <div style="background:#F8FAFC; padding:14px 24px; border-bottom:1px solid #E5E7EB; display:flex; gap:10px; flex-wrap:wrap; align-items:stretch;">
+            ${allBtn}${monthBtns}${noDateBtn}
+        </div>
+    `;
+
+    let rowsHtml = filteredDeals.map((d, index) => {
+        const flag = d.c ? (COUNTRY_FLAGS[d.c] || '') : '';
+        const countryBadge = (showCountry && d.c)
+            ? `<span title="${d.c}" style="display: inline-block; font-size: 1.1rem; margin-right: 10px; vertical-align: middle; line-height: 1;">${flag || d.c}</span>`
+            : '';
+        const stageBadge = renderStageBadge(d.s || 'Unknown', { fontSize: '0.7rem', padding: '4px 10px' });
+        const monthLabel = d.m == null
+            ? '<span style="color:#94A3B8; font-weight:700; font-size:0.7rem;">—</span>'
+            : `<span style="display:inline-block; padding:3px 9px; border-radius:8px; background:#EEF2FF; color:#4338CA; font-weight:800; font-size:0.7rem; letter-spacing:0.04em;">${(QUARTER_MONTHS[quarter] || []).find(mm => mm.num === d.m)?.label || d.m}</span>`;
+        return `
+        <tr style="border-bottom: 1px solid #F3F4F6; transition: background 0.2s;">
+            <td style="padding: 16px 24px; color: #94A3B8; font-weight: 700; width: 60px; font-family: monospace;">${String(index + 1).padStart(2, '0')}</td>
+            <td style="padding: 16px 24px; color: #1E293B; font-weight: 700; font-size: 0.95rem;">${countryBadge}${d.n}</td>
+            <td style="padding: 16px 24px; text-align: center;">${monthLabel}</td>
+            <td style="padding: 16px 24px; text-align: center;">${stageBadge}</td>
+            <td style="padding: 16px 24px; text-align: right; color: #EF4444; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.tf != null ? d.tf : formatCurrency(d.t || 0)}</td>
+            <td style="padding: 16px 24px; text-align: right; color: #10B981; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.a}</td>
+        </tr>
+    `;
+    }).join('');
+
+    const totalWeighted = filteredDeals.reduce((sum, d) => sum + (Number(d.w) || 0), 0);
+    const totalTcv = filteredDeals.reduce((sum, d) => sum + (Number(d.t) || 0), 0);
+    const totalLabel = selectedMonth == null
+        ? 'Total Pipeline Value'
+        : selectedMonth === 'none'
+            ? 'Total (No Date)'
+            : `Total — ${(QUARTER_MONTHS[quarter] || []).find(mm => mm.num === selectedMonth)?.label || ''}`;
+    const totalRowHtml = filteredDeals.length > 0 ? `
+        <tr style="background: #FEF2F2; border-top: 2px solid #FCA5A5;">
+            <td style="padding: 18px 24px;"></td>
+            <td colspan="3" style="padding: 18px 24px; color: #DC2626; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">${totalLabel}</td>
+            <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalTcv)}</td>
+            <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalWeighted)}</td>
+        </tr>
+    ` : '';
+
+    if (filteredDeals.length === 0) {
+        rowsHtml = '<tr><td colspan="6" style="padding: 60px 20px; text-align: center; color: #94A3B8; font-style: italic;">No active deals found for this period.</td></tr>';
+    }
+
+    const headerSubtitle = selectedMonth == null
+        ? 'Complete breakdown of weighted pipeline value for the period'
+        : selectedMonth === 'none'
+            ? 'Deals in this quarter without a recorded date'
+            : `Showing deals dated in ${(QUARTER_MONTHS[quarter] || []).find(mm => mm.num === selectedMonth)?.label || ''}`;
+
+    return `
+        <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08);">
+            <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 1px solid rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em;">${quarter} Detailed Pipeline</h3>
+                        <p style="margin: 2px 0 0 0; opacity: 0.8; font-size: 0.8rem; font-weight: 500;">${headerSubtitle}</p>
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); backdrop-filter: blur(4px); padding: 8px 16px; border-radius: 12px; font-size: 0.9rem; font-weight: 800; border: 1px solid rgba(255,255,255,0.1);">
+                    ${filteredDeals.length} DEALS
+                </div>
+            </div>
+            ${monthBarHtml}
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: #F8FAFC; border-bottom: 2px solid #F1F5F9;">
+                            <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 80px;">NO.</th>
+                            <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">CRM DEAL NAME</th>
+                            <th style="padding: 16px 24px; text-align: center; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 90px;">MONTH</th>
+                            <th style="padding: 16px 24px; text-align: center; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 140px;">DEAL STAGE</th>
+                            <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">TCV (USD)</th>
+                            <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">WEIGHTED PIPELINE VALUE (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody style="background: #FFFFFF;">
+                        ${rowsHtml}
+                    </tbody>
+                    ${totalRowHtml ? `<tfoot>${totalRowHtml}</tfoot>` : ''}
+                </table>
+            </div>
+        </div>
+    `;
+}
+
 window.selectQuarter = function (element) {
     const quarter = element.getAttribute('data-q');
     const deals = JSON.parse(element.getAttribute('data-deals'))
@@ -204,14 +374,6 @@ window.selectQuarter = function (element) {
         || element.getAttribute('data-show-country') === 'true';
     const container = document.getElementById('pipeline-selected-quarter-container');
     if (!container) return;
-
-    const COUNTRY_FLAGS = {
-        'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Malaysia': '🇲🇾',
-        'USA': '🇺🇸', 'Philippines': '🇵🇭', 'Vietnam': '🇻🇳',
-        'Singapore': '🇸🇬', 'Turkey': '🇹🇷', 'Japan': '🇯🇵',
-        'India': '🇮🇳', 'Australia': '🇦🇺', 'Taiwan': '🇹🇼',
-        'Hong Kong': '🇭🇰',
-    };
 
     // Reset all cards styling
     document.querySelectorAll('.quarter-card').forEach(c => {
@@ -229,73 +391,8 @@ window.selectQuarter = function (element) {
     element.style.transform = 'translateY(-4px)';
     element.style.boxShadow = '0 10px 25px rgba(16, 185, 129, 0.15)';
 
-    let rowsHtml = deals.map((d, index) => {
-        const flag = d.c ? (COUNTRY_FLAGS[d.c] || '') : '';
-        const countryBadge = (showCountry && d.c)
-            ? `<span title="${d.c}" style="display: inline-block; font-size: 1.1rem; margin-right: 10px; vertical-align: middle; line-height: 1;">${flag || d.c}</span>`
-            : '';
-        const stageBadge = renderStageBadge(d.s || 'Unknown', { fontSize: '0.7rem', padding: '4px 10px' });
-        return `
-        <tr style="border-bottom: 1px solid #F3F4F6; transition: background 0.2s;">
-            <td style="padding: 16px 24px; color: #94A3B8; font-weight: 700; width: 60px; font-family: monospace;">${String(index + 1).padStart(2, '0')}</td>
-            <td style="padding: 16px 24px; color: #1E293B; font-weight: 700; font-size: 0.95rem;">${countryBadge}${d.n}</td>
-            <td style="padding: 16px 24px; text-align: center;">${stageBadge}</td>
-            <td style="padding: 16px 24px; text-align: right; color: #EF4444; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.tf != null ? d.tf : formatCurrency(d.t || 0)}</td>
-            <td style="padding: 16px 24px; text-align: right; color: #10B981; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.a}</td>
-        </tr>
-    `;
-    }).join('');
-
-    const totalWeighted = deals.reduce((sum, d) => sum + (Number(d.w) || 0), 0);
-    const totalTcv = deals.reduce((sum, d) => sum + (Number(d.t) || 0), 0);
-    const totalRowHtml = deals.length > 0 ? `
-        <tr style="background: #FEF2F2; border-top: 2px solid #FCA5A5;">
-            <td style="padding: 18px 24px;"></td>
-            <td colspan="2" style="padding: 18px 24px; color: #DC2626; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Pipeline Value</td>
-            <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalTcv)}</td>
-            <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalWeighted)}</td>
-        </tr>
-    ` : '';
-
-    if (deals.length === 0) {
-        rowsHtml = '<tr><td colspan="5" style="padding: 60px 20px; text-align: center; color: #94A3B8; font-style: italic;">No active deals found for this quarter.</td></tr>';
-    }
-
-    container.innerHTML = `
-        <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.08);">
-            <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; color: white; border-bottom: 1px solid rgba(0,0,0,0.05);">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-                        <i class="fa-solid fa-list-check"></i>
-                    </div>
-                    <div>
-                        <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em;">${quarter} Detailed Pipeline</h3>
-                        <p style="margin: 2px 0 0 0; opacity: 0.8; font-size: 0.8rem; font-weight: 500;">Complete breakdown of weighted pipeline value for the period</p>
-                    </div>
-                </div>
-                <div style="background: rgba(255,255,255,0.2); backdrop-filter: blur(4px); padding: 8px 16px; border-radius: 12px; font-size: 0.9rem; font-weight: 800; border: 1px solid rgba(255,255,255,0.1);">
-                    ${deals.length} DEALS
-                </div>
-            </div>
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                    <thead>
-                        <tr style="background: #F8FAFC; border-bottom: 2px solid #F1F5F9;">
-                            <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 80px;">NO.</th>
-                            <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">CRM DEAL NAME</th>
-                            <th style="padding: 16px 24px; text-align: center; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 140px;">DEAL STAGE</th>
-                            <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">TCV (USD)</th>
-                            <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">WEIGHTED PIPELINE VALUE (USD)</th>
-                        </tr>
-                    </thead>
-                    <tbody style="background: #FFFFFF;">
-                        ${rowsHtml}
-                    </tbody>
-                    ${totalRowHtml ? `<tfoot>${totalRowHtml}</tfoot>` : ''}
-                </table>
-            </div>
-        </div>
-    `;
+    window.__quarterPanelState = { quarter, deals, showCountry, selectedMonth: null };
+    container.innerHTML = renderQuarterPanelHtml();
     container.style.display = 'block';
 
     setTimeout(() => {
@@ -303,6 +400,14 @@ window.selectQuarter = function (element) {
         const y = container.getBoundingClientRect().top + window.pageYOffset + yOffset;
         window.scrollTo({ top: y, behavior: 'smooth' });
     }, 50);
+};
+
+window.filterQuarterByMonth = function (month) {
+    if (!window.__quarterPanelState) return;
+    window.__quarterPanelState.selectedMonth = month;
+    const container = document.getElementById('pipeline-selected-quarter-container');
+    if (!container) return;
+    container.innerHTML = renderQuarterPanelHtml();
 };
 
 
