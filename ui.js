@@ -240,22 +240,25 @@ window.selectQuarter = function (element) {
             <td style="padding: 16px 24px; color: #94A3B8; font-weight: 700; width: 60px; font-family: monospace;">${String(index + 1).padStart(2, '0')}</td>
             <td style="padding: 16px 24px; color: #1E293B; font-weight: 700; font-size: 0.95rem;">${countryBadge}${d.n}</td>
             <td style="padding: 16px 24px; text-align: center;">${stageBadge}</td>
+            <td style="padding: 16px 24px; text-align: right; color: #EF4444; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.tf != null ? d.tf : formatCurrency(d.t || 0)}</td>
             <td style="padding: 16px 24px; text-align: right; color: #10B981; font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em;">$${d.a}</td>
         </tr>
     `;
     }).join('');
 
     const totalWeighted = deals.reduce((sum, d) => sum + (Number(d.w) || 0), 0);
+    const totalTcv = deals.reduce((sum, d) => sum + (Number(d.t) || 0), 0);
     const totalRowHtml = deals.length > 0 ? `
         <tr style="background: #FEF2F2; border-top: 2px solid #FCA5A5;">
             <td style="padding: 18px 24px;"></td>
-            <td colspan="2" style="padding: 18px 24px; color: #DC2626; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Weighted Pipeline Value</td>
+            <td colspan="2" style="padding: 18px 24px; color: #DC2626; font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Pipeline Value</td>
+            <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalTcv)}</td>
             <td style="padding: 18px 24px; text-align: right; color: #DC2626; font-weight: 900; font-size: 1.2rem; letter-spacing: -0.02em;">$${formatCurrency(totalWeighted)}</td>
         </tr>
     ` : '';
 
     if (deals.length === 0) {
-        rowsHtml = '<tr><td colspan="4" style="padding: 60px 20px; text-align: center; color: #94A3B8; font-style: italic;">No active deals found for this quarter.</td></tr>';
+        rowsHtml = '<tr><td colspan="5" style="padding: 60px 20px; text-align: center; color: #94A3B8; font-style: italic;">No active deals found for this quarter.</td></tr>';
     }
 
     container.innerHTML = `
@@ -281,6 +284,7 @@ window.selectQuarter = function (element) {
                             <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 80px;">NO.</th>
                             <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">CRM DEAL NAME</th>
                             <th style="padding: 16px 24px; text-align: center; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 140px;">DEAL STAGE</th>
+                            <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">TCV (USD)</th>
                             <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">WEIGHTED PIPELINE VALUE (USD)</th>
                         </tr>
                     </thead>
@@ -1263,7 +1267,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 </div>
             `).join('');
 
-        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted, c: d.country || '', s: d.stage || 'Unknown' })));
+        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted, t: d.amount, tf: formatCurrency(d.amount), c: d.country || '', s: d.stage || 'Unknown' })));
         const dealListAttr = dealListJson
             .replace(/&/g, '&amp;')
             .replace(/'/g, '&apos;')
