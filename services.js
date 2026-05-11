@@ -333,7 +333,7 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
 
     const mkQ = () => ({
         booked:   { arr: 0, tcv: 0, deals: [] },
-        forecast: { wArr: 0, wTcv: 0, deals: [] },
+        forecast: { wArr: 0, wTcv: 0, arr: 0, tcv: 0, deals: [] },
         renewal:  { arr: 0, deals: [] }
     });
     const quarters = { Q1: mkQ(), Q2: mkQ(), Q3: mkQ(), Q4: mkQ() };
@@ -369,14 +369,20 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
             if (!qData) return;
             qData.deals.forEach(d => {
                 const wTcv = d.weighted || 0;
+                const tcv = d.amount || 0;
                 const years = d.years > 0 ? d.years : 1;
                 const wArr = wTcv / years;
+                const arr = tcv / years;
                 quarters[q].forecast.wTcv += wTcv;
                 quarters[q].forecast.wArr += wArr;
+                quarters[q].forecast.tcv += tcv;
+                quarters[q].forecast.arr += arr;
                 quarters[q].forecast.deals.push({
                     name: d.name,
                     weighted: wTcv,
                     wArr,
+                    tcv,
+                    arr,
                     stage: d.stage || 'Unknown'
                 });
             });
