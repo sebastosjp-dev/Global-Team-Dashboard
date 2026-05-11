@@ -713,6 +713,7 @@ export function getQuarterlyForecastHTML(stats) {
                 </div>
                 ${miniKpiRow('Booked TCV', data.booked.tcv, '#0ea5e9')}
                 ${miniKpiRow('Booked ARR', data.booked.arr, '#10b981')}
+                ${miniKpiRow('wPipeline TCV', data.forecast.wTcv, '#f59e0b')}
                 ${miniKpiRow('wPipeline ARR', data.forecast.wArr, '#f59e0b')}
                 ${miniKpiRow('Renewal ARR', data.renewal.arr, '#a855f7')}
                 <div style="text-align:center; padding-top:6px; margin-top:4px; border-top:1px dashed ${borderColor}; font-size:0.55rem; font-weight:700; color:#6366f1; letter-spacing:0.05em;">
