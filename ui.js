@@ -667,12 +667,52 @@ export function getQuarterlyForecastHTML(stats) {
         </div>
     `;
 
-    const kpiStrip = `
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+    const annualKpiStrip = `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-size:0.62rem; font-weight:800; color:#6366f1; text-transform:uppercase; letter-spacing:0.1em; background:rgba(99,102,241,0.1); padding:3px 10px; border-radius:6px;">Annual Total · ${currentYear}</span>
+            <span style="height:1px; flex:1; background:#E5E7EB;"></span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px;">
             ${kpiCard('Booked TCV (Annual)', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4')}
             ${kpiCard('Booked ARR (Annual)', kpiTotals.bookedArr, '#10b981', 'Closed-won, Q1–Q4')}
             ${kpiCard('Weighted Pipeline ARR', kpiTotals.weightedArr, '#f59e0b', 'Stage-prob × ARR/yr')}
             ${kpiCard('Renewal Target ARR', kpiTotals.renewalArr, '#a855f7', 'Contracts ending in ' + currentYear)}
+        </div>
+    `;
+
+    const miniKpiRow = (label, value, color) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 9px; border-bottom:1px solid #F1F5F9; gap:8px;">
+            <span style="font-size:0.56rem; font-weight:800; color:${color}; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;">${label}</span>
+            <span style="font-size:0.78rem; font-weight:800; color:#111827; line-height:1;">$${formatCurrency(value)}</span>
+        </div>
+    `;
+
+    const qKpiCol = (q) => {
+        const data = quarters[q];
+        const qi = qIdx(q);
+        const isPast = qi < qIdxNow;
+        const isCurrent = q === currentQuarter;
+        const bg = isCurrent ? 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)' : '#FAFAFA';
+        const borderColor = isCurrent ? '#3B82F6' : '#E5E7EB';
+        const labelColor = isCurrent ? '#1D4ED8' : '#374151';
+        return `
+            <div style="background:${bg}; border:1px solid ${borderColor}; border-radius:8px; padding:8px 4px; opacity:${isPast ? 0.85 : 1}; min-width:0;">
+                <div style="font-size:0.7rem; font-weight:800; color:${labelColor}; text-align:center; padding-bottom:6px; margin-bottom:2px; border-bottom:1px solid ${borderColor}; letter-spacing:0.1em;">${q}</div>
+                ${miniKpiRow('Booked TCV', data.booked.tcv, '#0ea5e9')}
+                ${miniKpiRow('Booked ARR', data.booked.arr, '#10b981')}
+                ${miniKpiRow('Weighted ARR', data.forecast.wArr, '#f59e0b')}
+                ${miniKpiRow('Renewal ARR', data.renewal.arr, '#a855f7')}
+            </div>
+        `;
+    };
+
+    const quarterKpiRow = `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <span style="font-size:0.62rem; font-weight:800; color:#0ea5e9; text-transform:uppercase; letter-spacing:0.1em; background:rgba(14,165,233,0.1); padding:3px 10px; border-radius:6px;">Quarterly KPIs</span>
+            <span style="height:1px; flex:1; background:#E5E7EB;"></span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:14px;">
+            ${qOrder.map(qKpiCol).join('')}
         </div>
     `;
 
@@ -783,7 +823,8 @@ export function getQuarterlyForecastHTML(stats) {
                 </div>
                 <div style="margin-left:auto; font-size:0.65rem; color:#6b7280; font-weight:600;">w = stage-weighted (확도 반영) · prev = existing ARR · <span style="color:#6366f1; font-weight:700;">Click any quarter to expand</span></div>
             </div>
-            ${kpiStrip}
+            ${annualKpiStrip}
+            ${quarterKpiRow}
             <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px;">
                 ${quartersGrid}
             </div>
