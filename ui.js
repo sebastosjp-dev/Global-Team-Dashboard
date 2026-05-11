@@ -1273,7 +1273,7 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                 </div>
             `).join('');
 
-        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted, t: d.amount, tf: formatCurrency(d.amount), c: d.country || '', s: d.stage || 'Unknown' })));
+        const dealListJson = JSON.stringify(qData.deals.slice(0, 50).map(d => ({ n: d.name, a: formatCurrency(d.weighted), w: d.weighted, t: d.amount, tf: formatCurrency(d.amount), c: d.country || '', s: d.stage || 'Unknown', m: d.month == null ? null : d.month })));
         const dealListAttr = dealListJson
             .replace(/&/g, '&amp;')
             .replace(/'/g, '&apos;')

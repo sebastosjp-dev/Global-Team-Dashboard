@@ -267,7 +267,7 @@ export function getPipelineStats(pData, orderData = []) {
             pipelineByQuarter[qMatch].countries[c].weighted += wAmt;
             pipelineByQuarter[qMatch].countries[c].arr = (pipelineByQuarter[qMatch].countries[c].arr || 0) + arr;
             pipelineByQuarter[qMatch].countries[c].count++;
-            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year, stage });
+            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year, stage, month: d ? d.getMonth() + 1 : null });
 
             if (!pipelineByStage[stage]) pipelineByStage[stage] = { amount: 0, weighted: 0, arr: 0, count: 0 };
             pipelineByStage[stage].amount += amt;
@@ -414,7 +414,7 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
     /* ── Sort each list (largest first) and trim deals to N for display ── */
     ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
         quarters[q].booked.deals.sort((a, b) => (b.arr || b.tcv) - (a.arr || a.tcv));
-        quarters[q].forecast.deals.sort((a, b) => b.weighted - a.weighted);
+        quarters[q].forecast.deals.sort((a, b) => b.tcv - a.tcv);
         quarters[q].renewal.deals.sort((a, b) => b.currentArr - a.currentArr);
     });
 
