@@ -1403,7 +1403,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         ${(() => {
                             if (!kpiTargets) return '';
                             const qTarget = Number(kpiTargets[q]) || 0;
-                            const achieved = qTotalTcv + qTotalWeighted;
+                            const achieved = qTotalTcv;
                             if (qTarget <= 0) {
                                 return `
                                     <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
@@ -1420,7 +1420,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                     <span style="font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target</span>
                                     <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(qTarget)}</span>
                                 </div>
-                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;" title="Achievement = WON TCV + Weighted Pipeline">
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;" title="Achievement = WON TCV ÷ Target">
                                     <span style="font-size: 0.6rem; color: ${pctColor}; text-transform: uppercase; font-weight: 700;">Achievement</span>
                                     <span style="font-size: 0.85rem; color: ${pctColor}; font-weight: 900;">${pct}%</span>
                                 </div>

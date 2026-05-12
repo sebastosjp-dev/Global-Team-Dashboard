@@ -25,7 +25,13 @@ const DEFAULT_STRUCTURE = {
         {
             name: "FINANCIAL", color: "#8b5cf6",
             objectives: [
-                { name: "Nett New Revenue", kpis: "", targets: [0,0,0,0], weight: 0,
+                { name: "Nett Base + New Revenue",
+                  kpis: "IDN: 900,000 (Base 200,000 + new 600,000 + upsell 100,000)\nMAL: 200,000\nTHAI: 100,000",
+                  targets: [100000, 400000, 500000, 200000], weight: 60,
+                  subItems: [{name:""},{name:""},{name:""}] },
+                { name: "Up/cross selling",
+                  kpis: "US$100,000 — Base recurring = US$200,000 × 50%",
+                  targets: [0, 50000, 50000, 0], weight: 10,
                   subItems: [{name:""},{name:""},{name:""}] }
             ]
         },
@@ -99,16 +105,29 @@ function getMergedData() {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * Fetch the KPI structure for `year` and return its quarterly Revenue targets,
- * without mutating this module's state. Used by other views (e.g. PIPELINE) to
- * overlay annual revenue targets without forcing the user to open the KPI tab.
+ * BSC quarterly target baseline — used as a fallback when the KPI tab hasn't
+ * been saved yet (or its revenue row is all zero). Applied globally and per-
+ * country uniformly; KPI tab values override once any quarter is non-zero.
+ */
+const BSC_FALLBACK_TARGETS = Object.freeze({
+    Q1: 100000, Q2: 400000, Q3: 500000, Q4: 200000,
+    objectiveName: 'Nett Base + New Revenue',
+    source: 'bsc-default'
+});
+
+/**
+ * Fetch the KPI structure for `year` and return its quarterly Revenue targets.
+ * Used by views (e.g. PIPELINE) to overlay annual revenue targets without
+ * forcing the user to open the KPI tab.
  *
- * Resolution order: /api/kpi/structure → /api/kpi/load → localStorage.
- * Picks the first objective whose name contains "revenue" (case-insensitive);
- * falls back to categories[0].objectives[0] (default = "Nett New Revenue").
+ * Resolution order:
+ *   1. /api/kpi/structure → /api/kpi/load → localStorage (saved KPI structure)
+ *   2. First objective whose name contains "revenue" (case-insensitive),
+ *      else categories[0].objectives[0]
+ *   3. BSC_FALLBACK_TARGETS when no saved data exists or every quarter is 0
  *
  * @param {number} year
- * @returns {Promise<{Q1:number,Q2:number,Q3:number,Q4:number,objectiveName:string}|null>}
+ * @returns {Promise<{Q1:number,Q2:number,Q3:number,Q4:number,objectiveName:string,source?:string}>}
  */
 export async function loadKPIQuarterlyTargets(year) {
     let structure = null;
@@ -127,27 +146,27 @@ export async function loadKPIQuarterlyTargets(year) {
             || (year === 2026 ? localStorage.getItem('global_dashboard_kpi') : null);
         if (stored) { try { structure = JSON.parse(stored); } catch (_e) {} }
     }
-    // No structure anywhere → still return a zeroed stub so the pipeline view
-    // can prompt the user to set targets, rather than silently hiding the row.
-    if (!structure || !Array.isArray(structure.categories)) {
-        return { Q1: 0, Q2: 0, Q3: 0, Q4: 0, objectiveName: 'Nett New Revenue', unconfigured: true };
-    }
 
-    let obj = null;
-    outer: for (const cat of structure.categories) {
-        for (const o of (cat.objectives || [])) {
-            if (typeof o.name === 'string' && o.name.toLowerCase().includes('revenue')) {
-                obj = o; break outer;
+    if (structure && Array.isArray(structure.categories)) {
+        let obj = null;
+        outer: for (const cat of structure.categories) {
+            for (const o of (cat.objectives || [])) {
+                if (typeof o.name === 'string' && o.name.toLowerCase().includes('revenue')) {
+                    obj = o; break outer;
+                }
+            }
+        }
+        if (!obj) obj = structure.categories[0]?.objectives?.[0] || null;
+        if (obj && Array.isArray(obj.targets) && obj.targets.length >= 4) {
+            const t = obj.targets.map(v => Number(v) || 0);
+            // If user has saved any non-zero quarter, honor the KPI tab values.
+            if (t[0] + t[1] + t[2] + t[3] > 0) {
+                return { Q1: t[0], Q2: t[1], Q3: t[2], Q4: t[3], objectiveName: obj.name || 'Revenue', source: 'kpi' };
             }
         }
     }
-    if (!obj) obj = structure.categories[0]?.objectives?.[0] || null;
-    if (!obj || !Array.isArray(obj.targets) || obj.targets.length < 4) {
-        return { Q1: 0, Q2: 0, Q3: 0, Q4: 0, objectiveName: 'Revenue', unconfigured: true };
-    }
 
-    const t = obj.targets.map(v => Number(v) || 0);
-    return { Q1: t[0], Q2: t[1], Q3: t[2], Q4: t[3], objectiveName: obj.name || 'Revenue' };
+    return { ...BSC_FALLBACK_TARGETS };
 }
 
 async function loadStructure() {
