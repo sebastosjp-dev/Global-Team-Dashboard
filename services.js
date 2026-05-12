@@ -491,7 +491,9 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         const keys = Object.keys(r);
         const sKey = findStatusKey(keys);
         const statusStr = sKey ? String(r[sKey]).trim().toLowerCase() : '';
-        if (!(statusStr.includes('running') || statusStr.includes('progress') || statusStr.includes('ing'))) return;
+        const isRunning = statusStr.includes('running') || statusStr.includes('progress') || statusStr.includes('ing');
+        const isWon = statusStr.includes('won') || statusStr.includes('complete');
+        if (!isRunning && !isWon) return;
 
         if (targetYear !== null) {
             const startKey = findPocStartKey(keys);
@@ -509,16 +511,24 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         const pocNameKey = findPocNameKey(keys);
         const customer = pocNameKey ? String(r[pocNameKey] || '').trim() : '';
 
-        if (!pRankingData[pName]) pRankingData[pName] = { count: 0, sumValue: 0, customers: new Set() };
-        pRankingData[pName].count += 1;
-        pRankingData[pName].sumValue += estValTotal;
-        if (customer) pRankingData[pName].customers.add(customer);
+        if (!pRankingData[pName]) pRankingData[pName] = { count: 0, sumValue: 0, wonCount: 0, wonValue: 0, customers: new Set() };
+        if (isRunning) {
+            pRankingData[pName].count += 1;
+            pRankingData[pName].sumValue += estValTotal;
+            if (customer) pRankingData[pName].customers.add(customer);
+        }
+        if (isWon) {
+            pRankingData[pName].wonCount += 1;
+            pRankingData[pName].wonValue += estValTotal;
+        }
     });
 
     const partnersArr = Object.entries(pRankingData).map(([name, st]) => ({
         name,
         count: st.count,
         sumValue: st.sumValue,
+        wonCount: st.wonCount,
+        wonValue: st.wonValue,
         customerCount: st.customers.size
     }));
 
@@ -527,7 +537,7 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         partnerGroups,
         sortedCountries: Object.keys(partnerGroups).sort((a, b) => partnerGroups[b].length - partnerGroups[a].length),
         sortedP: [...partnersArr].sort((a, b) => b.count - a.count || b.sumValue - a.sumValue),
-        sortedByRevenue: [...partnersArr].sort((a, b) => b.sumValue - a.sumValue || b.count - a.count),
+        sortedByRevenue: [...partnersArr].filter(p => p.wonValue > 0).sort((a, b) => b.wonValue - a.wonValue || b.wonCount - a.wonCount),
         sortedByCustomers: [...partnersArr].sort((a, b) => b.customerCount - a.customerCount || b.count - a.count),
         pNameKey,
         partnerYearFilter: yearFilter,

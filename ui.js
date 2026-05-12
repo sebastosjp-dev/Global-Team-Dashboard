@@ -2049,9 +2049,9 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
     `);
 
     const revenueRankingRowsHtml = buildRankingRows(stats.sortedByRevenue || [], p => `
-        <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">$${formatCurrency(p.sumValue)}</td>
+        <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">$${formatCurrency(p.wonValue)}</td>
         <td style="padding: 8px 12px; text-align: center;">
-            <span style="background: rgba(0,122,255,0.1); color: #007AFF; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.count} POCs</span>
+            <span style="background: rgba(52,199,89,0.12); color: #34C759; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.wonCount} Won</span>
         </td>
     `);
 
