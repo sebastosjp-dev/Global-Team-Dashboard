@@ -1401,9 +1401,17 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     </div>
                     <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
                         ${(() => {
-                            const qTarget = kpiTargets && kpiTargets[q] ? kpiTargets[q] : 0;
-                            if (!qTarget) return '';
+                            if (!kpiTargets) return '';
+                            const qTarget = Number(kpiTargets[q]) || 0;
                             const achieved = qTotalTcv + qTotalWeighted;
+                            if (qTarget <= 0) {
+                                return `
+                                    <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                        <span style="font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target</span>
+                                        <span style="font-size: 0.72rem; color: #94a3b8; font-style: italic;" title="Set ${q} target on the KPI tab (Financial &gt; ${kpiTargets.objectiveName || 'Revenue'})">— not set</span>
+                                    </div>
+                                `;
+                            }
                             const pct = Math.round((achieved / qTarget) * 100);
                             const pctColor = pct >= 100 ? '#10B981' : (pct >= 70 ? '#F59E0B' : '#EF4444');
                             const barPct = Math.min(100, Math.max(0, pct));
@@ -1412,11 +1420,11 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                     <span style="font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target</span>
                                     <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(qTarget)}</span>
                                 </div>
-                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;" title="Achievement = WON TCV + Weighted Pipeline">
                                     <span style="font-size: 0.6rem; color: ${pctColor}; text-transform: uppercase; font-weight: 700;">Achievement</span>
                                     <span style="font-size: 0.85rem; color: ${pctColor}; font-weight: 900;">${pct}%</span>
                                 </div>
-                                <div style="width: 110px; height: 4px; background: #E5E7EB; border-radius: 2px; margin-left: auto; margin-bottom: 3px; overflow: hidden;">
+                                <div style="width: 110px; height: 4px; background: #E5E7EB; border-radius: 2px; margin-left: auto; margin-bottom: 3px; overflow: hidden;" title="Achievement vs Target">
                                     <div style="width: ${barPct}%; height: 100%; background: ${pctColor}; transition: width 0.3s;"></div>
                                 </div>
                             `;
