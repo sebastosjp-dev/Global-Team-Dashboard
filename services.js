@@ -434,59 +434,105 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
+ * Normalize a partner display name so variants collapse to one entry.
+ * Blank / Unknown / "Direct/Unknown" all become "Direct".
+ * Trailing parentheticals like "Bangun Selaras Solusindo (BSS)" are stripped
+ * so the POC sheet's short form merges with the PARTNER sheet's long form.
+ * @param {*} raw
+ * @returns {string}
+ */
+function normalizePartnerName(raw) {
+    let n = String(raw == null ? '' : raw).trim();
+    if (!n) return 'Direct';
+    const lower = n.toLowerCase();
+    if (lower === 'unknown' || lower === 'n/a' || lower === 'direct/unknown' || lower === 'direct_unknown') return 'Direct';
+    n = n.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return n || 'Direct';
+}
+
+/**
  * @param {Object[]} data
  * @param {string|null} filterCountry
  * @param {Object} workbookData
+ * @param {('current'|'previous'|'all')} [partnerYearFilter='all']
  * @returns {Object}
  */
-export function getPartnerStats(data, filterCountry, workbookData) {
+export function getPartnerStats(data, filterCountry, workbookData, partnerYearFilter) {
     const pKeys = Object.keys(data[0]);
     const pCountryKey = findCountryKey(pKeys);
     const pNameKey = findKey(pKeys, k => k.toLowerCase().includes('partner'), k => k.toLowerCase().includes('name')) || pKeys[0];
 
     const counts = {};
     const partnerGroups = {};
+    const seenInCountry = {};
     data.forEach(r => {
         const country = normalizeCountry(r[pCountryKey]);
-        if (country) {
-            if (!partnerGroups[country]) partnerGroups[country] = [];
-            partnerGroups[country].push(r);
-            counts[country] = (counts[country] || 0) + 1;
-        }
+        if (!country) return;
+        const norm = normalizePartnerName(r[pNameKey]);
+        const key = norm.toLowerCase();
+        if (!partnerGroups[country]) { partnerGroups[country] = []; seenInCountry[country] = new Set(); }
+        if (seenInCountry[country].has(key)) return; // dedupe by normalized name
+        seenInCountry[country].add(key);
+        partnerGroups[country].push(r);
+        counts[country] = (counts[country] || 0) + 1;
     });
 
     const pocDataForPartner = workbookData['POC'] || [];
-    const currentPartnerNames = new Set(data.map(p => String(p[pNameKey] || '').trim().toLowerCase()));
+    const currentPartnerNames = new Set(data.map(p => normalizePartnerName(p[pNameKey]).toLowerCase()));
+
+    const currentYear = new Date().getFullYear();
+    const yearFilter = partnerYearFilter || 'all';
+    const targetYear = yearFilter === 'current' ? currentYear
+        : yearFilter === 'previous' ? (currentYear - 1)
+        : null;
 
     let pRankingData = {};
     pocDataForPartner.forEach(r => {
-        const sKey = findStatusKey(Object.keys(r));
+        const keys = Object.keys(r);
+        const sKey = findStatusKey(keys);
         const statusStr = sKey ? String(r[sKey]).trim().toLowerCase() : '';
+        if (!(statusStr.includes('running') || statusStr.includes('progress') || statusStr.includes('ing'))) return;
 
-        if (statusStr.includes('running') || statusStr.includes('progress') || statusStr.includes('ing')) {
-            const pKey = findKey(Object.keys(r), k => k.toLowerCase() === 'partner');
-            let pName = pKey ? String(r[pKey]).trim() : 'Unknown';
-            if (!pName || pName.toLowerCase() === 'unknown' || pName === '') pName = 'Direct/Unknown';
-
-            if (filterCountry && pName !== 'Direct/Unknown' && !currentPartnerNames.has(pName.toLowerCase())) return;
-
-            const vKey = findEstimatedValueKey(Object.keys(r));
-            const estValTotal = vKey ? parseCurrency(r[vKey]) : 0;
-
-            if (!pRankingData[pName]) pRankingData[pName] = { count: 0, sumValue: 0 };
-            pRankingData[pName].count += 1;
-            pRankingData[pName].sumValue += estValTotal;
+        if (targetYear !== null) {
+            const startKey = findPocStartKey(keys);
+            const d = parseExcelDateSafe(r[startKey]);
+            if (!d || d.getFullYear() !== targetYear) return;
         }
+
+        const pKey = findKey(keys, k => k.toLowerCase() === 'partner');
+        const pName = normalizePartnerName(pKey ? r[pKey] : '');
+
+        if (filterCountry && pName !== 'Direct' && !currentPartnerNames.has(pName.toLowerCase())) return;
+
+        const vKey = findEstimatedValueKey(keys);
+        const estValTotal = vKey ? parseCurrency(r[vKey]) : 0;
+        const pocNameKey = findPocNameKey(keys);
+        const customer = pocNameKey ? String(r[pocNameKey] || '').trim() : '';
+
+        if (!pRankingData[pName]) pRankingData[pName] = { count: 0, sumValue: 0, customers: new Set() };
+        pRankingData[pName].count += 1;
+        pRankingData[pName].sumValue += estValTotal;
+        if (customer) pRankingData[pName].customers.add(customer);
     });
+
+    const partnersArr = Object.entries(pRankingData).map(([name, st]) => ({
+        name,
+        count: st.count,
+        sumValue: st.sumValue,
+        customerCount: st.customers.size
+    }));
 
     return {
         counts,
         partnerGroups,
         sortedCountries: Object.keys(partnerGroups).sort((a, b) => partnerGroups[b].length - partnerGroups[a].length),
-        sortedP: Object.entries(pRankingData)
-            .map(([name, stats]) => ({ name, ...stats }))
-            .sort((a, b) => b.count - a.count || b.sumValue - a.sumValue),
-        pNameKey
+        sortedP: [...partnersArr].sort((a, b) => b.count - a.count || b.sumValue - a.sumValue),
+        sortedByRevenue: [...partnersArr].sort((a, b) => b.sumValue - a.sumValue || b.count - a.count),
+        sortedByCustomers: [...partnersArr].sort((a, b) => b.customerCount - a.customerCount || b.count - a.count),
+        pNameKey,
+        partnerYearFilter: yearFilter,
+        currentYear,
+        previousYear: currentYear - 1
     };
 }
 

@@ -2026,20 +2026,73 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
         `;
     }).join('');
 
-    const rankingRowsHtml = stats.sortedP.slice(0, 10).map((p, idx) => `
+    const yearFilter = stats.partnerYearFilter || 'all';
+    const curY = stats.currentYear;
+    const prevY = stats.previousYear;
+    const yearLabel = yearFilter === 'current' ? `${curY}` : yearFilter === 'previous' ? `${prevY}` : 'All Years';
+
+    const buildRankingRows = (list, valueCellFn) => list.slice(0, 10).map((p, idx) => `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
             <td style="padding: 8px 12px; font-weight: 800; color: ${idx < 3 ? '#fbbf24' : '#94a3b8'}; width: 40px;">
                 ${idx + 1}${idx < 3 ? ' <i class="fa-solid fa-crown" style="font-size: 0.65rem; margin-left: 2px;"></i>' : ''}
             </td>
             <td style="padding: 8px 12px; color: #111827; font-weight: 600;">${p.name}</td>
-            <td style="padding: 8px 12px; text-align: center;">
-                <span style="background: rgba(0,122,255,0.1); color: #007AFF; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.count} POCs</span>
-            </td>
-            <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">
-                $${formatCurrency(p.sumValue)}
-            </td>
+            ${valueCellFn(p)}
         </tr>
     `).join('');
+
+    const pocRankingRowsHtml = buildRankingRows(stats.sortedP, p => `
+        <td style="padding: 8px 12px; text-align: center;">
+            <span style="background: rgba(0,122,255,0.1); color: #007AFF; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.count} POCs</span>
+        </td>
+        <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">$${formatCurrency(p.sumValue)}</td>
+    `);
+
+    const revenueRankingRowsHtml = buildRankingRows(stats.sortedByRevenue || [], p => `
+        <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">$${formatCurrency(p.sumValue)}</td>
+        <td style="padding: 8px 12px; text-align: center;">
+            <span style="background: rgba(0,122,255,0.1); color: #007AFF; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.count} POCs</span>
+        </td>
+    `);
+
+    const customerRankingRowsHtml = buildRankingRows(stats.sortedByCustomers || [], p => `
+        <td style="padding: 8px 12px; text-align: center;">
+            <span style="background: rgba(168,85,247,0.12); color: #a855f7; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.customerCount} Accounts</span>
+        </td>
+        <td style="padding: 8px 12px; text-align: center;">
+            <span style="background: rgba(0,122,255,0.1); color: #007AFF; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.count} POCs</span>
+        </td>
+    `);
+
+    const rankingCard = (title, iconBg, iconColor, icon, col1, col2, rowsHtml, isEmpty) => `
+        <div class="stat-card highlight-card" style="padding: 16px; background: #FFFFFF; border: 1px solid #F3F4F6; display: flex; flex-direction: column; align-items: stretch;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                <div class="stat-icon" style="background: ${iconBg}; color: ${iconColor}; width: 32px; height: 32px;"><i class="fa-solid ${icon}"></i></div>
+                <div>
+                    <h3 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">${title}</h3>
+                    <span style="font-size: 0.68rem; color: #9CA3AF; font-weight: 600;">${yearLabel}</span>
+                </div>
+            </div>
+            <div style="background: #FFFFFF; border-radius: 12px; overflow: hidden; border: 1px solid #F3F4F6;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.78rem;">
+                    <thead>
+                        <tr style="background: #F9FAFB; border-bottom: 1px solid #E5E7EB;">
+                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600;">Rank</th>
+                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600;">Partner</th>
+                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600; text-align: ${col1.align || 'center'};">${col1.label}</th>
+                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600; text-align: ${col2.align || 'center'};">${col2.label}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                        ${isEmpty ? '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #9CA3AF;">No data</td></tr>' : ''}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    const rankingsEmpty = !stats.sortedP || stats.sortedP.length === 0;
 
     return `
         <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px;">
@@ -2048,42 +2101,45 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
         </div>
 
         ${tabName === 'PARTNER' ? `
-        <div class="stat-card" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #FFFFFF; border: 1px solid rgba(0, 122, 255, 0.2); border-left: 4px solid #007AFF; margin-bottom: 16px;">
-            <label style="font-size:0.8rem; color:#007AFF; font-weight:700; text-transform: uppercase;"><i class="fa-solid fa-earth-americas" style="margin-right: 8px;"></i>Select Country</label>
+        <div class="stat-card" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; background: #FFFFFF; border: 1px solid rgba(0, 122, 255, 0.2); border-left: 4px solid #007AFF; margin-bottom: 16px;">
+            <label style="font-size:0.8rem; color:#007AFF; font-weight:700; text-transform: uppercase;"><i class="fa-solid fa-earth-americas" style="margin-right: 8px;"></i>Country</label>
             <select id="partner-filter-country" style="background:#F9FAFB; color:#111827; border:1px solid #D1D5DB; padding:6px 12px; border-radius:8px; width: 200px; font-size: 0.85rem;">
                 ${['All', ...CONFIG.COUNTRIES].map(c => `<option value="${c}" ${(filterCountry || 'All') === c ? 'selected' : ''}>${c}</option>`).join('')}
             </select>
+            <label style="font-size:0.8rem; color:#007AFF; font-weight:700; text-transform: uppercase; margin-left: 8px;"><i class="fa-solid fa-calendar" style="margin-right: 8px;"></i>Year</label>
+            <select id="partner-filter-year" style="background:#F9FAFB; color:#111827; border:1px solid #D1D5DB; padding:6px 12px; border-radius:8px; width: 180px; font-size: 0.85rem;">
+                <option value="all" ${yearFilter === 'all' ? 'selected' : ''}>All Years</option>
+                <option value="current" ${yearFilter === 'current' ? 'selected' : ''}>Current Year (${curY})</option>
+                <option value="previous" ${yearFilter === 'previous' ? 'selected' : ''}>Previous Year (${prevY})</option>
+            </select>
             <div style="margin-left: auto; text-align: right;">
-                <span style="font-size: 0.72rem; color: #111827; font-weight: 600;">${filterCountry || 'All Regions'}</span>
+                <span style="font-size: 0.72rem; color: #111827; font-weight: 600;">${filterCountry || 'All Regions'} · ${yearLabel}</span>
             </div>
         </div>
         ` : ''}
 
-        <div style="grid-column: 1 / -1; margin-bottom: 20px;">
-            <div class="stat-card highlight-card" style="padding: 16px; background: #FFFFFF; border: 1px solid #F3F4F6; display: flex; flex-direction: column; align-items: stretch;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                    <div class="stat-icon" style="background: rgba(0,122,255,0.1); color: #007AFF; width: 32px; height: 32px;"><i class="fa-solid fa-ranking-star"></i></div>
-                    <div>
-                        <h3 style="font-size: 1rem; font-weight: 700; color: #111827; margin: 0;">Partner Real-time Status</h3>
-                    </div>
-                </div>
-                <div style="background: #FFFFFF; border-radius: 12px; overflow: hidden; border: 1px solid #F3F4F6;">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
-                        <thead>
-                            <tr style="background: #F9FAFB; border-bottom: 1px solid #E5E7EB;">
-                                <th style="padding: 8px 12px; color: #6B7280; font-weight: 600;">Rank</th>
-                                <th style="padding: 8px 12px; color: #6B7280; font-weight: 600;">Partner Name</th>
-                                <th style="padding: 8px 12px; color: #6B7280; font-weight: 600; text-align: center;">Running</th>
-                                <th style="padding: 8px 12px; color: #6B7280; font-weight: 600; text-align: right;">Value (USD)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rankingRowsHtml}
-                            ${stats.sortedP.length === 0 ? '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #9CA3AF;">No data</td></tr>' : ''}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; margin-bottom: 20px;">
+            ${rankingCard(
+                'Top 10 Partners — by POC',
+                'rgba(0,122,255,0.1)', '#007AFF', 'fa-flask',
+                { label: 'Running', align: 'center' },
+                { label: 'Value (USD)', align: 'right' },
+                pocRankingRowsHtml, rankingsEmpty
+            )}
+            ${rankingCard(
+                'Top 10 Partners — by Revenue',
+                'rgba(52,199,89,0.12)', '#34C759', 'fa-dollar-sign',
+                { label: 'Value (USD)', align: 'right' },
+                { label: 'Running', align: 'center' },
+                revenueRankingRowsHtml, rankingsEmpty
+            )}
+            ${rankingCard(
+                'Top 10 Partners — by Account (Customers)',
+                'rgba(168,85,247,0.12)', '#a855f7', 'fa-users',
+                { label: 'Accounts', align: 'center' },
+                { label: 'Running', align: 'center' },
+                customerRankingRowsHtml, rankingsEmpty
+            )}
         </div>
 
     `;
@@ -2092,7 +2148,7 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
 export function getPartnerNetworkDetailsHTML(stats, filterCountry) {
     const groupedListsHtml = stats.sortedCountries.map(country => {
         const partners = stats.partnerGroups[country];
-        const partnerItemsHtml = partners.slice(0, 10).map(p => {
+        const partnerItemsHtml = partners.map(p => {
             const name = p[stats.pNameKey] || 'N/A';
             return `
                 <div style="padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; border: 1px solid #F3F4F6;">
@@ -2100,7 +2156,7 @@ export function getPartnerNetworkDetailsHTML(stats, filterCountry) {
                     <div style="color: #6B7280; font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${Object.values(p)[1] || ''}</div>
                 </div>
             `;
-        }).join('') + (partners.length > 10 ? `<div style="text-align: center; color: #9CA3AF; font-size: 0.7rem; padding-top: 4px;">+ ${partners.length - 10} more</div>` : '');
+        }).join('');
 
         return `
             <div style="background: #F9FAFB; border: 1px solid #F3F4F6; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">

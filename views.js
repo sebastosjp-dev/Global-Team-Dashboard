@@ -213,7 +213,8 @@ function _renderPipeline(workbookData, filterCountry, tabName, metricsGrid, sear
 
 function _renderPartner(data, filterCountry, tabName, metricsGrid, workbookData, searchInput) {
     if (!data || data.length === 0) return;
-    const stats = getPartnerStats(data, filterCountry, workbookData);
+    window.partnerFilters = window.partnerFilters || { year: 'all' };
+    const stats = getPartnerStats(data, filterCountry, workbookData, window.partnerFilters.year);
     const container = document.createElement('div');
     container.style.gridColumn = '1 / -1';
     container.innerHTML = getPartnerHTML(stats, filterCountry, tabName);
@@ -228,12 +229,22 @@ function _renderPartner(data, filterCountry, tabName, metricsGrid, workbookData,
                 }));
             });
         }
+        const yearSel = document.getElementById('partner-filter-year');
+        if (yearSel) {
+            yearSel.addEventListener('change', (e) => {
+                window.partnerFilters.year = e.target.value;
+                window.dispatchEvent(new CustomEvent('filter-country-change', {
+                    detail: { country: filterCountry, searchTerm: searchInput?.value || '' }
+                }));
+            });
+        }
     }, 100);
 }
 
 function _renderPartnerNetworkDetails(data, filterCountry, metricsGrid, workbookData) {
     if (!data || data.length === 0) return;
-    const stats = getPartnerStats(data, filterCountry, workbookData);
+    const yearFilter = (window.partnerFilters && window.partnerFilters.year) || 'all';
+    const stats = getPartnerStats(data, filterCountry, workbookData, yearFilter);
     const container = document.createElement('div');
     container.style.gridColumn = '1 / -1';
     container.innerHTML = getPartnerNetworkDetailsHTML(stats, filterCountry);
