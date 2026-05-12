@@ -1315,7 +1315,7 @@ function getCountryFlagHTML(country, defaultIcon = 'fa-globe') {
 }
 
 
-export function getPipelineHTML(stats, filterCountry, tabName) {
+export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null) {
     const currentYear = new Date().getFullYear();
     const pipelineItemsHtml = stats.sortedPipeline.map(([country, values]) => `
         <div style="display: flex; flex-direction: column; padding: 10px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid #10b981;">
@@ -1400,6 +1400,27 @@ export function getPipelineHTML(stats, filterCountry, tabName) {
                         <span style="background: rgba(16,185,129,0.12); color: #059669; font-size: 0.65rem; font-weight: 800; padding: 2px 8px; border-radius: 10px; text-align: center;">${qTotalCount} deals</span>
                     </div>
                     <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
+                        ${(() => {
+                            const qTarget = kpiTargets && kpiTargets[q] ? kpiTargets[q] : 0;
+                            if (!qTarget) return '';
+                            const achieved = qTotalTcv + qTotalWeighted;
+                            const pct = Math.round((achieved / qTarget) * 100);
+                            const pctColor = pct >= 100 ? '#10B981' : (pct >= 70 ? '#F59E0B' : '#EF4444');
+                            const barPct = Math.min(100, Math.max(0, pct));
+                            return `
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                    <span style="font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target</span>
+                                    <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(qTarget)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                    <span style="font-size: 0.6rem; color: ${pctColor}; text-transform: uppercase; font-weight: 700;">Achievement</span>
+                                    <span style="font-size: 0.85rem; color: ${pctColor}; font-weight: 900;">${pct}%</span>
+                                </div>
+                                <div style="width: 110px; height: 4px; background: #E5E7EB; border-radius: 2px; margin-left: auto; margin-bottom: 3px; overflow: hidden;">
+                                    <div style="width: ${barPct}%; height: 100%; background: ${pctColor}; transition: width 0.3s;"></div>
+                                </div>
+                            `;
+                        })()}
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                             <span style="font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">WON TCV (${currentYear})</span>
                             <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>

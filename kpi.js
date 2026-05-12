@@ -98,6 +98,53 @@ function getMergedData() {
    Server API Calls
    ═══════════════════════════════════════════════════════════════ */
 
+/**
+ * Fetch the KPI structure for `year` and return its quarterly Revenue targets,
+ * without mutating this module's state. Used by other views (e.g. PIPELINE) to
+ * overlay annual revenue targets without forcing the user to open the KPI tab.
+ *
+ * Resolution order: /api/kpi/structure → /api/kpi/load → localStorage.
+ * Picks the first objective whose name contains "revenue" (case-insensitive);
+ * falls back to categories[0].objectives[0] (default = "Nett New Revenue").
+ *
+ * @param {number} year
+ * @returns {Promise<{Q1:number,Q2:number,Q3:number,Q4:number,objectiveName:string}|null>}
+ */
+export async function loadKPIQuarterlyTargets(year) {
+    let structure = null;
+    try {
+        const res = await fetch(`/api/kpi/structure?year=${year}`);
+        if (res.ok) structure = await res.json();
+    } catch (_e) {}
+    if (!structure) {
+        try {
+            const res = await fetch(`/api/kpi/load?year=${year}`);
+            if (res.ok) structure = await res.json();
+        } catch (_e) {}
+    }
+    if (!structure) {
+        const stored = localStorage.getItem(`global_dashboard_kpi_${year}`)
+            || (year === 2026 ? localStorage.getItem('global_dashboard_kpi') : null);
+        if (stored) { try { structure = JSON.parse(stored); } catch (_e) {} }
+    }
+    if (!structure || !Array.isArray(structure.categories)) return null;
+
+    let obj = null;
+    outer: for (const cat of structure.categories) {
+        for (const o of (cat.objectives || [])) {
+            if (typeof o.name === 'string' && o.name.toLowerCase().includes('revenue')) {
+                obj = o; break outer;
+            }
+        }
+    }
+    if (!obj) obj = structure.categories[0]?.objectives?.[0] || null;
+    if (!obj || !Array.isArray(obj.targets) || obj.targets.length < 4) return null;
+
+    const t = obj.targets.map(v => Number(v) || 0);
+    if (t[0] + t[1] + t[2] + t[3] === 0) return null;
+    return { Q1: t[0], Q2: t[1], Q3: t[2], Q4: t[3], objectiveName: obj.name || 'Revenue' };
+}
+
 async function loadStructure() {
     // Try new structure file first
     try {

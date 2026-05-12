@@ -34,6 +34,7 @@ import {
     getProjectHTML, getDealLostHTML,
     getQuarterlyForecastHTML
 } from './ui.js';
+import { loadKPIQuarterlyTargets } from './kpi.js';
 
 /* ═══════════════════════════════════════════════════════════════
    Metrics Router
@@ -180,7 +181,7 @@ function _renderQuarterlyForecast(workbookData, filterCountry, metricsGrid) {
     metricsGrid.appendChild(container);
 }
 
-function _renderPipeline(workbookData, filterCountry, tabName, metricsGrid, searchInput) {
+async function _renderPipeline(workbookData, filterCountry, tabName, metricsGrid, searchInput) {
     const pData = filterCountry
         ? workbookData['PIPELINE'].filter(r => isCountryMatch(r, filterCountry))
         : workbookData['PIPELINE'];
@@ -190,12 +191,20 @@ function _renderPipeline(workbookData, filterCountry, tabName, metricsGrid, sear
     const oData = filterCountry ? oDataRaw.filter(r => isCountryMatch(r, filterCountry)) : oDataRaw;
 
     const stats = getPipelineStats(pData, oData);
+
+    // Reserve grid slot synchronously so sibling renders (coverage, change-log)
+    // stay in their original order while we await KPI targets.
     const container = document.createElement('div');
     container.style.gridColumn = '1 / -1';
     container.style.marginTop = '12px';
     container.style.marginBottom = '24px';
-    container.innerHTML = getPipelineHTML(stats, filterCountry, tabName);
     metricsGrid.appendChild(container);
+
+    let kpiTargets = null;
+    try { kpiTargets = await loadKPIQuarterlyTargets(new Date().getFullYear()); }
+    catch (e) { console.warn('[Pipeline] loadKPIQuarterlyTargets failed:', e); }
+
+    container.innerHTML = getPipelineHTML(stats, filterCountry, tabName, kpiTargets);
     setTimeout(() => {
         const selector = document.getElementById('pipeline-filter-country');
         if (selector) {
