@@ -1317,26 +1317,40 @@ function getCountryFlagHTML(country, defaultIcon = 'fa-globe') {
 
 export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null) {
     const currentYear = new Date().getFullYear();
+
+    const PIPELINE_TOOLTIPS = {
+        wonTcv: 'Total Contract Value of deals already closed-won this year.',
+        pipeline: 'Total Contract Value of all open deals currently in the pipeline.',
+        weighted: 'Pipeline value adjusted by each stage’s win probability — a probability-weighted forecast.',
+        pipelineArr: 'Annual Recurring Revenue portion of the current pipeline.',
+        arr: 'Annual Recurring Revenue portion of the current pipeline for this quarter.',
+        deals: 'Number of open deals counted in this group.',
+        target: 'Quarterly revenue target configured on the KPI tab.',
+        achievement: 'WON TCV ÷ Target — percent of the quarterly goal achieved.',
+        stage: 'Sales stage of the deal (Discovery, PoC, Quotation, Negotiation, Won, Lost).'
+    };
+    const infoIcon = (key) => `<span class="metric-info" data-tooltip="${PIPELINE_TOOLTIPS[key]}" style="margin-left:4px;">i</span>`;
+
     const pipelineItemsHtml = stats.sortedPipeline.map(([country, values]) => `
         <div style="display: flex; flex-direction: column; padding: 10px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid #10b981;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                 <span style="font-weight: 700; color: #374151; font-size: 0.8rem;">${filterCountry ? 'Total Summary' : country}</span>
-                <span style="background: rgba(16,185,129,0.12); color: #059669; font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">${values.count || 0} deals</span>
+                <span style="display:inline-flex; align-items:center; background: rgba(16,185,129,0.12); color: #059669; font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">${values.count || 0} deals${infoIcon('deals')}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
-                <span style="color: #ef4444; opacity: 0.8;">WON TCV (${currentYear})</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 2px;">
+                <span style="display:inline-flex; align-items:center; color: #ef4444; opacity: 0.8;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
                 <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
-                <span style="color: var(--text-muted);">PIPELINE</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 2px;">
+                <span style="display:inline-flex; align-items:center; color: var(--text-muted);">PIPELINE${infoIcon('pipeline')}</span>
                 <span style="color: #34C759; font-weight: 600;">$${formatCurrency(values.amount)}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 2px;">
-                <span style="color: var(--text-muted);">WEIGHTED PIPELINE VALUE</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 2px;">
+                <span style="display:inline-flex; align-items:center; color: var(--text-muted);">WEIGHTED PIPELINE VALUE${infoIcon('weighted')}</span>
                 <span style="color: #007AFF; font-weight: 600;">$${formatCurrency(values.weighted)}</span>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.7rem;">
-                <span style="color: #a855f7; opacity: 0.85;">PIPELINE ARR</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem;">
+                <span style="display:inline-flex; align-items:center; color: #a855f7; opacity: 0.85;">PIPELINE ARR${infoIcon('pipelineArr')}</span>
                 <span style="color: #a855f7; font-weight: 600;">$${formatCurrency(values.arr || 0)}</span>
             </div>
         </div>
@@ -1357,22 +1371,22 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 <div style="margin-top: 6px; padding: 6px; background: rgba(255, 255, 255, 0.03); border-radius: 4px; border: 1px solid #F3F4F6;">
                     <div style="font-weight: 600; color: #111827; font-size: 0.72rem; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
                         <span style="display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-location-dot" style="font-size: 0.6rem; color: #34C759;"></i> ${filterCountry ? 'Total' : country}</span>
-                        <span style="background: rgba(99,102,241,0.1); color: #6366f1; font-size: 0.6rem; font-weight: 700; padding: 1px 6px; border-radius: 8px;">${values.count || 0}</span>
+                        <span style="display:inline-flex; align-items:center; background: rgba(99,102,241,0.1); color: #6366f1; font-size: 0.6rem; font-weight: 700; padding: 1px 6px; border-radius: 8px;">${values.count || 0}${infoIcon('deals')}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
-                        <span style="color: #ef4444; opacity: 0.8;">WON TCV (${currentYear})</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; margin-bottom: 2px;">
+                        <span style="display:inline-flex; align-items:center; color: #ef4444; opacity: 0.8;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
                         <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
-                        <span style="color: var(--text-muted);">PIPELINE</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; margin-bottom: 2px;">
+                        <span style="display:inline-flex; align-items:center; color: var(--text-muted);">PIPELINE${infoIcon('pipeline')}</span>
                         <span style="color: #34C759;">$${formatCurrency(values.amount)}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-bottom: 2px;">
-                        <span style="color: var(--text-muted);">WEIGHTED PIPELINE VALUE</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; margin-bottom: 2px;">
+                        <span style="display:inline-flex; align-items:center; color: var(--text-muted);">WEIGHTED PIPELINE VALUE${infoIcon('weighted')}</span>
                         <span style="color: #007AFF;">$${formatCurrency(values.weighted)}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.68rem;">
-                        <span style="color: #a855f7; opacity: 0.85;">PIPELINE ARR</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem;">
+                        <span style="display:inline-flex; align-items:center; color: #a855f7; opacity: 0.85;">PIPELINE ARR${infoIcon('pipelineArr')}</span>
                         <span style="color: #a855f7; font-weight: 600;">$${formatCurrency(values.arr || 0)}</span>
                     </div>
                 </div>
@@ -1407,7 +1421,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             if (qTarget <= 0) {
                                 return `
                                     <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                                        <span style="font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target</span>
+                                        <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target${infoIcon('target')}</span>
                                         <span style="font-size: 0.72rem; color: #94a3b8; font-style: italic;" title="Set ${q} target on the KPI tab (Financial &gt; ${kpiTargets.objectiveName || 'Revenue'})">— not set</span>
                                     </div>
                                 `;
@@ -1417,11 +1431,11 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             const barPct = Math.min(100, Math.max(0, pct));
                             return `
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                                    <span style="font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target</span>
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target${infoIcon('target')}</span>
                                     <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(qTarget)}</span>
                                 </div>
-                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;" title="Achievement = WON TCV ÷ Target">
-                                    <span style="font-size: 0.6rem; color: ${pctColor}; text-transform: uppercase; font-weight: 700;">Achievement</span>
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${pctColor}; text-transform: uppercase; font-weight: 700;">Achievement${infoIcon('achievement')}</span>
                                     <span style="font-size: 0.85rem; color: ${pctColor}; font-weight: 900;">${pct}%</span>
                                 </div>
                                 <div style="width: 110px; height: 4px; background: #E5E7EB; border-radius: 2px; margin-left: auto; margin-bottom: 3px; overflow: hidden;" title="Achievement vs Target">
@@ -1430,19 +1444,19 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             `;
                         })()}
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                            <span style="font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">WON TCV (${currentYear})</span>
+                            <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
                             <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
                         </div>
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                            <span style="font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">PIPELINE</span>
+                            <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">PIPELINE${infoIcon('pipeline')}</span>
                             <span style="font-size: 0.85rem; color: #34C759; font-weight: 800;">$${formatCurrency(qTotalAmount)}</span>
                         </div>
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                            <span style="font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">WEIGHTED PIPELINE VALUE</span>
+                            <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">WEIGHTED PIPELINE VALUE${infoIcon('weighted')}</span>
                             <span style="font-size: 0.85rem; color: #34C759; font-weight: 800;">$${formatCurrency(qTotalWeighted)}</span>
                         </div>
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                            <span style="font-size: 0.6rem; color: #a855f7; text-transform: uppercase;">ARR</span>
+                            <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #a855f7; text-transform: uppercase;">ARR${infoIcon('arr')}</span>
                             <span style="font-size: 0.85rem; color: #a855f7; font-weight: 800;">$${formatCurrency(qTotalArr)}</span>
                         </div>
                     </div>
@@ -1531,10 +1545,10 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 <table style="width:100%; border-collapse:collapse; min-width:520px;">
                     <thead>
                         <tr style="background:#f8fafc; border-bottom:2px solid #cbd5e1;">
-                            <th style="padding:10px 14px; text-align:left; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;">Deal Stage</th>
-                            <th style="padding:10px 14px; text-align:center; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;">Deals</th>
-                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#34C759; letter-spacing:0.06em; text-transform:uppercase;">Pipeline</th>
-                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#007AFF; letter-spacing:0.06em; text-transform:uppercase;">Weighted Pipeline Value</th>
+                            <th style="padding:10px 14px; text-align:left; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center;">Deal Stage${infoIcon('stage')}</span></th>
+                            <th style="padding:10px 14px; text-align:center; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center; justify-content:center;">Deals${infoIcon('deals')}</span></th>
+                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#34C759; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center; justify-content:flex-end;">Pipeline${infoIcon('pipeline')}</span></th>
+                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#007AFF; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center; justify-content:flex-end;">Weighted Pipeline Value${infoIcon('weighted')}</span></th>
                         </tr>
                     </thead>
                     <tbody>
