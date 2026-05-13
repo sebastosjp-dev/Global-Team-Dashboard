@@ -2100,10 +2100,10 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
 
     const customerRankingRowsHtml = buildRankingRows(stats.sortedByCustomers || [], p => `
         <td style="padding: 8px 12px; text-align: center;">
-            <span style="background: rgba(168,85,247,0.12); color: #a855f7; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.customerCount} Accounts</span>
+            <span style="background: rgba(168,85,247,0.12); color: #a855f7; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.wonCustomerCount} Accounts</span>
         </td>
         <td style="padding: 8px 12px; text-align: center;">
-            <span style="background: rgba(0,122,255,0.1); color: #007AFF; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.count} POCs</span>
+            <span style="background: rgba(52,199,89,0.12); color: #34C759; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.wonCount} Won</span>
         </td>
     `);
 
@@ -2177,10 +2177,10 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
                 revenueRankingRowsHtml, rankingsEmpty
             )}
             ${rankingCard(
-                'Top 10 Partners — by Account (Customers)',
+                'Top 10 Partners — by Account (Customers WON)',
                 'rgba(168,85,247,0.12)', '#a855f7', 'fa-users',
                 { label: 'Accounts', align: 'center' },
-                { label: 'Running', align: 'center' },
+                { label: 'Won Deals', align: 'center' },
                 customerRankingRowsHtml, rankingsEmpty
             )}
         </div>

@@ -511,7 +511,7 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         const pocNameKey = findPocNameKey(keys);
         const customer = pocNameKey ? String(r[pocNameKey] || '').trim() : '';
 
-        if (!pRankingData[pName]) pRankingData[pName] = { count: 0, sumValue: 0, wonCount: 0, wonValue: 0, customers: new Set() };
+        if (!pRankingData[pName]) pRankingData[pName] = { count: 0, sumValue: 0, wonCount: 0, wonValue: 0, customers: new Set(), wonCustomers: new Set() };
         if (isRunning) {
             pRankingData[pName].count += 1;
             pRankingData[pName].sumValue += estValTotal;
@@ -520,6 +520,7 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         if (isWon) {
             pRankingData[pName].wonCount += 1;
             pRankingData[pName].wonValue += estValTotal;
+            if (customer) pRankingData[pName].wonCustomers.add(customer);
         }
     });
 
@@ -529,7 +530,8 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         sumValue: st.sumValue,
         wonCount: st.wonCount,
         wonValue: st.wonValue,
-        customerCount: st.customers.size
+        customerCount: st.customers.size,
+        wonCustomerCount: st.wonCustomers.size
     }));
 
     // Revenue ranking sourced from ORDER SHEET (signed contracts), not POC.
@@ -571,7 +573,9 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         sortedByRevenue: revenuePartnersArr
             .filter(p => p.wonCount > 0)
             .sort((a, b) => b.wonValue - a.wonValue || b.wonCount - a.wonCount),
-        sortedByCustomers: [...partnersArr].sort((a, b) => b.customerCount - a.customerCount || b.count - a.count),
+        sortedByCustomers: [...partnersArr]
+            .filter(p => p.wonCustomerCount > 0)
+            .sort((a, b) => b.wonCustomerCount - a.wonCustomerCount || b.wonCount - a.wonCount),
         pNameKey,
         partnerYearFilter: yearFilter,
         currentYear,
