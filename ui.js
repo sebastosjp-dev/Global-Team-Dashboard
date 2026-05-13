@@ -1336,7 +1336,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 <span style="color: #007AFF; font-weight: 600;">$${formatCurrency(values.weighted)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.7rem;">
-                <span style="color: #a855f7; opacity: 0.85;">ARR</span>
+                <span style="color: #a855f7; opacity: 0.85;">PIPELINE ARR</span>
                 <span style="color: #a855f7; font-weight: 600;">$${formatCurrency(values.arr || 0)}</span>
             </div>
         </div>
@@ -1372,7 +1372,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         <span style="color: #007AFF;">$${formatCurrency(values.weighted)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.68rem;">
-                        <span style="color: #a855f7; opacity: 0.85;">ARR</span>
+                        <span style="color: #a855f7; opacity: 0.85;">PIPELINE ARR</span>
                         <span style="color: #a855f7; font-weight: 600;">$${formatCurrency(values.arr || 0)}</span>
                     </div>
                 </div>
