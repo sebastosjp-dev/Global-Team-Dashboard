@@ -532,12 +532,45 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         customerCount: st.customers.size
     }));
 
+    // Revenue ranking sourced from ORDER SHEET (signed contracts), not POC.
+    // POC tracks evaluation status; revenue and deal count belong to closed orders.
+    const orderData = workbookData['ORDER SHEET'] || [];
+    const revenueByPartner = {};
+    if (orderData.length > 0) {
+        const oKeys = Object.keys(orderData[0]);
+        const oPartnerKey = findKey(oKeys, k => k.toLowerCase() === 'partner', k => k.toLowerCase().includes('partner'));
+        const oCountryKey = findCountryKey(oKeys);
+        const oTcvKey = findKorTcvKey(oKeys);
+        const oStartKey = findContractStartKey(oKeys);
+
+        orderData.forEach(r => {
+            if (oStartKey == null) return;
+            const d = parseExcelDateSafe(r[oStartKey]);
+            if (!d) return;
+            if (targetYear !== null && d.getFullYear() !== targetYear) return;
+
+            if (filterCountry && filterCountry !== 'All') {
+                const orderCountry = oCountryKey ? normalizeCountry(r[oCountryKey]) : '';
+                if (orderCountry !== filterCountry) return;
+            }
+
+            const pName = normalizePartnerName(oPartnerKey ? r[oPartnerKey] : '');
+            const tcv = oTcvKey ? parseCurrency(r[oTcvKey]) : 0;
+            if (!revenueByPartner[pName]) revenueByPartner[pName] = { name: pName, wonCount: 0, wonValue: 0 };
+            revenueByPartner[pName].wonCount += 1;
+            revenueByPartner[pName].wonValue += tcv;
+        });
+    }
+    const revenuePartnersArr = Object.values(revenueByPartner);
+
     return {
         counts,
         partnerGroups,
         sortedCountries: Object.keys(partnerGroups).sort((a, b) => partnerGroups[b].length - partnerGroups[a].length),
         sortedP: [...partnersArr].sort((a, b) => b.count - a.count || b.sumValue - a.sumValue),
-        sortedByRevenue: [...partnersArr].filter(p => p.wonValue > 0).sort((a, b) => b.wonValue - a.wonValue || b.wonCount - a.wonCount),
+        sortedByRevenue: revenuePartnersArr
+            .filter(p => p.wonCount > 0)
+            .sort((a, b) => b.wonValue - a.wonValue || b.wonCount - a.wonCount),
         sortedByCustomers: [...partnersArr].sort((a, b) => b.customerCount - a.customerCount || b.count - a.count),
         pNameKey,
         partnerYearFilter: yearFilter,

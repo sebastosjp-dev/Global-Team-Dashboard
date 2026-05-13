@@ -2094,7 +2094,7 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
     const revenueRankingRowsHtml = buildRankingRows(stats.sortedByRevenue || [], p => `
         <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">$${formatCurrency(p.wonValue)}</td>
         <td style="padding: 8px 12px; text-align: center;">
-            <span style="background: rgba(52,199,89,0.12); color: #34C759; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.wonCount} Won</span>
+            <span style="background: rgba(52,199,89,0.12); color: #34C759; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.wonCount} Deal${p.wonCount === 1 ? '' : 's'}</span>
         </td>
     `);
 
@@ -2172,8 +2172,8 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
             ${rankingCard(
                 'Top 10 Partners — by Revenue',
                 'rgba(52,199,89,0.12)', '#34C759', 'fa-dollar-sign',
-                { label: 'Value (USD)', align: 'right' },
-                { label: 'Running', align: 'center' },
+                { label: 'TCV (USD)', align: 'right' },
+                { label: 'Deals', align: 'center' },
                 revenueRankingRowsHtml, rankingsEmpty
             )}
             ${rankingCard(
