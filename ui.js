@@ -1498,67 +1498,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
 
     injectPipelineTooltipStyles();
 
-    // ── Pipeline by Deal Stage (aggregated across all current-year quarters) ──
+    // Stage display order — used by the matrix's per-country stage breakdown.
     const STAGE_ORDER = ['Discovery', 'PoC', 'Quotation', 'Negotiation', 'Lost', 'Won', 'Unknown'];
-    const stageEntries = (stats.sortedStage || []).slice().sort((a, b) => {
-        const ai = STAGE_ORDER.indexOf(a[0]); const bi = STAGE_ORDER.indexOf(b[0]);
-        const ax = ai === -1 ? 999 : ai; const bx = bi === -1 ? 999 : bi;
-        if (ax !== bx) return ax - bx;
-        return b[1].weighted - a[1].weighted;
-    });
-    const stageGrandPipeline = stageEntries.reduce((s, [, v]) => s + (v.amount || 0), 0);
-    const stageGrandWeighted = stageEntries.reduce((s, [, v]) => s + (v.weighted || 0), 0);
-    const stageGrandCount = stageEntries.reduce((s, [, v]) => s + (v.count || 0), 0);
-
-    const stageTableRowsHtml = stageEntries.length === 0
-        ? `<tr><td colspan="4" style="padding:14px; text-align:center; color:#9ca3af; font-size:0.78rem;">No stage data available.</td></tr>`
-        : stageEntries.map(([stageName, v]) => `
-            <tr style="border-bottom:1px solid #f1f5f9;">
-                <td style="padding:10px 14px;">${renderStageBadge(stageName, { fontSize: '0.7rem', padding: '4px 10px' })}</td>
-                <td style="padding:10px 14px; text-align:center; color:#475569; font-weight:700; font-size:0.8rem;">${v.count || 0}</td>
-                <td style="padding:10px 14px; text-align:right; color:#34C759; font-weight:800; font-size:0.9rem;">$${formatCurrency(v.amount || 0)}</td>
-                <td style="padding:10px 14px; text-align:right; color:#007AFF; font-weight:800; font-size:0.9rem;">$${formatCurrency(v.weighted || 0)}</td>
-            </tr>
-        `).join('');
-
-    const stageTableFooterHtml = stageEntries.length === 0 ? '' : `
-        <tr style="background:#f8fafc; border-top:2px solid #cbd5e1;">
-            <td style="padding:12px 14px; font-size:0.75rem; font-weight:900; color:#111827; text-transform:uppercase; letter-spacing:0.04em;">Total</td>
-            <td style="padding:12px 14px; text-align:center; color:#111827; font-weight:900; font-size:0.85rem;">${stageGrandCount}</td>
-            <td style="padding:12px 14px; text-align:right; color:#047857; font-weight:900; font-size:0.95rem;">$${formatCurrency(stageGrandPipeline)}</td>
-            <td style="padding:12px 14px; text-align:right; color:#1e40af; font-weight:900; font-size:0.95rem;">$${formatCurrency(stageGrandWeighted)}</td>
-        </tr>
-    `;
-
-    const stageSummaryHtml = `
-        <div style="border-top: 1px solid #E5E7EB; padding-top: 12px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(139, 92, 246, 0.15); color: #8b5cf6;"><i class="fa-solid fa-layer-group"></i></div>
-                    <div>
-                        <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">Pipeline by Deal Stage (${currentYear})</h2>
-                        <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Aggregated across Q1–Q4 — counts, Pipeline (TCV) and Weighted Pipeline Value per stage.</p>
-                    </div>
-                </div>
-            </div>
-            <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow-x: auto;">
-                <table style="width:100%; border-collapse:collapse; min-width:520px;">
-                    <thead>
-                        <tr style="background:#f8fafc; border-bottom:2px solid #cbd5e1;">
-                            <th style="padding:10px 14px; text-align:left; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center;">Deal Stage${infoIcon('stage')}</span></th>
-                            <th style="padding:10px 14px; text-align:center; font-size:0.68rem; font-weight:800; color:#374151; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center; justify-content:center;">Deals${infoIcon('deals')}</span></th>
-                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#34C759; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center; justify-content:flex-end;">Pipeline${infoIcon('pipeline')}</span></th>
-                            <th style="padding:10px 14px; text-align:right; font-size:0.68rem; font-weight:800; color:#007AFF; letter-spacing:0.06em; text-transform:uppercase;"><span style="display:inline-flex; align-items:center; justify-content:flex-end;">Weighted Pipeline Value${infoIcon('weighted')}</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${stageTableRowsHtml}
-                        ${stageTableFooterHtml}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
 
     // ── New Pipeline Volume Matrix (Country × Stage × Quarter, ARR & TCV) ──
     // Build a country → stage → quarter aggregate from per-deal rows so each
@@ -1572,13 +1513,14 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
             if (!stageMatrix[country]) stageMatrix[country] = {};
             if (!stageMatrix[country][stage]) {
                 stageMatrix[country][stage] = {
-                    Q1: { tcv: 0, arr: 0, count: 0 },
-                    Q2: { tcv: 0, arr: 0, count: 0 },
-                    Q3: { tcv: 0, arr: 0, count: 0 },
-                    Q4: { tcv: 0, arr: 0, count: 0 }
+                    Q1: { tcv: 0, weighted: 0, arr: 0, count: 0 },
+                    Q2: { tcv: 0, weighted: 0, arr: 0, count: 0 },
+                    Q3: { tcv: 0, weighted: 0, arr: 0, count: 0 },
+                    Q4: { tcv: 0, weighted: 0, arr: 0, count: 0 }
                 };
             }
             stageMatrix[country][stage][q].tcv += d.amount || 0;
+            stageMatrix[country][stage][q].weighted += d.weighted || 0;
             stageMatrix[country][stage][q].arr += d.arr || 0;
             stageMatrix[country][stage][q].count += 1;
         });
@@ -1596,11 +1538,12 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
 
     const matrixRowData = matrixCountries.map(country => {
         const byQ = {};
-        let totalTcv = 0, totalArr = 0, totalCount = 0;
+        let totalTcv = 0, totalWeighted = 0, totalArr = 0, totalCount = 0;
         stats.sortedQuarterly.forEach(([q, qData]) => {
-            const v = qData.countries[country] || { amount: 0, arr: 0, count: 0 };
-            byQ[q] = { tcv: v.amount || 0, arr: v.arr || 0, count: v.count || 0 };
+            const v = qData.countries[country] || { amount: 0, weighted: 0, arr: 0, count: 0 };
+            byQ[q] = { tcv: v.amount || 0, weighted: v.weighted || 0, arr: v.arr || 0, count: v.count || 0 };
             totalTcv += v.amount || 0;
+            totalWeighted += v.weighted || 0;
             totalArr += v.arr || 0;
             totalCount += v.count || 0;
         });
@@ -1609,28 +1552,36 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
             .sort((a, b) => stageRank(a) - stageRank(b));
         const stageRows = stagesPresent.map(stage => {
             const sd = stageMatrix[country][stage];
-            let sTcv = 0, sArr = 0, sCount = 0;
+            let sTcv = 0, sWeighted = 0, sArr = 0, sCount = 0;
             ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
                 sTcv += sd[q].tcv;
+                sWeighted += sd[q].weighted;
                 sArr += sd[q].arr;
                 sCount += sd[q].count;
             });
-            return { stage, byQ: sd, totalTcv: sTcv, totalArr: sArr, totalCount: sCount };
+            return { stage, byQ: sd, totalTcv: sTcv, totalWeighted: sWeighted, totalArr: sArr, totalCount: sCount };
         });
 
-        return { country, byQ, totalTcv, totalArr, totalCount, stageRows };
+        return { country, byQ, totalTcv, totalWeighted, totalArr, totalCount, stageRows };
     }).sort((a, b) => b.totalTcv - a.totalTcv);
 
-    const matrixColumnTotals = { Q1: { tcv: 0, arr: 0, count: 0 }, Q2: { tcv: 0, arr: 0, count: 0 }, Q3: { tcv: 0, arr: 0, count: 0 }, Q4: { tcv: 0, arr: 0, count: 0 } };
-    let matrixGrandTcv = 0, matrixGrandArr = 0, matrixGrandCount = 0;
+    const matrixColumnTotals = {
+        Q1: { tcv: 0, weighted: 0, arr: 0, count: 0 },
+        Q2: { tcv: 0, weighted: 0, arr: 0, count: 0 },
+        Q3: { tcv: 0, weighted: 0, arr: 0, count: 0 },
+        Q4: { tcv: 0, weighted: 0, arr: 0, count: 0 }
+    };
+    let matrixGrandTcv = 0, matrixGrandWeighted = 0, matrixGrandArr = 0, matrixGrandCount = 0;
     matrixRowData.forEach(r => {
         ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
-            const c = r.byQ[q] || { tcv: 0, arr: 0, count: 0 };
+            const c = r.byQ[q] || { tcv: 0, weighted: 0, arr: 0, count: 0 };
             matrixColumnTotals[q].tcv += c.tcv;
+            matrixColumnTotals[q].weighted += c.weighted;
             matrixColumnTotals[q].arr += c.arr;
             matrixColumnTotals[q].count += c.count;
         });
         matrixGrandTcv += r.totalTcv;
+        matrixGrandWeighted += r.totalWeighted;
         matrixGrandArr += r.totalArr;
         matrixGrandCount += r.totalCount;
     });
@@ -1649,7 +1600,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
     const matrixHeaderHtml = matrixQuarters.map((q) => {
         const t = QUARTER_THEME[q];
         return `
-            <th colspan="2" style="padding: 10px 8px; text-align: center; font-size: 0.78rem; font-weight: 900; color: ${t.header}; background: ${t.headerBg}; letter-spacing: 0.05em; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 2px solid ${t.divider};">
+            <th colspan="3" style="padding: 10px 8px; text-align: center; font-size: 0.78rem; font-weight: 900; color: ${t.header}; background: ${t.headerBg}; letter-spacing: 0.05em; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 2px solid ${t.divider};">
                 <span style="display:inline-block; background: ${t.header}; color:#fff; width:18px; height:18px; line-height:18px; border-radius:50%; font-size:0.7rem; margin-right:6px; text-align:center; font-weight:900;">${q.charAt(1)}</span>${q} PIPELINE
             </th>
         `;
@@ -1658,7 +1609,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
     const matrixSubHeaderHtml = matrixQuarters.map((q) => {
         const t = QUARTER_THEME[q];
         return `
-            <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #b91c1c; background: ${t.cellBg}; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 1px solid ${t.divider};">TCV</th>
+            <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #b91c1c; background: ${t.cellBg}; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 1px solid ${t.divider};">Pipeline TCV</th>
+            <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #0369a1; background: ${t.cellBg}; border-bottom: 1px solid ${t.divider};">Weighted</th>
             <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #4338ca; background: ${t.cellBg}; border-bottom: 1px solid ${t.divider};">ARR</th>
         `;
     }).join('');
@@ -1668,16 +1620,17 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
     // Each country renders as a group: one row per deal-stage, then a country
     // subtotal row. Stage rows use a quiet white background, the subtotal row
     // is shaded so it visually closes the country block.
-    const totalColumnCount = 3 + matrixQuarters.length * 2 + 2; // Country + Stage + Deals + 8 + 2
+    const totalColumnCount = 3 + matrixQuarters.length * 3 + 3; // Country + Stage + Deals + 12 + 3
 
     const renderQuarterCells = (byQ, opts = {}) => matrixQuarters.map(q => {
-        const c = byQ[q] || { tcv: 0, arr: 0 };
+        const c = byQ[q] || { tcv: 0, weighted: 0, arr: 0 };
         const t = QUARTER_THEME[q];
         const fontSize = opts.fontSize || '0.78rem';
         const fontWeight = opts.fontWeight || '600';
         const bg = opts.bg || t.cellBg;
         return `
             <td style="padding: 8px 10px; font-size: ${fontSize}; text-align: right; color: #b91c1c; font-weight: ${fontWeight}; background: ${bg}; border-left: ${Q_DIVIDER} ${t.divider}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(c.tcv)}</td>
+            <td style="padding: 8px 10px; font-size: ${fontSize}; text-align: right; color: #0369a1; font-weight: ${fontWeight}; background: ${bg}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(c.weighted)}</td>
             <td style="padding: 8px 10px; font-size: ${fontSize}; text-align: right; color: #4338ca; font-weight: ${fontWeight}; background: ${bg}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(c.arr)}</td>
         `;
     }).join('');
@@ -1700,6 +1653,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     <td style="padding: 8px 10px; font-size: 0.72rem; color: #6b7280; text-align: center; border-right: ${Q_DIVIDER} #cbd5e1;">${s.totalCount}</td>
                     ${renderQuarterCells(s.byQ)}
                     <td style="padding: 8px 12px; font-size: 0.78rem; text-align: right; color: #b91c1c; font-weight: 700; background: #fff5f5; border-left: ${TOTAL_DIVIDER}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(s.totalTcv)}</td>
+                    <td style="padding: 8px 12px; font-size: 0.78rem; text-align: right; color: #0369a1; font-weight: 700; background: #f0f9ff; overflow: hidden; text-overflow: ellipsis;">${fmtCell(s.totalWeighted)}</td>
                     <td style="padding: 8px 12px; font-size: 0.78rem; text-align: right; color: #4338ca; font-weight: 700; background: #f5f7ff; overflow: hidden; text-overflow: ellipsis;">${fmtCell(s.totalArr)}</td>
                 </tr>
             `;
@@ -1719,6 +1673,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 <td style="padding: 9px 10px; font-size: 0.78rem; color: #1e293b; font-weight: 800; text-align: center; border-right: ${Q_DIVIDER} #94a3b8;">${r.totalCount}</td>
                 ${renderQuarterCells(r.byQ, { fontSize: '0.8rem', fontWeight: '800', bg: '#eef2f7' })}
                 <td style="padding: 9px 12px; font-size: 0.85rem; text-align: right; color: #b91c1c; font-weight: 900; background: #fee2e2; border-left: ${TOTAL_DIVIDER}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(r.totalTcv)}</td>
+                <td style="padding: 9px 12px; font-size: 0.85rem; text-align: right; color: #0369a1; font-weight: 900; background: #dbeafe; overflow: hidden; text-overflow: ellipsis;">${fmtCell(r.totalWeighted)}</td>
                 <td style="padding: 9px 12px; font-size: 0.85rem; text-align: right; color: #4338ca; font-weight: 900; background: #e0e7ff; overflow: hidden; text-overflow: ellipsis;">${fmtCell(r.totalArr)}</td>
             </tr>
         `;
@@ -1734,10 +1689,12 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 const t = QUARTER_THEME[q];
                 return `
                     <td style="padding: 12px 10px; font-size: 0.82rem; text-align: right; color: #b91c1c; font-weight: 900; background: ${t.headerBg}; border-left: ${Q_DIVIDER} ${t.divider}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(matrixColumnTotals[q].tcv)}</td>
+                    <td style="padding: 12px 10px; font-size: 0.82rem; text-align: right; color: #0369a1; font-weight: 900; background: ${t.headerBg}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(matrixColumnTotals[q].weighted)}</td>
                     <td style="padding: 12px 10px; font-size: 0.82rem; text-align: right; color: #4338ca; font-weight: 900; background: ${t.headerBg}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(matrixColumnTotals[q].arr)}</td>
                 `;
             }).join('')}
             <td style="padding: 12px 12px; font-size: 0.9rem; text-align: right; color: #b91c1c; font-weight: 900; background: #fecaca; border-left: ${TOTAL_DIVIDER}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(matrixGrandTcv)}</td>
+            <td style="padding: 12px 12px; font-size: 0.9rem; text-align: right; color: #0369a1; font-weight: 900; background: #bae6fd; overflow: hidden; text-overflow: ellipsis;">${fmtCell(matrixGrandWeighted)}</td>
             <td style="padding: 12px 12px; font-size: 0.9rem; text-align: right; color: #4338ca; font-weight: 900; background: #c7d2fe; overflow: hidden; text-overflow: ellipsis;">${fmtCell(matrixGrandArr)}</td>
         </tr>
     `;
@@ -1818,33 +1775,32 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
             </div>
             <div id="pipeline-quarter-tooltip" class="pipeline-tooltip" style="width: 280px; pointer-events: none;"></div>
 
-            ${stageSummaryHtml}
-
             <div style="border-top: 1px solid #E5E7EB; padding-top: 12px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-table-cells"></i></div>
                         <div>
                             <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">New Pipeline Volume by Country (${currentYear})</h2>
-                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly pipeline — TCV & ARR side by side. ARR = TCV ÷ Contract Yr (PIPELINE 시트의 Contract Yr 컬럼 값. 비어있으면 1년 가정)</p>
+                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly pipeline — Pipeline TCV · Weighted TCV · ARR side by side. Weighted TCV = PIPELINE 시트의 Weighted KOR TCV. ARR = TCV ÷ Contract Yr.</p>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; font-size: 0.65rem; font-weight: 700;">
-                        <span style="background:#fef2f2; color:#ef4444; padding: 3px 10px; border-radius: 10px; border:1px solid #fecaca;">TCV</span>
+                        <span style="background:#fef2f2; color:#ef4444; padding: 3px 10px; border-radius: 10px; border:1px solid #fecaca;">Pipeline TCV</span>
+                        <span style="background:#f0f9ff; color:#0369a1; padding: 3px 10px; border-radius: 10px; border:1px solid #bae6fd;">Weighted</span>
                         <span style="background:#eef2ff; color:#6366f1; padding: 3px 10px; border-radius: 10px; border:1px solid #c7d2fe;">ARR</span>
                     </div>
                 </div>
                 <div style="background: #FFFFFF; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; font-family: inherit; table-layout: fixed; min-width: 1320px;">
+                    <table style="width: 100%; border-collapse: collapse; font-family: inherit; table-layout: fixed; min-width: 1700px;">
                         <colgroup>
-                            <col style="width: 9%;">
-                            <col style="width: 9%;">
-                            <col style="width: 5%;">
-                            <col style="width: 7.7%;"><col style="width: 7.7%;">
-                            <col style="width: 7.7%;"><col style="width: 7.7%;">
-                            <col style="width: 7.7%;"><col style="width: 7.7%;">
-                            <col style="width: 7.7%;"><col style="width: 7.7%;">
-                            <col style="width: 7.7%;"><col style="width: 7.7%;">
+                            <col style="width: 7%;">
+                            <col style="width: 8%;">
+                            <col style="width: 4%;">
+                            <col style="width: 5.42%;"><col style="width: 5.42%;"><col style="width: 5.41%;">
+                            <col style="width: 5.42%;"><col style="width: 5.42%;"><col style="width: 5.41%;">
+                            <col style="width: 5.42%;"><col style="width: 5.42%;"><col style="width: 5.41%;">
+                            <col style="width: 5.42%;"><col style="width: 5.42%;"><col style="width: 5.41%;">
+                            <col style="width: 5.34%;"><col style="width: 5.33%;"><col style="width: 5.33%;">
                         </colgroup>
                         <thead>
                             <tr>
@@ -1852,13 +1808,14 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                 <th rowspan="2" style="padding: 12px 10px; text-align: left; font-size: 0.72rem; font-weight: 800; color: #374151; border-bottom: 2px solid #cbd5e1; background: #f8fafc; letter-spacing: 0.06em; text-transform: uppercase; border-right: 2px solid #e5e7eb;">Deal Stage</th>
                                 <th rowspan="2" style="padding: 12px 10px; text-align: center; font-size: 0.72rem; font-weight: 800; color: #374151; border-bottom: 2px solid #cbd5e1; background: #f8fafc; letter-spacing: 0.06em; text-transform: uppercase; border-right: 3px solid #cbd5e1;">Deals</th>
                                 ${matrixHeaderHtml}
-                                <th colspan="2" style="padding: 10px 8px; text-align: center; font-size: 0.78rem; font-weight: 900; color: #047857; border-bottom: 2px solid #10b981; background: #a7f3d0; letter-spacing: 0.05em; border-left: ${TOTAL_DIVIDER};">
+                                <th colspan="3" style="padding: 10px 8px; text-align: center; font-size: 0.78rem; font-weight: 900; color: #047857; border-bottom: 2px solid #10b981; background: #a7f3d0; letter-spacing: 0.05em; border-left: ${TOTAL_DIVIDER};">
                                     <span style="display:inline-block; background:#047857; color:#fff; padding:2px 10px; border-radius: 12px; font-size:0.72rem; font-weight:900;">∑ TOTAL</span>
                                 </th>
                             </tr>
                             <tr>
                                 ${matrixSubHeaderHtml}
-                                <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #b91c1c; background: #fee2e2; border-bottom: 1px solid #fca5a5; border-left: ${TOTAL_DIVIDER};">TCV</th>
+                                <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #b91c1c; background: #fee2e2; border-bottom: 1px solid #fca5a5; border-left: ${TOTAL_DIVIDER};">Pipeline TCV</th>
+                                <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #0369a1; background: #bae6fd; border-bottom: 1px solid #7dd3fc;">Weighted</th>
                                 <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #4338ca; background: #c7d2fe; border-bottom: 1px solid #a5b4fc;">ARR</th>
                             </tr>
                         </thead>
