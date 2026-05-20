@@ -1779,6 +1779,15 @@ export function initDealLostCharts(stats) {
     /* Monthly trend — bar (count) + line (USD) */
     const ctxMonthly = document.getElementById('deallost-monthly-chart');
     if (ctxMonthly) {
+        const currentYear = new Date().getFullYear();
+        const dealsByMonth = Array.from({ length: 12 }, () => []);
+        (stats.entries || []).forEach(e => {
+            if (e.lostDate && e.lostDate.getFullYear() === currentYear) {
+                dealsByMonth[e.lostDate.getMonth()].push(e);
+            }
+        });
+        dealsByMonth.forEach(arr => arr.sort((a, b) => (b.amount || 0) - (a.amount || 0)));
+
         chartRegistry.register('deallost-monthly', new Chart(ctxMonthly, {
             data: {
                 labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
@@ -1814,7 +1823,26 @@ export function initDealLostCharts(stats) {
                         callbacks: {
                             label: (ctx) => ctx.dataset.yAxisID === 'yAmount'
                                 ? ` ${ctx.dataset.label}: $${formatCurrency(ctx.raw)}`
-                                : ` ${ctx.dataset.label}: ${ctx.raw}`
+                                : ` ${ctx.dataset.label}: ${ctx.raw}`,
+                            afterBody: (items) => {
+                                if (!items || !items.length) return '';
+                                const monthIdx = items[0].dataIndex;
+                                const deals = dealsByMonth[monthIdx] || [];
+                                if (!deals.length) return '';
+                                const MAX = 10;
+                                const lines = [''];
+                                lines.push('Lost deals:');
+                                deals.slice(0, MAX).forEach(d => {
+                                    const name = d.account || '(No name)';
+                                    const amt = d.amount > 0 ? ` — $${formatCurrency(d.amount)}` : '';
+                                    const reason = d.reason && d.reason !== 'Unspecified' ? ` · ${d.reason}` : '';
+                                    lines.push(`• ${name}${amt}${reason}`);
+                                });
+                                if (deals.length > MAX) {
+                                    lines.push(`…and ${deals.length - MAX} more`);
+                                }
+                                return lines;
+                            }
                         }
                     }
                 },
