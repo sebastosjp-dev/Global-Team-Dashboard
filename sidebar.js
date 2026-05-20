@@ -38,6 +38,10 @@ export function buildSidebar(sheetNames, callbacks) {
         _buildSimpleNav(sidebarNav, 'DEAL LOST', callbacks.onSelectTab);
     }
 
+    // CSM is a filterable view of the TASK sheet. The TASK sheet itself is
+    // hidden from the sidebar, so we inject a virtual nav item.
+    _buildSimpleNav(sidebarNav, 'CSM', callbacks.onSelectTab);
+
     _buildKPINav(sidebarNav, callbacks.onSelectKPI);
     _buildTcvArrNav(sidebarNav, callbacks.onSelectTcvArr);
     _buildTrainingNav(sidebarNav, callbacks.onSelectTraining);
@@ -99,6 +103,7 @@ function _buildSimpleNav(container, name, onSelect) {
     let icon = 'fa-folder';
     if (name === 'EVENT') icon = 'fa-calendar-check';
     else if (name === 'DEAL LOST') icon = 'fa-circle-xmark';
+    else if (name === 'CSM') icon = 'fa-headset';
     navItem.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${name}</span>`;
     navItem.onclick = () => onSelect(name, null);
     container.appendChild(navItem);

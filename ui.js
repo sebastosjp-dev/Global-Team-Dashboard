@@ -790,6 +790,214 @@ export function getCsmTasksByClientHTML(stats, filterCountry = 'All') {
     `;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   CSM View — filterable task log fed by the TASK sheet.
+   ═══════════════════════════════════════════════════════════════ */
+export function getCsmViewHTML(stats, uniqueValues) {
+    const escape = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const f = stats.filters || { category: 'All', endUser: 'All', status: 'All' };
+    const hasAnyFilter = f.category !== 'All' || f.endUser !== 'All' || f.status !== 'All';
+
+    const sortDropdown = (set) => {
+        const arr = Array.from(set || ['All']);
+        return arr.sort((a, b) => a === 'All' ? -1 : b === 'All' ? 1 : String(a).localeCompare(String(b)));
+    };
+
+    const renderSelect = (id, currentVal, opts, placeholderForAll) => `
+        <select id="${id}" style="background:#F9FAFB; color:#111827; border:1px solid #D1D5DB; padding:9px 12px; border-radius:8px; min-width:180px; font-size:0.85rem; font-weight:500;">
+            ${opts.map(v => {
+                const label = v === 'All' ? placeholderForAll : v;
+                return `<option value="${escape(v)}" ${currentVal === v ? 'selected' : ''}>${escape(label)}</option>`;
+            }).join('')}
+        </select>
+    `;
+
+    // Deterministic color palette per category — hashes the category name into a
+    // fixed marker color so each tag has a stable, distinguishable pill.
+    const CATEGORY_PALETTE = [
+        { bg: 'rgba(236,72,153,0.14)', fg: '#be185d' }, // pink (CSM legacy)
+        { bg: 'rgba(99,102,241,0.12)',  fg: '#4338ca' }, // indigo
+        { bg: 'rgba(16,185,129,0.14)',  fg: '#047857' }, // emerald (PoC Kick Off style)
+        { bg: 'rgba(245,158,11,0.16)',  fg: '#b45309' }, // amber
+        { bg: 'rgba(14,165,233,0.14)',  fg: '#0369a1' }, // sky
+        { bg: 'rgba(168,85,247,0.14)',  fg: '#7e22ce' }, // purple
+        { bg: 'rgba(239,68,68,0.12)',   fg: '#b91c1c' }, // red
+        { bg: 'rgba(20,184,166,0.14)',  fg: '#0f766e' }, // teal
+        { bg: 'rgba(132,204,22,0.16)',  fg: '#4d7c0f' }, // lime
+        { bg: 'rgba(244,114,182,0.14)', fg: '#9d174d' }  // rose
+    ];
+    const colorForCategory = (cat) => {
+        const key = String(cat || '').trim().toUpperCase();
+        if (!key) return CATEGORY_PALETTE[1];
+        if (key === 'CSM') return CATEGORY_PALETTE[0];
+        let h = 0;
+        for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+        return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
+    };
+    const categoryBadge = (cat) => {
+        const c = String(cat || '').trim();
+        if (!c) return '<span style="color:#9CA3AF;">—</span>';
+        const { bg, fg } = colorForCategory(c);
+        return `<span style="background:${bg}; color:${fg}; font-size:0.7rem; font-weight:700; padding:3px 10px; border-radius:10px; text-transform:uppercase; letter-spacing:0.04em;">${escape(c)}</span>`;
+    };
+
+    const statusBadge = (status) => {
+        const s = String(status || '').trim();
+        if (!s) return '<span style="color:#9CA3AF;">—</span>';
+        const sl = s.toLowerCase();
+        const isResolved = /resolv|done|closed|complete/.test(sl);
+        const isProgress = /progress|ongoing|open/.test(sl);
+        const bg = isResolved ? 'rgba(59,130,246,0.10)' : (isProgress ? 'rgba(245,158,11,0.12)' : 'rgba(107,114,128,0.10)');
+        const fg = isResolved ? '#1d4ed8' : (isProgress ? '#b45309' : '#374151');
+        return `<span style="background:${bg}; color:${fg}; font-size:0.7rem; font-weight:700; padding:3px 10px; border-radius:10px; text-transform:uppercase; letter-spacing:0.04em;">${escape(s)}</span>`;
+    };
+
+    const thStyle = `padding:10px 14px; color:#6B7280; font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; text-align:left; background:#F9FAFB; border-bottom:1px solid #E5E7EB;`;
+    const tdStyle = `padding:10px 14px; color:#374151; font-size:0.82rem; border-bottom:1px solid #F3F4F6; vertical-align:top;`;
+
+    const renderRow = (r) => `
+        <tr>
+            <td style="${tdStyle} font-weight:700; color:#111827;">${escape(r.client)}</td>
+            <td style="${tdStyle}">${categoryBadge(r.category)}</td>
+            <td style="${tdStyle} color:#6B7280;">${r.pocService ? escape(r.pocService) : '<span style="color:#9CA3AF;">—</span>'}</td>
+            <td style="${tdStyle} font-family:monospace; color:#6366f1; white-space:nowrap;">${r.dateStr || '—'}</td>
+            <td style="${tdStyle}">${statusBadge(r.status)}</td>
+            <td style="${tdStyle} color:#4B5563; line-height:1.45; max-width:520px;">${r.log ? escape(r.log) : '<span style="color:#9CA3AF;">(no details)</span>'}</td>
+        </tr>
+    `;
+
+    // Header style for category-grouped sections — tinted with the category's marker color.
+    const renderCategoryGroupHeader = (cat, count) => {
+        const { bg, fg } = colorForCategory(cat);
+        return `
+            <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:${bg}; border-left:4px solid ${fg}; border-radius:6px 6px 0 0;">
+                <i class="fa-solid fa-tag" style="color:${fg}; font-size:0.85rem;"></i>
+                <span style="font-size:0.92rem; font-weight:800; color:${fg};">${escape(cat)}</span>
+                <span style="font-size:0.7rem; font-weight:700; color:${fg}; background:rgba(255,255,255,0.7); padding:2px 10px; border-radius:10px;">${count} task${count === 1 ? '' : 's'}</span>
+            </div>
+        `;
+    };
+
+    const renderClientGroupHeader = (client, count) => `
+        <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#EFF6FF; border-left:4px solid #3B82F6; border-radius:6px 6px 0 0;">
+            <i class="fa-solid fa-building-user" style="color:#1D4ED8; font-size:0.9rem;"></i>
+            <span style="font-size:0.92rem; font-weight:800; color:#1E40AF;">${escape(client)}</span>
+            <span style="font-size:0.7rem; font-weight:700; color:#1D4ED8; background:rgba(59,130,246,0.15); padding:2px 10px; border-radius:10px;">${count} task${count === 1 ? '' : 's'}</span>
+        </div>
+    `;
+
+    const renderGroupTable = (items) => `
+        <div style="overflow-x:auto; border:1px solid #E5E7EB; border-top:none; border-radius:0 0 6px 6px;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+                <thead>
+                    <tr>
+                        <th style="${thStyle}">Client</th>
+                        <th style="${thStyle}">Category</th>
+                        <th style="${thStyle}">POC / Service</th>
+                        <th style="${thStyle}">Date</th>
+                        <th style="${thStyle}">Status</th>
+                        <th style="${thStyle}">Log Details</th>
+                    </tr>
+                </thead>
+                <tbody>${items.map(renderRow).join('')}</tbody>
+            </table>
+        </div>
+    `;
+
+    // Grouping rules:
+    //   • No End User filter + No Category filter → group by Category (latest activity first)
+    //   • No End User filter + Specific Category   → group by End User (alphabetical)
+    //   • Specific End User                        → flat table (already filtered to one client)
+    let bodyHtml;
+    if (stats.totalRows === 0) {
+        bodyHtml = `
+            <div style="padding:48px 20px; text-align:center; color:#9CA3AF; font-size:0.9rem;">
+                <i class="fa-solid fa-inbox" style="font-size:2.2rem; color:#D1D5DB; display:block; margin-bottom:10px;"></i>
+                No task logs match the current filters.
+            </div>
+        `;
+    } else if (f.endUser === 'All' && f.category === 'All') {
+        bodyHtml = (stats.groupedByCategory || []).map(g => `
+            <div style="margin-bottom:18px;">
+                ${renderCategoryGroupHeader(g.category, g.items.length)}
+                ${renderGroupTable(g.items)}
+            </div>
+        `).join('');
+    } else if (f.endUser === 'All') {
+        bodyHtml = (stats.groupedByEndUser || stats.grouped).map(g => `
+            <div style="margin-bottom:18px;">
+                ${renderClientGroupHeader(g.client, g.items.length)}
+                ${renderGroupTable(g.items)}
+            </div>
+        `).join('');
+    } else {
+        bodyHtml = `
+            <div style="overflow-x:auto; border:1px solid #E5E7EB; border-radius:8px;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle}">Client</th>
+                            <th style="${thStyle}">Category</th>
+                            <th style="${thStyle}">POC / Service</th>
+                            <th style="${thStyle}">Date</th>
+                            <th style="${thStyle}">Status</th>
+                            <th style="${thStyle}">Log Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>${stats.rows.map(renderRow).join('')}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    const infoBar = stats.totalRows > 0
+        ? (f.endUser !== 'All'
+            ? `<i class="fa-solid fa-filter" style="color:#3B82F6;"></i> Showing <strong>${stats.totalRows} task${stats.totalRows === 1 ? '' : 's'}</strong> for client <strong>${escape(f.endUser)}</strong>`
+            : (f.category !== 'All'
+                ? `<i class="fa-solid fa-layer-group" style="color:#3B82F6;"></i> Showing <strong>${stats.totalRows} task${stats.totalRows === 1 ? '' : 's'}</strong> in category <strong>${escape(f.category)}</strong> · grouped by End User`
+                : (hasAnyFilter
+                    ? `<i class="fa-solid fa-filter" style="color:#3B82F6;"></i> Showing <strong>${stats.totalRows} task${stats.totalRows === 1 ? '' : 's'}</strong> across <strong>${stats.totalClients} client${stats.totalClients === 1 ? '' : 's'}</strong>`
+                    : `<i class="fa-solid fa-layer-group" style="color:#3B82F6;"></i> Grouped by Category · <strong>${stats.totalRows} task${stats.totalRows === 1 ? '' : 's'}</strong> across <strong>${stats.totalCategories || 0} categor${(stats.totalCategories || 0) === 1 ? 'y' : 'ies'}</strong>`)))
+        : '';
+
+    return `
+        <div style="margin-bottom:18px;">
+            <h2 style="font-size:1.15rem; font-weight:800; color:#111827; margin:0 0 4px; display:flex; align-items:center; gap:10px;">
+                <i class="fa-solid fa-headset" style="color:#3B82F6;"></i> CSM View
+            </h2>
+            <p style="font-size:0.8rem; color:#6B7280; margin:0;">Task logs from the TASK sheet — filter by category, client, or status.</p>
+        </div>
+
+        <div class="stat-card" style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px; padding:18px; background:#FFFFFF; border:1px solid #F3F4F6; margin-bottom:18px; border-radius:10px;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:0.7rem; color:#6B7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Category</label>
+                ${renderSelect('csmview-filter-category', f.category, sortDropdown(uniqueValues.categories), 'All categories')}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:0.7rem; color:#6B7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">End User</label>
+                ${renderSelect('csmview-filter-enduser', f.endUser, sortDropdown(uniqueValues.endUsers), 'All clients')}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:0.7rem; color:#6B7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Status</label>
+                ${renderSelect('csmview-filter-status', f.status, sortDropdown(uniqueValues.statuses), 'All statuses')}
+            </div>
+            <button id="csmview-reset" type="button"
+                    style="background:#F9FAFB; color:#374151; border:1px solid #D1D5DB; padding:9px 16px; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background 0.15s, border-color 0.15s;"
+                    onmouseover="this.style.background='#F3F4F6'; this.style.borderColor='#9CA3AF';"
+                    onmouseout="this.style.background='#F9FAFB'; this.style.borderColor='#D1D5DB';">
+                <i class="fa-solid fa-rotate-left" style="font-size:0.78rem;"></i> Reset
+            </button>
+        </div>
+
+        ${infoBar ? `
+        <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:10px 14px; margin-bottom:18px; font-size:0.85rem; color:#1E3A8A;">
+            ${infoBar}
+        </div>` : ''}
+
+        ${bodyHtml}
+    `;
+}
+
 
 export function getRenewalHTML(filtered) {
     if (filtered.length === 0) {

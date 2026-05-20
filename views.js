@@ -20,7 +20,8 @@ import {
     getTcvArrStats, getChurnRiskStats,
     getPartnerROIStats, getPipelineCoverageStats,
     getProjectStats, getDealLostStats,
-    getQuarterlyForecastStats, getCsmTaskStats
+    getQuarterlyForecastStats, getCsmTaskStats,
+    getCsmViewStats
 } from './services.js';
 import {
                                                 getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
@@ -32,7 +33,8 @@ import {
     getPartnerROIHTML, getPipelineCoverageHTML,
     getPipelineChangeLogHTML, getCurrentPipelineListHTML,
     getProjectHTML, getDealLostHTML,
-    getQuarterlyForecastHTML, getCsmTasksByClientHTML
+    getQuarterlyForecastHTML, getCsmTasksByClientHTML,
+    getCsmViewHTML
 } from './ui.js';
 import { loadKPIQuarterlyTargets } from './kpi.js';
 
@@ -113,6 +115,11 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'DEAL LOST' && workbookData['PIPELINE']) {
         _renderDealLost(workbookData['PIPELINE'], metricsGrid);
+        hasMetrics = true;
+    }
+
+    if (tabName === 'CSM') {
+        _renderCsmView(workbookData, metricsGrid);
         hasMetrics = true;
     }
 
@@ -618,6 +625,43 @@ function _renderDealLost(data, metricsGrid) {
     };
 
     window.renderDealLostUI();
+}
+
+/**
+ * Render the CSM dashboard tab — filterable view of the TASK sheet.
+ * @param {Object} workbookData
+ * @param {HTMLElement} metricsGrid
+ */
+function _renderCsmView(workbookData, metricsGrid) {
+    metricsGrid.innerHTML = '';
+    const container = document.createElement('div');
+    container.id = 'csmview-dashboard-container';
+    container.style.gridColumn = '1 / -1';
+    metricsGrid.appendChild(container);
+
+    const taskData = (workbookData && workbookData['TASK']) || [];
+    window.csmViewFilters = window.csmViewFilters || { category: 'All', endUser: 'All', status: 'All' };
+
+    window.renderCsmViewUI = function () {
+        const { stats, uniqueValues } = getCsmViewStats(taskData, window.csmViewFilters);
+        const el = document.getElementById('csmview-dashboard-container');
+        if (!el) return;
+        el.innerHTML = getCsmViewHTML(stats, uniqueValues);
+
+        const catSel = document.getElementById('csmview-filter-category');
+        const euSel = document.getElementById('csmview-filter-enduser');
+        const stSel = document.getElementById('csmview-filter-status');
+        const reset = document.getElementById('csmview-reset');
+        if (catSel) catSel.addEventListener('change', e => { window.csmViewFilters.category = e.target.value; window.renderCsmViewUI(); });
+        if (euSel) euSel.addEventListener('change', e => { window.csmViewFilters.endUser = e.target.value; window.renderCsmViewUI(); });
+        if (stSel) stSel.addEventListener('change', e => { window.csmViewFilters.status = e.target.value; window.renderCsmViewUI(); });
+        if (reset) reset.addEventListener('click', () => {
+            window.csmViewFilters = { category: 'All', endUser: 'All', status: 'All' };
+            window.renderCsmViewUI();
+        });
+    };
+
+    window.renderCsmViewUI();
 }
 
 function _renderEvent(eventData, filterCountry, metricsGrid) {

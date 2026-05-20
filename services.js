@@ -1707,6 +1707,151 @@ export function getCsmTaskStats(taskData, filterCountry = null) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   CSM View — full TASK-sheet log filtered by Category / End User /
+   Status. Powers the dedicated CSM sidebar tab.
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Compute filterable + groupable view of the TASK sheet for the
+ * CSM dashboard tab.
+ * @param {Object[]} taskData
+ * @param {Object} filters { category, endUser, status }
+ * @returns {{ stats: Object, uniqueValues: Object }}
+ */
+export function getCsmViewStats(taskData, filters = {}) {
+    const f = {
+        category: filters.category || 'All',
+        endUser: filters.endUser || 'All',
+        status: filters.status || 'All'
+    };
+
+    const uniqueValues = {
+        categories: new Set(['All']),
+        endUsers: new Set(['All']),
+        statuses: new Set(['All'])
+    };
+
+    if (!Array.isArray(taskData) || taskData.length === 0) {
+        return {
+            stats: { rows: [], grouped: [], totalRows: 0, totalClients: 0, filters: f },
+            uniqueValues
+        };
+    }
+
+    const sample = taskData.find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
+    const keys = Object.keys(sample);
+    const categoryKey = findKey(keys, k => k.toLowerCase().includes('category')) || 'Category';
+    const endUserKey = findKey(keys, k => k.toLowerCase().replace(/\s/g, '') === 'enduser',
+                                          k => k.toLowerCase().includes('end user'),
+                                          k => k.toLowerCase().includes('client')) || 'End User';
+    const statusKey = findStatusKey(keys) || 'Status';
+    const dateKey = findKey(keys, k => k.toLowerCase() === 'date',
+                                       k => k.toLowerCase().includes('date') && !k.toLowerCase().includes('resolved')) || 'Date';
+    const logKey = findKey(keys, k => k.toLowerCase().includes('log') || k.toLowerCase().includes('detail')) || 'Log Details';
+    const pocServiceKey = findKey(keys,
+        k => k.toLowerCase().replace(/[^a-z]/g, '') === 'pocservice',
+        k => k.toLowerCase() === 'poc',
+        k => k.toLowerCase() === 'service',
+        k => k.toLowerCase().includes('poc') && k.toLowerCase().includes('service'),
+        k => k.toLowerCase().includes('poc'));
+
+    const fmtDate = (d) => {
+        if (!d) return '';
+        const day = String(d.getDate()).padStart(2, '0');
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const y = String(d.getFullYear()).slice(-2);
+        return `${day}-${m}-${y}`;
+    };
+
+    // Seed dropdowns from the full dataset so they don't shrink when filters apply.
+    taskData.forEach(r => {
+        if (!Object.values(r).some(v => v !== null && v !== '')) return;
+        const cat = String(r[categoryKey] ?? '').trim();
+        const eu = String(r[endUserKey] ?? '').trim();
+        const st = String(r[statusKey] ?? '').trim();
+        if (cat) uniqueValues.categories.add(cat);
+        if (eu) uniqueValues.endUsers.add(eu);
+        if (st) uniqueValues.statuses.add(st);
+    });
+
+    const rows = taskData
+        .filter(r => Object.values(r).some(v => v !== null && v !== ''))
+        .map(r => {
+            const dateObj = parseExcelDateSafe(r[dateKey]);
+            return {
+                client: String(r[endUserKey] ?? '').trim() || '(Unspecified client)',
+                category: String(r[categoryKey] ?? '').trim(),
+                pocService: pocServiceKey ? String(r[pocServiceKey] ?? '').trim() : '',
+                date: dateObj,
+                dateStr: fmtDate(dateObj),
+                status: String(r[statusKey] ?? '').trim(),
+                log: String(r[logKey] ?? '').trim()
+            };
+        })
+        .filter(r => {
+            if (f.category !== 'All' && r.category !== f.category) return false;
+            if (f.endUser !== 'All' && r.client !== f.endUser) return false;
+            if (f.status !== 'All' && r.status !== f.status) return false;
+            return true;
+        })
+        .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+
+    // Group rows by client (used when category is specific but no End User filter).
+    const groupMap = new Map();
+    rows.forEach(r => {
+        const list = groupMap.get(r.client) || [];
+        list.push(r);
+        groupMap.set(r.client, list);
+    });
+    const grouped = Array.from(groupMap.entries())
+        .map(([client, items]) => ({
+            client,
+            items,
+            latestTs: items[0]?.date?.getTime() || 0
+        }))
+        .sort((a, b) => b.latestTs - a.latestTs);
+
+    // Group rows by End User alphabetically (used when a specific Category is selected).
+    const groupedByEndUser = Array.from(groupMap.entries())
+        .map(([client, items]) => ({
+            client,
+            items,
+            latestTs: items[0]?.date?.getTime() || 0
+        }))
+        .sort((a, b) => String(a.client).localeCompare(String(b.client)));
+
+    // Group rows by Category (used when no Category filter is active).
+    const categoryMap = new Map();
+    rows.forEach(r => {
+        const key = r.category || '(Uncategorized)';
+        const list = categoryMap.get(key) || [];
+        list.push(r);
+        categoryMap.set(key, list);
+    });
+    const groupedByCategory = Array.from(categoryMap.entries())
+        .map(([category, items]) => ({
+            category,
+            items,
+            latestTs: items[0]?.date?.getTime() || 0
+        }))
+        .sort((a, b) => b.latestTs - a.latestTs);
+
+    return {
+        stats: {
+            rows,
+            grouped,
+            groupedByEndUser,
+            groupedByCategory,
+            totalRows: rows.length,
+            totalClients: grouped.length,
+            totalCategories: groupedByCategory.length,
+            filters: f
+        },
+        uniqueValues
+    };
+}
+
+/* ═══════════════════════════════════════════════════════════════
    COLLECTION
    ═══════════════════════════════════════════════════════════════ */
 
