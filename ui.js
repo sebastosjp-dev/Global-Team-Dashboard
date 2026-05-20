@@ -4286,9 +4286,9 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
                 </div>
                 <h2 style="font-size:1.4rem; font-weight:700; color:#111827; margin:0 0 8px;">No Lost Deals Recorded</h2>
                 <p style="color:#6B7280; font-size:0.9rem; max-width:520px; margin:0 auto;">
-                    Once a row in the <strong>DEAL LOST</strong> sheet has an Account Name, Lost Date, or Deal Amount,
-                    it will be analyzed here. The 8 lost-reason categories will then be broken down by country,
-                    industry, and competitor.
+                    Once a row in the <strong>PIPELINE</strong> sheet is marked with <strong>Deal Stage = "Lost"</strong>,
+                    it will be analyzed here — broken down by country and partner, with deal-level
+                    detail in the table below.
                 </p>
             </div>`;
     }
@@ -4361,7 +4361,7 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:30px;">
             <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
                 <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-chart-pie" style="margin-right:8px; color:#EF4444;"></i>Lost Reason Breakdown</h4>
-                <div style="position:relative; flex:1; min-height:280px;"><canvas id="deallost-reason-chart"></canvas></div>
+                <div style="position:relative; flex:1; min-height:280px;">${stats.sortedReasons.length > 0 ? '<canvas id="deallost-reason-chart"></canvas>' : '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9CA3AF; font-size:0.85rem;">No lost-reason data in Pipeline.</div>'}</div>
             </div>
             <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
                 <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-earth-americas" style="margin-right:8px; color:#0EA5E9;"></i>Lost Value by Country</h4>
@@ -4372,11 +4372,11 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:30px;">
             <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
                 <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-industry" style="margin-right:8px; color:#A855F7;"></i>Lost Deals by Industry</h4>
-                <div style="position:relative; flex:1; min-height:280px;"><canvas id="deallost-industry-chart"></canvas></div>
+                <div style="position:relative; flex:1; min-height:280px;">${stats.sortedIndustries.length > 0 ? '<canvas id="deallost-industry-chart"></canvas>' : '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9CA3AF; font-size:0.85rem;">No industry data in Pipeline.</div>'}</div>
             </div>
             <div class="stat-card highlight-card" style="padding:20px; display:flex; flex-direction:column;">
                 <h4 style="font-size:0.85rem; color:#111827; margin-bottom:16px;"><i class="fa-solid fa-trophy" style="margin-right:8px; color:#F97316;"></i>Top Competitors (by lost value)</h4>
-                <div style="position:relative; flex:1; min-height:280px;">${stats.sortedCompetitors.length > 0 ? '<canvas id="deallost-competitor-chart"></canvas>' : '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9CA3AF; font-size:0.85rem;">No competitor data recorded yet.</div>'}</div>
+                <div style="position:relative; flex:1; min-height:280px;">${stats.sortedCompetitors.length > 0 ? '<canvas id="deallost-competitor-chart"></canvas>' : '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9CA3AF; font-size:0.85rem;">No competitor data in Pipeline.</div>'}</div>
             </div>
         </div>
 

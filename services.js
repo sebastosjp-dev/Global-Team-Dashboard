@@ -1925,11 +1925,16 @@ export function getTcvArrStats(data, filters = {}) {
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * Compute aggregated stats for the DEAL LOST tab.
- * Source columns: Country, Industry, Account Name, Partner,
- * Pipeline Created Date, Lost Date, Competitor Won, Deal Amount (USD),
- * Lost Reason, Description.
- * @param {Object[]} data
+ * Compute aggregated stats for the DEAL LOST tab, sourced from the PIPELINE
+ * sheet. Only rows whose Deal Stage is "Lost" are considered.
+ *
+ * Pipeline columns used: Country, Deal Name (→ account), Deal Stage,
+ * KOR TCV (USD) (→ amount), Close Date (→ lost date), Partner.
+ * Pipeline does not carry Industry / Lost Reason / Competitor / Description /
+ * Pipeline Created Date, so those dimensions resolve to empty and the
+ * corresponding cards render as "No data".
+ *
+ * @param {Object[]} data - PIPELINE rows
  * @param {string|null} filterCountry - 'All' or a specific country
  * @returns {{stats:Object, uniqueValues:Object}}
  */
@@ -1941,24 +1946,38 @@ export function getDealLostStats(data, filterCountry) {
         industries: new Set()
     };
 
-    const sample = data.find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
+    const sample = (data || []).find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
     const keys = Object.keys(sample);
     const countryKey = findCountryKey(keys);
     const industryKey = findKey(keys, k => k.toLowerCase() === 'industry', k => k.toLowerCase().includes('industry'));
-    const accountKey = findKey(keys, k => k.toLowerCase().includes('account'));
+    const accountKey = findKey(keys,
+        k => k.toLowerCase().includes('deal name'),
+        k => k.toLowerCase().includes('account'),
+        k => k.toLowerCase().includes('customer'),
+        k => k.toLowerCase().includes('end user'));
     const partnerKey = findKey(keys, k => k.toLowerCase() === 'partner');
     const createdKey = findKey(keys, k => k.toLowerCase().includes('pipeline') && k.toLowerCase().includes('created'));
-    const lostDateKey = findKey(keys, k => k.toLowerCase().includes('lost') && k.toLowerCase().includes('date'));
+    const lostDateKey = findKey(keys,
+        k => k.toLowerCase().includes('lost') && k.toLowerCase().includes('date'),
+        k => k.toLowerCase().includes('close') && k.toLowerCase().includes('date'),
+        k => k.toLowerCase().includes('date'));
+    const stageKey = findKey(keys,
+        k => k.toLowerCase().replace(/\s/g, '') === 'dealstage',
+        k => k.toLowerCase().includes('stage'));
     const competitorKey = findKey(keys, k => k.toLowerCase().includes('competitor'));
-    const amountKey = findKey(keys, k => k.toLowerCase().includes('amount') && k.toLowerCase().includes('usd'), k => k.toLowerCase().includes('amount'));
+    const amountKey = findKorTcvKey(keys)
+        || findKey(keys, k => k.toLowerCase().includes('amount') && k.toLowerCase().includes('usd'), k => k.toLowerCase().includes('amount'));
     const reasonKey = findKey(keys, k => k.toLowerCase().includes('reason'));
     const descKey = findKey(keys, k => k.toLowerCase().includes('description'));
 
-    // Treat a row as "real" only when it carries some real signal:
-    // an account name, a non-zero deal amount, or a lost date.
-    // The template currently ships with 20 blank rows + a default reason value,
-    // so we cannot rely on the reason cell alone to mark a row as filled in.
-    const real = data.filter(r => {
+    // Pipeline rows are "lost" iff Deal Stage equals "Lost" (case-insensitive).
+    // Then require a real signal — account, non-zero amount, or a close/lost date —
+    // to skip empty template rows.
+    const lostOnly = (data || []).filter(r => {
+        const stage = stageKey ? String(r[stageKey] || '').trim().toLowerCase() : '';
+        return stage === 'lost';
+    });
+    const real = lostOnly.filter(r => {
         const hasAccount = accountKey && String(r[accountKey] || '').trim() !== '';
         const hasAmount = amountKey && parseCurrency(r[amountKey]) > 0;
         const hasLostDate = lostDateKey && parseExcelDateSafe(r[lostDateKey]);
@@ -1998,12 +2017,14 @@ export function getDealLostStats(data, filterCountry) {
 
     filtered.forEach(r => {
         const country = countryKey ? (normalizeCountry(r[countryKey]) || '') : '';
-        const industry = String(r[industryKey] || '').trim() || 'Unknown';
+        const industryRaw = industryKey ? String(r[industryKey] || '').trim() : '';
+        const industry = industryRaw || 'Unknown';
         const account = String(r[accountKey] || '').trim() || '(No name)';
         const partner = String(r[partnerKey] || '').trim() || 'Direct';
-        const competitorRaw = String(r[competitorKey] || '').trim();
+        const competitorRaw = competitorKey ? String(r[competitorKey] || '').trim() : '';
         const competitor = competitorRaw || 'N/A';
-        const reason = String(r[reasonKey] || '').trim() || 'Unspecified';
+        const reasonRaw = reasonKey ? String(r[reasonKey] || '').trim() : '';
+        const reason = reasonRaw || 'Unspecified';
         const desc = String(r[descKey] || '').trim();
         const amount = parseCurrency(r[amountKey]);
         const createdDate = createdKey ? parseExcelDateSafe(r[createdKey]) : null;
@@ -2018,9 +2039,13 @@ export function getDealLostStats(data, filterCountry) {
             bucket[key].amount += amount;
         };
 
-        bump(s.byReason, reason);
+        // Only bump dimension buckets when the source data carries a real
+        // value, so dashboards driven by Pipeline (which has no Industry /
+        // Reason / Competitor) render "No data" placeholders rather than a
+        // single synthetic "Unknown" bar.
+        if (reasonRaw) bump(s.byReason, reason);
         if (country) bump(s.byCountry, country);
-        bump(s.byIndustry, industry);
+        if (industryRaw) bump(s.byIndustry, industry);
         if (competitorRaw) bump(s.byCompetitor, competitor);
         bump(s.byPartner, partner);
 

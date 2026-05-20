@@ -111,8 +111,8 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
         hasMetrics = true;
     }
 
-    if (tabName === 'DEAL LOST' && workbookData['DEAL LOST']) {
-        _renderDealLost(workbookData['DEAL LOST'], metricsGrid);
+    if (tabName === 'DEAL LOST' && workbookData['PIPELINE']) {
+        _renderDealLost(workbookData['PIPELINE'], metricsGrid);
         hasMetrics = true;
     }
 

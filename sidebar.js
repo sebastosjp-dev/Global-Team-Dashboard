@@ -31,6 +31,13 @@ export function buildSidebar(sheetNames, callbacks) {
         }
     });
 
+    // DEAL LOST is derived from PIPELINE rows where Deal Stage = "Lost".
+    // If the workbook ships without a standalone DEAL LOST sheet, inject a
+    // virtual nav item so the dashboard is still reachable.
+    if (sheetNames.includes('PIPELINE') && !sheetNames.includes('DEAL LOST')) {
+        _buildSimpleNav(sidebarNav, 'DEAL LOST', callbacks.onSelectTab);
+    }
+
     _buildKPINav(sidebarNav, callbacks.onSelectKPI);
     _buildTcvArrNav(sidebarNav, callbacks.onSelectTcvArr);
     _buildTrainingNav(sidebarNav, callbacks.onSelectTraining);
