@@ -1804,6 +1804,30 @@ select:focus {
     height: 10px;
 }
 
+.poc-sb-dot-sched {
+    background: #F59E0B;
+    border-color: #F59E0B;
+    width: 12px;
+    height: 12px;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+
+.poc-sb-dot-sched.past-today {
+    background: #DC2626;
+    border-color: #DC2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18);
+}
+
+.poc-sb-sched-label {
+    color: #B45309;
+    text-align: center;
+    line-height: 1.15;
+}
+
+.poc-sb-dot-sched.past-today .poc-sb-sched-label {
+    color: #DC2626;
+}
+
 .poc-sb-dot-label {
     position: absolute;
     bottom: 16px;
@@ -1906,4 +1930,5 @@ select:focus {
 
 .poc-sb-legend-dot.issue { background: #DC2626; }
 .poc-sb-legend-dot.today { background: #1D4ED8; }
+.poc-sb-legend-dot.sched { background: #F59E0B; }
 .poc-sb-legend-dot.end { background: #FFFFFF; border: 2px solid #6B7280; width: 8px; height: 8px; }

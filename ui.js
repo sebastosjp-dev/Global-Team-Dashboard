@@ -2918,7 +2918,8 @@ export function getPocStatusBoardHTML(stats) {
         const startMs = r.startDateMs;
         const startDate = startMs ? new Date(startMs) : null;
 
-        // Scheduled end: License End if available, else Start + max(120, days+30) days as projected end
+        // Timeline right-edge: License End if available, else Start + max(120, days+30) days as projected end.
+        // (The "Scheduled End Date" marker is computed separately below as Start + 90 days.)
         let endMs = r.licenseEndMs;
         let endLabel = r.licenseEndDisplay ? `License end: <b>${r.licenseEndDisplay}</b>` : null;
         if (!endMs && startMs) {
@@ -2944,6 +2945,15 @@ export function getPocStatusBoardHTML(stats) {
         const todayPctRaw = startMs ? ((todayMs - startMs) / totalSpan) * 100 : 100;
         const todayPct = Math.max(2, Math.min(98, todayPctRaw));
         const todayPastEnd = todayMs > endMs;
+
+        // Scheduled End Date marker: Start + 90 days
+        const scheduledEndMs = startMs ? startMs + 90 * dayMs : null;
+        const scheduledEndDate = scheduledEndMs ? new Date(scheduledEndMs) : null;
+        const scheduledEndShort = scheduledEndDate ? scheduledEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        const scheduledEndPctRaw = scheduledEndMs ? ((scheduledEndMs - startMs) / totalSpan) * 100 : null;
+        const scheduledEndPct = scheduledEndPctRaw != null ? Math.max(3, Math.min(97, scheduledEndPctRaw)) : null;
+        const scheduledEndPastTrack = scheduledEndMs != null && scheduledEndMs > endMs;
+        const scheduledEndPastToday = scheduledEndMs != null && scheduledEndMs < todayMs;
 
         // Issue dots derived from notes/techComm — simple keyword scan, distributed along timeline
         const noteText = `${r.notes || ''} ${r.techComm || ''}`;
@@ -2997,6 +3007,9 @@ export function getPocStatusBoardHTML(stats) {
                 <div class="poc-sb-track ${isOverdue ? 'overdue-track' : ''}">
                     <div class="poc-sb-progress" style="width:${todayPct}%"></div>
                     ${issueDotsHtml}
+                    ${scheduledEndPct != null ? `<div class="poc-sb-dot poc-sb-dot-sched ${scheduledEndPastToday ? 'past-today' : ''}" style="left:${scheduledEndPct}%" title="Scheduled End Date: Start + 90 days${scheduledEndPastTrack ? ' (extends past visible track)' : ''}">
+                        <span class="poc-sb-dot-label poc-sb-sched-label">Sched. End<br>${scheduledEndShort}</span>
+                    </div>` : ''}
                     <div class="poc-sb-dot poc-sb-dot-today" style="left:${todayPct}%">
                         <span class="poc-sb-dot-label poc-sb-today-label">Today<br>${todayShort}</span>
                     </div>
@@ -3031,7 +3044,8 @@ export function getPocStatusBoardHTML(stats) {
                 <span><span class="poc-sb-legend-line overdue"></span> Overdue timeline</span>
                 <span><span class="poc-sb-legend-dot issue"></span> Issue/block</span>
                 <span><span class="poc-sb-legend-dot today"></span> Today</span>
-                <span><span class="poc-sb-legend-dot end"></span> Scheduled end</span>
+                <span><span class="poc-sb-legend-dot sched"></span> Scheduled End Date (Start + 90d)</span>
+                <span><span class="poc-sb-legend-dot end"></span> Timeline end</span>
             </div>
         </div>
     `;
