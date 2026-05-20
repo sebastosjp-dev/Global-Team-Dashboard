@@ -179,16 +179,6 @@ function renderTableData(searchTerm = "", filterCountry = null) {
 
     const dataSection = document.querySelector('.data-section');
 
-    // Virtual tabs (CSM) pull data from another sheet via renderTabMetrics, so
-    // they bypass the raw-table path and render straight into the metrics grid.
-    if (currentTab === 'CSM') {
-        if (dataSection) dataSection.classList.add('hidden');
-        emptyState.classList.add('hidden');
-        dataTable.classList.add('hidden');
-        renderTabMetrics([], currentTab, filterCountry, workbookData, searchInput);
-        return;
-    }
-
     if (data.length === 0) {
         if (dataSection) dataSection.classList.add('hidden');
         emptyState.classList.remove('hidden');

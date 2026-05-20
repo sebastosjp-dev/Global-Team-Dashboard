@@ -57,7 +57,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     let hasMetrics = false;
     const isGlobalTab = tabName && tabName.includes('Global(Contract Date)');
     const isCountryTab = tabName && filterCountry === null &&
-        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'CSM', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST', 'TASK'].includes(tabName) &&
+        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST', 'TASK'].includes(tabName) &&
         !isGlobalTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
@@ -119,13 +119,8 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
         hasMetrics = true;
     }
 
-    if (tabName === 'CSM') {
-        _renderCsmView(workbookData, metricsGrid);
-        hasMetrics = true;
-    }
-
     if (tabName === 'TASK' && workbookData['TASK']) {
-        _renderTaskDashboard(workbookData['TASK'], filterCountry, metricsGrid);
+        _renderTaskDashboard(workbookData['TASK'], filterCountry, metricsGrid, workbookData);
         hasMetrics = true;
     }
 
@@ -634,53 +629,21 @@ function _renderDealLost(data, metricsGrid) {
 }
 
 /**
- * Render the CSM dashboard tab — filterable view of the TASK sheet.
- * @param {Object} workbookData
- * @param {HTMLElement} metricsGrid
- */
-function _renderCsmView(workbookData, metricsGrid) {
-    metricsGrid.innerHTML = '';
-    const container = document.createElement('div');
-    container.id = 'csmview-dashboard-container';
-    container.style.gridColumn = '1 / -1';
-    metricsGrid.appendChild(container);
-
-    const taskData = (workbookData && workbookData['TASK']) || [];
-    window.csmViewFilters = window.csmViewFilters || { category: 'All', endUser: 'All', status: 'All' };
-
-    window.renderCsmViewUI = function () {
-        const { stats, uniqueValues } = getCsmViewStats(taskData, window.csmViewFilters);
-        const el = document.getElementById('csmview-dashboard-container');
-        if (!el) return;
-        el.innerHTML = getCsmViewHTML(stats, uniqueValues);
-
-        const catSel = document.getElementById('csmview-filter-category');
-        const euSel = document.getElementById('csmview-filter-enduser');
-        const stSel = document.getElementById('csmview-filter-status');
-        const reset = document.getElementById('csmview-reset');
-        if (catSel) catSel.addEventListener('change', e => { window.csmViewFilters.category = e.target.value; window.renderCsmViewUI(); });
-        if (euSel) euSel.addEventListener('change', e => { window.csmViewFilters.endUser = e.target.value; window.renderCsmViewUI(); });
-        if (stSel) stSel.addEventListener('change', e => { window.csmViewFilters.status = e.target.value; window.renderCsmViewUI(); });
-        if (reset) reset.addEventListener('click', () => {
-            window.csmViewFilters = { category: 'All', endUser: 'All', status: 'All' };
-            window.renderCsmViewUI();
-        });
-    };
-
-    window.renderCsmViewUI();
-}
-
-/**
  * Render the TASK operational dashboard — distributions, throughput,
  * resolution time, backlog aging, country/client/service breakdowns,
  * and a recent activity feed. Country filter handled via filterCountry.
+ *
+ * Hosts three sub-tabs: POC and End User (operational dashboards), and
+ * CSM (a filterable task-log view, originally a top-level sidebar tab).
+ *
  * @param {Object[]} taskData
  * @param {string|null} filterCountry
  * @param {HTMLElement} metricsGrid
+ * @param {Object} workbookData - Full workbook (CSM sub-view reads TASK here)
  */
-function _renderTaskDashboard(taskData, filterCountry, metricsGrid) {
+function _renderTaskDashboard(taskData, filterCountry, metricsGrid, workbookData) {
     window.taskFilters = window.taskFilters || { view: 'POC' };
-    if (window.taskFilters.view !== 'POC' && window.taskFilters.view !== 'EndUser') {
+    if (!['POC', 'EndUser', 'CSM'].includes(window.taskFilters.view)) {
         window.taskFilters.view = 'POC';
     }
 
@@ -699,7 +662,8 @@ function _renderTaskDashboard(taskData, filterCountry, metricsGrid) {
     const renderTabBar = () => {
         const tabs = [
             { key: 'POC', label: 'POC' },
-            { key: 'EndUser', label: 'End User' }
+            { key: 'EndUser', label: 'End User' },
+            { key: 'CSM', label: 'CSM' }
         ];
         const v = window.taskFilters.view;
         tabBar.innerHTML = `
@@ -728,8 +692,30 @@ function _renderTaskDashboard(taskData, filterCountry, metricsGrid) {
         });
     };
 
+    const renderCsmSubView = () => {
+        window.csmViewFilters = window.csmViewFilters || { category: 'All', endUser: 'All', status: 'All' };
+        const { stats, uniqueValues } = getCsmViewStats(taskData, window.csmViewFilters);
+        container.innerHTML = getCsmViewHTML(stats, uniqueValues);
+
+        const catSel = document.getElementById('csmview-filter-category');
+        const euSel = document.getElementById('csmview-filter-enduser');
+        const stSel = document.getElementById('csmview-filter-status');
+        const reset = document.getElementById('csmview-reset');
+        if (catSel) catSel.addEventListener('change', e => { window.csmViewFilters.category = e.target.value; renderCsmSubView(); });
+        if (euSel) euSel.addEventListener('change', e => { window.csmViewFilters.endUser = e.target.value; renderCsmSubView(); });
+        if (stSel) stSel.addEventListener('change', e => { window.csmViewFilters.status = e.target.value; renderCsmSubView(); });
+        if (reset) reset.addEventListener('click', () => {
+            window.csmViewFilters = { category: 'All', endUser: 'All', status: 'All' };
+            renderCsmSubView();
+        });
+    };
+
     const renderAll = () => {
         renderTabBar();
+        if (window.taskFilters.view === 'CSM') {
+            renderCsmSubView();
+            return;
+        }
         const stats = getTaskDashboardStats(taskData, filterCountry, window.taskFilters.view);
         container.innerHTML = getTaskDashboardHTML(stats);
         if (stats && stats.totalTasks > 0) setTimeout(() => initTaskDashboardCharts(stats), 80);
