@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(node --check ui.js)",
-      "PowerShell($env:Path = \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64;\" + $env:Path; Get-Content \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\services.js\" -Raw | node --input-type=module --check; if \\($?\\) { Write-Host \"services.js OK\" })"
+      "PowerShell($env:Path = \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64;\" + $env:Path; Get-Content \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\services.js\" -Raw | node --input-type=module --check; if \\($?\\) { Write-Host \"services.js OK\" })",
+      "Bash(cp services.js _check.mjs)",
+      "Bash(\"./node_portable/node-v20.11.1-win-x64/node.exe\" --check _check.mjs)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(rm _check.mjs)",
+      "Bash(cp views.js _check.mjs)"
     ]
   }
 }
