@@ -37,7 +37,14 @@
       "PowerShell($node=\"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; & $node -e \"const x=require\\('./node_modules/xlsx'\\); const wb=x.readFile\\('2026 Global Rev.01.xlsx'\\); const sh=wb.Sheets['POC']; const rows = x.utils.sheet_to_json\\(sh,{header:1, defval:''}\\); console.log\\('Header row 0:'\\); rows[0].forEach\\(\\(h,i\\) => console.log\\('  col', String.fromCharCode\\(65+i\\) + ' \\(' + \\(i+1\\) + '\\):', JSON.stringify\\(h\\)\\)\\); console.log\\(''\\); console.log\\('Header row 1 \\(if present\\):'\\); if \\(rows[1]\\) rows[1].forEach\\(\\(h,i\\) => { if \\(h\\) console.log\\('  col', String.fromCharCode\\(65+i\\) + ' \\(' + \\(i+1\\) + '\\):', JSON.stringify\\(h\\)\\)}\\);\")",
       "Bash(node -e \"const XLSX = require\\('./node_modules/xlsx'\\); const wb = XLSX.readFile\\('2026 Global Rev.01.xlsx'\\); console.log\\(JSON.stringify\\(wb.SheetNames\\)\\);\")",
       "PowerShell(node -e \"const XLSX = require\\('./node_modules/xlsx'\\); const wb = XLSX.readFile\\('2026 Global Rev.01.xlsx'\\); console.log\\(JSON.stringify\\(wb.SheetNames\\)\\);\")",
-      "PowerShell($env:Path = \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64;\" + $env:Path; node -e \"const XLSX = require\\('./node_modules/xlsx'\\); const wb = XLSX.readFile\\('2026 Global Rev.01.xlsx'\\); console.log\\(JSON.stringify\\(wb.SheetNames\\)\\);\")"
+      "PowerShell($env:Path = \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64;\" + $env:Path; node -e \"const XLSX = require\\('./node_modules/xlsx'\\); const wb = XLSX.readFile\\('2026 Global Rev.01.xlsx'\\); console.log\\(JSON.stringify\\(wb.SheetNames\\)\\);\")",
+      "Bash(node check_poc_data.js)",
+      "PowerShell(node check_poc_data.js 2>&1)",
+      "PowerShell(.\\\\node_portable\\\\node.exe check_poc_data.js 2>&1)",
+      "PowerShell(& \".\\\\node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\" check_poc_data.js 2>&1)",
+      "PowerShell(& \".\\\\node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\" check_task_data.js 2>&1)",
+      "PowerShell(& \".\\\\node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\" check_task_data.js)",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe check_task_data.js)"
     ]
   }
 }

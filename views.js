@@ -107,7 +107,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     }
 
     if (tabName === 'PROJECT' && workbookData['PROJECT']) {
-        _renderProject(workbookData['PROJECT'], filterCountry, metricsGrid, searchInput);
+        _renderProject(workbookData['PROJECT'], filterCountry, metricsGrid, searchInput, workbookData);
         hasMetrics = true;
     }
 
@@ -560,7 +560,7 @@ function _renderPoc(data, filterCountry, metricsGrid, workbookData) {
     window.renderPocUI();
 }
 
-function _renderProject(data, filterCountry, metricsGrid, searchInput) {
+function _renderProject(data, filterCountry, metricsGrid, searchInput, workbookData) {
     if (!data || data.length === 0) return;
     metricsGrid.innerHTML = '';
     const projectContainer = document.createElement('div');
@@ -568,15 +568,25 @@ function _renderProject(data, filterCountry, metricsGrid, searchInput) {
     projectContainer.style.gridColumn = '1 / -1';
     metricsGrid.appendChild(projectContainer);
 
-    window.projectFilters = window.projectFilters || { country: 'All' };
+    window.projectFilters = window.projectFilters || { country: 'All', poc: 'All', endUser: 'All' };
+    // Carry forward older sessions that only stored country.
+    if (!window.projectFilters.poc) window.projectFilters.poc = 'All';
+    if (!window.projectFilters.endUser) window.projectFilters.endUser = 'All';
+
+    const pocSheet = (workbookData && workbookData['POC']) || [];
+    const orderSheet = (workbookData && workbookData['ORDER SHEET']) || [];
 
     window.renderProjectUI = function () {
-        const { stats, uniqueValues } = getProjectStats(data, window.projectFilters.country);
+        const { stats, uniqueValues } = getProjectStats(data, window.projectFilters, pocSheet, orderSheet);
         const container = document.getElementById('project-dashboard-container');
         if (container) {
-            container.innerHTML = getProjectHTML(stats, window.projectFilters.country, uniqueValues);
-            const sel = document.getElementById('project-filter-country');
-            if (sel) sel.addEventListener('change', (e) => { window.projectFilters.country = e.target.value; window.renderProjectUI(); });
+            container.innerHTML = getProjectHTML(stats, window.projectFilters, uniqueValues);
+            const selC = document.getElementById('project-filter-country');
+            if (selC) selC.addEventListener('change', (e) => { window.projectFilters.country = e.target.value; window.renderProjectUI(); });
+            const selP = document.getElementById('project-filter-poc');
+            if (selP) selP.addEventListener('change', (e) => { window.projectFilters.poc = e.target.value; window.renderProjectUI(); });
+            const selE = document.getElementById('project-filter-enduser');
+            if (selE) selE.addEventListener('change', (e) => { window.projectFilters.endUser = e.target.value; window.renderProjectUI(); });
             setTimeout(() => initProjectCharts(stats), 50);
         }
     };

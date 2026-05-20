@@ -1135,13 +1135,30 @@ export function getPocStats(data, filters, workbookData) {
 /**
  * Compute aggregated stats for the PROJECT sheet (milestone / issue log).
  * Sheet columns: Country, POC, Date, Category, Status, Resolved Date, Log Details.
- * @param {Object[]} data
- * @param {string} filterCountry - 'All' or country code
+ * Builds per-POC timelines by joining PROJECT.POC → POC sheet's CRM POC Name to
+ * pick up POC Start / POC End, then attaches each PROJECT row as an activity dot.
+ * End User is derived from the ORDER SHEET (matched on the POC name) when present,
+ * falling back to the POC name itself.
+ * @param {Object[]} data - PROJECT sheet rows
+ * @param {Object|string} filters - { country, poc, endUser } or 'All'/country string (back-compat)
+ * @param {Object[]} pocSheetData - POC sheet rows for start/end dates
+ * @param {Object[]} orderSheetData - ORDER SHEET rows for End User lookup
  * @returns {{stats: Object, uniqueValues: Object}}
  */
-export function getProjectStats(data, filterCountry) {
+export function getProjectStats(data, filters = {}, pocSheetData = [], orderSheetData = []) {
+    // Back-compat: callers used to pass a single country string.
+    const f = (typeof filters === 'string' || filters === null)
+        ? { country: filters || 'All', poc: 'All', endUser: 'All' }
+        : { country: filters.country || 'All', poc: filters.poc || 'All', endUser: filters.endUser || 'All' };
+
     const currentYear = new Date().getFullYear();
-    const uniqueValues = { countries: new Set(['All']), categories: new Set(), statuses: new Set() };
+    const uniqueValues = {
+        countries: new Set(['All']),
+        categories: new Set(),
+        statuses: new Set(),
+        pocs: new Set(['All']),
+        endUsers: new Set(['All'])
+    };
 
     const sample = data.find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
     const keys = Object.keys(sample);
@@ -1153,17 +1170,79 @@ export function getProjectStats(data, filterCountry) {
     const resolvedKey = findKey(keys, k => k.toLowerCase().includes('resolved') && k.toLowerCase().includes('date'));
     const logKey = findKey(keys, k => k.toLowerCase().includes('log') || k.toLowerCase().includes('detail'));
 
+    // Build POC name → { startMs, endMs, partner, country, status, industry } from the POC sheet.
+    const pocMeta = new Map();
+    (pocSheetData || []).forEach(pr => {
+        const pKeys = Object.keys(pr);
+        const nameKey = findPocNameKey(pKeys);
+        if (!nameKey) return;
+        const name = String(pr[nameKey] || '').trim();
+        if (!name) return;
+        const startKey = findPocStartKey(pKeys);
+        const endKey = findKey(pKeys, k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === 'pocend',
+                                     k => k.toLowerCase().includes('poc') && k.toLowerCase().includes('end') && !k.toLowerCase().includes('license'));
+        const partnerKey = findKey(pKeys, k => k.toLowerCase() === 'partner');
+        const cKey = findCountryKey(pKeys);
+        const sKey = findStatusKey(pKeys);
+        const indKey = findKey(pKeys, k => k.toLowerCase().includes('industry'));
+        const startD = startKey ? parseExcelDateSafe(pr[startKey]) : null;
+        const endD = endKey ? parseExcelDateSafe(pr[endKey]) : null;
+        pocMeta.set(name.toLowerCase(), {
+            name,
+            startMs: startD ? startD.getTime() : null,
+            endMs: endD ? endD.getTime() : null,
+            partner: partnerKey ? String(pr[partnerKey] || '').trim() : '',
+            country: cKey ? normalizeCountry(pr[cKey]) : '',
+            status: sKey ? String(pr[sKey] || '').trim() : '',
+            industry: indKey ? String(pr[indKey] || '').trim() : ''
+        });
+    });
+
+    // Build POC name → End User from ORDER SHEET. We match by either exact End User name
+    // or by name being a substring (PoCs are often shorthand). Falls back to POC name.
+    const orderEndUserByPoc = new Map();
+    (orderSheetData || []).forEach(or => {
+        const oKeys = Object.keys(or);
+        const euKey = findKey(oKeys, k => k.toLowerCase().replace(/\s/g, '') === 'enduser', k => k.toLowerCase().includes('end user'));
+        const eu = euKey ? String(or[euKey] || '').trim() : '';
+        if (!eu) return;
+        const norm = eu.toLowerCase();
+        if (!orderEndUserByPoc.has(norm)) orderEndUserByPoc.set(norm, eu);
+    });
+    const resolveEndUser = (pocName) => {
+        if (!pocName) return '';
+        const key = pocName.toLowerCase();
+        if (orderEndUserByPoc.has(key)) return orderEndUserByPoc.get(key);
+        // Fuzzy: any ORDER SHEET End User that contains the POC name as a token.
+        for (const [k, v] of orderEndUserByPoc) {
+            if (k === key || k.includes(key) || key.includes(k)) return v;
+        }
+        return pocName;
+    };
+
+    // Seed unique values from full dataset so dropdowns don't shrink when filters apply.
     data.forEach(r => {
         if (countryKey && r[countryKey]) uniqueValues.countries.add(normalizeCountry(r[countryKey]));
         if (categoryKey && r[categoryKey]) uniqueValues.categories.add(String(r[categoryKey]).trim());
         if (statusKey && r[statusKey]) uniqueValues.statuses.add(String(r[statusKey]).trim());
+        if (pocKey && r[pocKey]) {
+            const p = String(r[pocKey]).trim();
+            if (p) {
+                uniqueValues.pocs.add(p);
+                uniqueValues.endUsers.add(resolveEndUser(p));
+            }
+        }
     });
 
     const filtered = data.filter(r => {
         if (!Object.values(r).some(v => v !== null && v !== '')) return false;
-        if (filterCountry === 'All' || !filterCountry) return true;
         const c = countryKey ? normalizeCountry(r[countryKey]) : '';
-        return c === filterCountry;
+        if (!(f.country === 'All' || !f.country || c === f.country)) return false;
+        const p = pocKey ? String(r[pocKey] || '').trim() : '';
+        if (!(f.poc === 'All' || !f.poc || p === f.poc)) return false;
+        const eu = resolveEndUser(p);
+        if (!(f.endUser === 'All' || !f.endUser || eu === f.endUser)) return false;
+        return true;
     });
 
     const s = {
@@ -1177,8 +1256,12 @@ export function getProjectStats(data, filterCountry) {
         resolvedPerMonth: Array(12).fill(0),
         byCategory: {},
         byStatus: {},
-        entries: []
+        entries: [],
+        pocTimelines: []
     };
+
+    // Per-POC timeline aggregation while we iterate.
+    const timelineByPoc = new Map();
 
     filtered.forEach(r => {
         s.totalLogs++;
@@ -1216,7 +1299,48 @@ export function getProjectStats(data, filterCountry) {
             resolvedDate: resolvedDateObj,
             isResolved
         });
+
+        // Per-POC timeline bucket.
+        if (poc) {
+            if (!timelineByPoc.has(poc)) {
+                const meta = pocMeta.get(poc.toLowerCase()) || {};
+                timelineByPoc.set(poc, {
+                    name: poc,
+                    endUser: resolveEndUser(poc),
+                    country: country || meta.country || '',
+                    partner: meta.partner || '',
+                    industry: meta.industry || '',
+                    pocStatus: meta.status || '',
+                    startMs: meta.startMs || null,
+                    endMs: meta.endMs || null,
+                    activities: [],
+                    openCount: 0,
+                    resolvedCount: 0,
+                    latestActivityMs: 0
+                });
+            }
+            const t = timelineByPoc.get(poc);
+            const aMs = dateObj ? dateObj.getTime() : 0;
+            t.activities.push({
+                date: dateObj,
+                dateMs: aMs,
+                category,
+                status,
+                log,
+                isResolved,
+                resolvedDate: resolvedDateObj
+            });
+            if (isResolved) t.resolvedCount++; else if (status) t.openCount++;
+            if (aMs > t.latestActivityMs) t.latestActivityMs = aMs;
+        }
     });
+
+    // Finalize timelines: sort activities, sort by most-recent activity.
+    s.pocTimelines = Array.from(timelineByPoc.values()).map(t => {
+        t.activities.sort((a, b) => (a.dateMs || 0) - (b.dateMs || 0));
+        t.activityCount = t.activities.length;
+        return t;
+    }).sort((a, b) => b.latestActivityMs - a.latestActivityMs);
 
     s.avgResolutionDays = s.resolutionDaysCount > 0 ? Math.round(s.resolutionDaysSum / s.resolutionDaysCount) : null;
     s.entries.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));

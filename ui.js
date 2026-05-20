@@ -3323,9 +3323,142 @@ export function getPocHTML(stats, filters, uniqueValues) {
     `;
 }
 
-export function getProjectHTML(stats, filterCountry, uniqueValues) {
+/**
+ * Per-POC timeline board for the PROJECT view.
+ * Each card shows POC Start → POC End (scheduled end) from the POC sheet, with one
+ * activity dot for every PROJECT row matching the POC name. Reuses .poc-sb-* styles.
+ * @param {Object} stats - getProjectStats result containing pocTimelines[]
+ */
+export function getProjectTimelineBoardHTML(stats) {
+    const list = (stats && stats.pocTimelines) || [];
+    if (!list.length) return '';
+
+    const escape = (str) => String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const fmtShort = (ms) => ms ? new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—';
+    const fmtTiny = (ms) => ms ? new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+
+    const now = new Date();
+    const todayMs = now.getTime();
+    const dayMs = 86400 * 1000;
+    const todayShort = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    const dotColor = (a) => {
+        if (a.isResolved) return { bg: '#10B981', border: '#10B981' };
+        const s = String(a.status || '').toLowerCase();
+        if (s.includes('hold') || s.includes('block')) return { bg: '#EF4444', border: '#EF4444' };
+        if (s.includes('progress')) return { bg: '#F59E0B', border: '#F59E0B' };
+        return { bg: '#6366F1', border: '#6366F1' };
+    };
+
+    const cards = list.map(t => {
+        // Resolve a usable timeline range, falling back when POC sheet has no dates.
+        const activityMin = t.activities.reduce((m, a) => (a.dateMs && (!m || a.dateMs < m) ? a.dateMs : m), null);
+        const activityMax = t.activities.reduce((m, a) => (a.dateMs && (!m || a.dateMs > m) ? a.dateMs : m), null);
+        let startMs = t.startMs || activityMin || (todayMs - 30 * dayMs);
+        let endMs = t.endMs || (activityMax && activityMax > startMs ? activityMax + 14 * dayMs : startMs + 90 * dayMs);
+        if (endMs <= startMs) endMs = startMs + 30 * dayMs;
+
+        const totalSpan = Math.max(1, endMs - startMs);
+        const todayPctRaw = ((todayMs - startMs) / totalSpan) * 100;
+        const todayPct = Math.max(2, Math.min(98, todayPctRaw));
+        const todayPastEnd = todayMs > endMs;
+        const isOverdue = todayPastEnd && t.openCount > 0;
+
+        const statusLower = String(t.pocStatus).toLowerCase();
+        const isHold = statusLower.includes('hold') || statusLower.includes('pause');
+        let badgeColor, badgeBg, badgeIcon, badgeText;
+        if (isHold) { badgeColor = '#D97706'; badgeBg = '#FEF3C7'; badgeIcon = 'fa-pause'; badgeText = 'Hold'; }
+        else if (isOverdue) { badgeColor = '#DC2626'; badgeBg = '#FEE2E2'; badgeIcon = 'fa-triangle-exclamation'; badgeText = 'Overdue'; }
+        else if (t.openCount > 0) { badgeColor = '#1D4ED8'; badgeBg = '#DBEAFE'; badgeIcon = 'fa-circle-play'; badgeText = 'Active'; }
+        else { badgeColor = '#059669'; badgeBg = '#D1FAE5'; badgeIcon = 'fa-check'; badgeText = 'Resolved'; }
+
+        // Spread overlapping dots a touch so labels don't collapse.
+        const activityDotsHtml = t.activities.map(a => {
+            if (!a.dateMs) return '';
+            const pctRaw = ((a.dateMs - startMs) / totalSpan) * 100;
+            const pct = Math.max(1, Math.min(99, pctRaw));
+            const c = dotColor(a);
+            const tip = `${a.dateMs ? new Date(a.dateMs).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : ''} · ${a.category || ''} · ${a.status || ''}${a.log ? ' — ' + a.log.slice(0, 120) : ''}`;
+            return `<div class="poc-sb-dot" style="left:${pct}%; background:${c.bg}; border-color:${c.border}; width:10px; height:10px;" title="${escape(tip)}"></div>`;
+        }).join('');
+
+        const indSuffix = t.industry ? ` — ${escape(t.industry)}` : '';
+        const recentActs = [...t.activities].reverse().slice(0, 3);
+        const footerHtml = recentActs.length
+            ? `<div class="poc-sb-footer">${recentActs.map(a => {
+                const short = a.dateMs ? new Date(a.dateMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+                const lbl = (a.log || a.category || a.status || '').toString().slice(0, 70);
+                return `<span class="poc-sb-footer-bit">${escape(short)} · ${escape(lbl)}</span>`;
+            }).join('<span class="poc-sb-sep">·</span>')}</div>`
+            : '';
+
+        return `
+        <div class="poc-status-card ${isOverdue ? 'is-overdue' : ''}">
+            <div class="poc-sb-head">
+                <div class="poc-sb-title-wrap">
+                    <span class="poc-sb-title-pill">${escape(t.name)}${indSuffix}</span>
+                </div>
+                <div class="poc-sb-badge" style="color:${badgeColor}; background:${badgeBg};">
+                    <i class="fa-solid ${badgeIcon}"></i> ${badgeText}
+                </div>
+            </div>
+            <div class="poc-sb-meta">
+                <span class="poc-sb-meta-item"><span class="poc-sb-meta-key">End User:</span> <b>${escape(t.endUser || t.name)}</b></span>
+                <span class="poc-sb-meta-item"><span class="poc-sb-meta-key">Country:</span> <b>${escape(t.country || '—')}</b></span>
+                ${t.partner ? `<span class="poc-sb-meta-item"><span class="poc-sb-meta-key">Partner:</span> <b>${escape(t.partner)}</b></span>` : ''}
+                <span class="poc-sb-meta-item"><span class="poc-sb-meta-key">Activities:</span> <b>${t.activityCount}</b> · <span style="color:#B45309;">${t.openCount} open</span> · <span style="color:#059669;">${t.resolvedCount} resolved</span></span>
+            </div>
+            <div class="poc-sb-timeline">
+                <div class="poc-sb-track ${isOverdue ? 'overdue-track' : ''}">
+                    <div class="poc-sb-progress" style="width:${todayPct}%"></div>
+                    ${activityDotsHtml}
+                    <div class="poc-sb-dot poc-sb-dot-today" style="left:${todayPct}%">
+                        <span class="poc-sb-dot-label poc-sb-today-label">Today<br>${todayShort}</span>
+                    </div>
+                    <div class="poc-sb-dot poc-sb-dot-start" style="left:0%"></div>
+                    <div class="poc-sb-dot poc-sb-dot-end ${todayPastEnd ? 'past' : ''}" style="left:100%"></div>
+                </div>
+                <div class="poc-sb-axis">
+                    <span class="poc-sb-axis-l">Start<br>${fmtTiny(startMs)}</span>
+                    <span class="poc-sb-axis-r">Sched. End<br>${fmtShort(endMs)}</span>
+                </div>
+            </div>
+            ${footerHtml}
+        </div>`;
+    }).join('');
+
+    return `
+        <div class="stat-card highlight-card" style="padding: 24px; margin-bottom: 30px; display: block;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #111827; margin: 0;">
+                        <i class="fa-solid fa-chart-gantt" style="margin-right:8px; color:#1D4ED8;"></i>POC Activity Timeline
+                    </h3>
+                    <p style="font-size: 0.75rem; color: #6B7280; margin: 4px 0 0;">Per-POC timeline — start to scheduled end, with activity dots for each logged task</p>
+                </div>
+                <div style="font-size: 0.75rem; color: #6B7280;">${list.length} POC${list.length === 1 ? '' : 's'}</div>
+            </div>
+            <div class="poc-sb-grid">
+                ${cards}
+            </div>
+            <div class="poc-sb-legend">
+                <span><span class="poc-sb-legend-line"></span> Elapsed</span>
+                <span><span class="poc-sb-legend-dot" style="background:#6366F1; border-color:#6366F1;"></span> Logged task</span>
+                <span><span class="poc-sb-legend-dot" style="background:#F59E0B; border-color:#F59E0B;"></span> In progress</span>
+                <span><span class="poc-sb-legend-dot" style="background:#EF4444; border-color:#EF4444;"></span> Hold/blocked</span>
+                <span><span class="poc-sb-legend-dot" style="background:#10B981; border-color:#10B981;"></span> Resolved</span>
+                <span><span class="poc-sb-legend-dot today"></span> Today</span>
+            </div>
+        </div>
+    `;
+}
+
+export function getProjectHTML(stats, filters, uniqueValues) {
     const currentYear = new Date().getFullYear();
-    const country = filterCountry || 'All';
+    // Back-compat: filters may be a plain country string from older callers.
+    const f = (typeof filters === 'string' || filters === null)
+        ? { country: filters || 'All', poc: 'All', endUser: 'All' }
+        : { country: filters?.country || 'All', poc: filters?.poc || 'All', endUser: filters?.endUser || 'All' };
 
     const escape = (str) => String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
     const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
@@ -3354,15 +3487,32 @@ export function getProjectHTML(stats, filterCountry, uniqueValues) {
     `).join('');
     const thStyle = `padding: 10px 14px; color: #6B7280; font-weight: 600; font-size: 0.78rem; white-space: nowrap; text-align: left;`;
 
+    const pocList = Array.from(uniqueValues.pocs || ['All']).sort((a, b) => a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b));
+    const endUserList = Array.from(uniqueValues.endUsers || ['All']).sort((a, b) => a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b));
+
     return `
         <div class="stat-card" style="display:flex; flex-wrap: wrap; gap: 20px; padding: 18px; background: #FFFFFF; border: 1px solid #F3F4F6; margin-bottom: 24px;">
             <div style="display:flex; flex-direction:column; gap:8px;">
                 <label style="font-size:0.8rem; color:#6B7280; font-weight:600; text-transform: uppercase;"><i class="fa-solid fa-earth-americas" style="margin-right: 6px;"></i>Country</label>
                 <select id="project-filter-country" style="background:#F9FAFB; color:#111827; border:1px solid #334155; padding:8px 12px; border-radius:6px; width: 180px;">
-                    ${Array.from(uniqueValues.countries).map(c => `<option value="${c}" ${country === c ? 'selected' : ''}>${c}</option>`).join('')}
+                    ${Array.from(uniqueValues.countries).map(c => `<option value="${escape(c)}" ${f.country === c ? 'selected' : ''}>${escape(c)}</option>`).join('')}
+                </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:0.8rem; color:#6B7280; font-weight:600; text-transform: uppercase;"><i class="fa-solid fa-clipboard-list" style="margin-right: 6px;"></i>POC</label>
+                <select id="project-filter-poc" style="background:#F9FAFB; color:#111827; border:1px solid #334155; padding:8px 12px; border-radius:6px; min-width: 220px;">
+                    ${pocList.map(p => `<option value="${escape(p)}" ${f.poc === p ? 'selected' : ''}>${escape(p)}</option>`).join('')}
+                </select>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-size:0.8rem; color:#6B7280; font-weight:600; text-transform: uppercase;"><i class="fa-solid fa-building-user" style="margin-right: 6px;"></i>End User</label>
+                <select id="project-filter-enduser" style="background:#F9FAFB; color:#111827; border:1px solid #334155; padding:8px 12px; border-radius:6px; min-width: 220px;">
+                    ${endUserList.map(p => `<option value="${escape(p)}" ${f.endUser === p ? 'selected' : ''}>${escape(p)}</option>`).join('')}
                 </select>
             </div>
         </div>
+
+        ${getProjectTimelineBoardHTML(stats)}
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; margin-bottom: 30px;">
             <div class="stat-card highlight-card" style="background: #EBF4FF; border: 1px solid rgba(0,122,255,0.2); padding: 24px; border-left: 5px solid #007AFF;">
