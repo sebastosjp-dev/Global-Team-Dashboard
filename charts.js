@@ -2004,3 +2004,155 @@ export function initDealLostCharts(stats) {
         }));
     }
 }
+
+/* ═══ TASK Dashboard Charts ═══ */
+export function initTaskDashboardCharts(stats) {
+    if (!stats) return;
+    chartRegistry.destroyTag('task');
+
+    const palette = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#14b8a6', '#84cc16', '#f97316', '#8b5cf6', '#06b6d4'];
+
+    /* ① Category donut */
+    const ctxCat = document.getElementById('task-category-donut');
+    if (ctxCat && stats.categories.length > 0) {
+        const top = stats.categories.slice(0, 10);
+        chartRegistry.register('task-cat', new Chart(ctxCat, {
+            type: 'doughnut',
+            data: {
+                labels: top.map(c => c.name),
+                datasets: [{
+                    data: top.map(c => c.count),
+                    backgroundColor: top.map((_, i) => palette[i % palette.length]),
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const c = top[ctx.dataIndex];
+                                const pct = stats.totalTasks ? Math.round((c.count / stats.totalTasks) * 100) : 0;
+                                return ` ${c.name}: ${c.count} (${pct}%) · ${c.open} open / ${c.resolved} resolved`;
+                            }
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    /* ② Status donut (grouped by bucket) */
+    const ctxStatus = document.getElementById('task-status-donut');
+    if (ctxStatus) {
+        const bucketTotals = { 'Open': 0, 'In Progress': 0, 'Resolved': 0, 'Other': 0 };
+        stats.statuses.forEach(s => {
+            const b = s.bucket && bucketTotals[s.bucket] !== undefined ? s.bucket : 'Other';
+            bucketTotals[b] += s.count;
+        });
+        const labels = Object.keys(bucketTotals).filter(k => bucketTotals[k] > 0);
+        const data = labels.map(l => bucketTotals[l]);
+        const colors = { 'Open': '#3b82f6', 'In Progress': '#f59e0b', 'Resolved': '#10b981', 'Other': '#9ca3af' };
+        chartRegistry.register('task-status', new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: labels.map(l => colors[l]),
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = stats.totalTasks ? Math.round((ctx.parsed / stats.totalTasks) * 100) : 0;
+                                return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    /* ③ Monthly created vs resolved */
+    const ctxMonthly = document.getElementById('task-monthly-chart');
+    if (ctxMonthly) {
+        chartRegistry.register('task-monthly', new Chart(ctxMonthly, {
+            data: {
+                labels: stats.monthLabels,
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Created',
+                        data: stats.monthlyCreated,
+                        backgroundColor: 'rgba(99,102,241,0.7)',
+                        borderRadius: 4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Resolved',
+                        data: stats.monthlyResolved,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16,185,129,0.18)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#10b981',
+                        yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Tasks' } }
+                }
+            }
+        }));
+    }
+
+    /* ④ Backlog aging bar */
+    const ctxAge = document.getElementById('task-aging-chart');
+    if (ctxAge) {
+        const labels = ['0-6d', '7-13d', '14-29d', '30d+'];
+        const data = labels.map(l => stats.agingBuckets[l] || 0);
+        const colors = ['#10b981', '#facc15', '#f97316', '#ef4444'];
+        chartRegistry.register('task-aging', new Chart(ctxAge, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Open tasks',
+                    data,
+                    backgroundColor: colors,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        }));
+    }
+}

@@ -2378,3 +2378,233 @@ export function getDealLostStats(data, filterCountry) {
 
     return { stats: s, uniqueValues };
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   TASK Dashboard — operational summary over the TASK sheet.
+   Differs from CSM tab (which is a filterable log): focuses on
+   distributions, throughput trends, resolution time, and backlog
+   health so owners can spot pressure points at a glance.
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Compute aggregated TASK dashboard stats — distributions, monthly
+ * throughput, resolution-time, backlog aging, country / client / service
+ * breakdowns, and a recent activity feed.
+ * @param {Object[]} taskData - raw rows from the TASK sheet
+ * @param {string|null} filterCountry
+ * @returns {Object|null}
+ */
+export function getTaskDashboardStats(taskData, filterCountry = null) {
+    if (!Array.isArray(taskData) || taskData.length === 0) return null;
+
+    const sample = taskData.find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
+    const keys = Object.keys(sample);
+    const categoryKey = findKey(keys, k => k.toLowerCase().includes('category')) || 'Category';
+    const endUserKey = findKey(keys, k => k.toLowerCase().replace(/\s/g, '') === 'enduser',
+                                          k => k.toLowerCase().includes('end user'),
+                                          k => k.toLowerCase().includes('client')) || 'End User';
+    const statusKey = findStatusKey(keys) || 'Status';
+    const dateKey = findKey(keys, k => k.toLowerCase() === 'date',
+                                       k => k.toLowerCase().includes('date') && !k.toLowerCase().includes('resolved')) || 'Date';
+    const resolvedKey = findKey(keys, k => k.toLowerCase().includes('resolved')) || 'Resolved Date';
+    const logKey = findKey(keys, k => k.toLowerCase().includes('log') || k.toLowerCase().includes('detail')) || 'Log Details';
+    const pocServiceKey = findKey(keys,
+        k => k.toLowerCase().replace(/[^a-z]/g, '') === 'pocservice',
+        k => k.toLowerCase() === 'poc',
+        k => k.toLowerCase() === 'service',
+        k => k.toLowerCase().includes('poc') && k.toLowerCase().includes('service'),
+        k => k.toLowerCase().includes('poc'));
+
+    // Pre-classify status into a coarse bucket so charts agree on definitions.
+    const classifyStatus = (raw) => {
+        const s = String(raw || '').trim().toLowerCase();
+        if (!s) return 'Unspecified';
+        if (/resolv|done|closed|complete/.test(s)) return 'Resolved';
+        if (/progress|ongoing|wip/.test(s)) return 'In Progress';
+        if (/open|new|pending|todo|backlog/.test(s)) return 'Open';
+        return 'Other';
+    };
+
+    const rows = taskData
+        .filter(r => Object.values(r).some(v => v !== null && v !== ''))
+        .filter(r => isCountryMatch(r, filterCountry))
+        .map(r => {
+            const date = parseExcelDateSafe(r[dateKey]);
+            const resolved = parseExcelDateSafe(r[resolvedKey]);
+            const status = String(r[statusKey] ?? '').trim();
+            return {
+                date,
+                resolved,
+                status,
+                bucket: classifyStatus(status),
+                category: String(r[categoryKey] ?? '').trim() || '(Uncategorized)',
+                client: String(r[endUserKey] ?? '').trim() || '(Unspecified)',
+                country: normalizeCountry(r['Country']) || String(r['Country'] ?? '').trim() || '',
+                pocService: pocServiceKey ? String(r[pocServiceKey] ?? '').trim() : '',
+                log: String(r[logKey] ?? '').trim()
+            };
+        });
+
+    if (rows.length === 0) return null;
+
+    const now = new Date();
+    const oneDay = 86400000;
+
+    let openCount = 0, resolvedCount = 0, inProgressCount = 0;
+    const byCategory = new Map();
+    const byStatus = new Map();
+    const byCountry = new Map();
+    const byClient = new Map();
+    const byService = new Map();
+    const monthlyCreated = new Array(12).fill(0);
+    const monthlyResolved = new Array(12).fill(0);
+    const monthLabels = new Array(12).fill('');
+    const resolutionDaysAll = [];
+    const resolutionByCategory = new Map();
+    const agingBuckets = { '0-6d': 0, '7-13d': 0, '14-29d': 0, '30d+': 0 };
+
+    // Build rolling 12-month label/index map (month at index 0 = 11 months ago).
+    const monthIndex = new Map();
+    for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthIndex.set(key, i);
+        monthLabels[i] = d.toLocaleString('en-US', { month: 'short' }) + (d.getMonth() === 0 ? ` '${String(d.getFullYear()).slice(-2)}` : '');
+    }
+
+    rows.forEach(r => {
+        if (r.bucket === 'Resolved') resolvedCount++;
+        else if (r.bucket === 'In Progress') inProgressCount++;
+        else openCount++;
+
+        byCategory.set(r.category, (byCategory.get(r.category) || { count: 0, open: 0, resolved: 0 }));
+        const c = byCategory.get(r.category);
+        c.count++;
+        if (r.bucket === 'Resolved') c.resolved++;
+        else c.open++;
+
+        const sLabel = r.status || 'Unspecified';
+        byStatus.set(sLabel, (byStatus.get(sLabel) || 0) + 1);
+
+        if (r.country) byCountry.set(r.country, (byCountry.get(r.country) || 0) + 1);
+
+        byClient.set(r.client, (byClient.get(r.client) || { count: 0, open: 0, resolved: 0, latestTs: 0 }));
+        const cl = byClient.get(r.client);
+        cl.count++;
+        if (r.bucket === 'Resolved') cl.resolved++;
+        else cl.open++;
+        const ts = r.date ? r.date.getTime() : 0;
+        if (ts > cl.latestTs) cl.latestTs = ts;
+
+        if (r.pocService) byService.set(r.pocService, (byService.get(r.pocService) || 0) + 1);
+
+        if (r.date) {
+            const k = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}`;
+            if (monthIndex.has(k)) monthlyCreated[monthIndex.get(k)]++;
+        }
+        if (r.resolved) {
+            const k = `${r.resolved.getFullYear()}-${String(r.resolved.getMonth() + 1).padStart(2, '0')}`;
+            if (monthIndex.has(k)) monthlyResolved[monthIndex.get(k)]++;
+        }
+
+        if (r.date && r.resolved && r.bucket === 'Resolved') {
+            const days = Math.max(0, Math.round((r.resolved.getTime() - r.date.getTime()) / oneDay));
+            resolutionDaysAll.push(days);
+            const arr = resolutionByCategory.get(r.category) || [];
+            arr.push(days);
+            resolutionByCategory.set(r.category, arr);
+        }
+
+        if (r.bucket !== 'Resolved' && r.date) {
+            const ageDays = Math.max(0, Math.round((now.getTime() - r.date.getTime()) / oneDay));
+            if (ageDays <= 6) agingBuckets['0-6d']++;
+            else if (ageDays <= 13) agingBuckets['7-13d']++;
+            else if (ageDays <= 29) agingBuckets['14-29d']++;
+            else agingBuckets['30d+']++;
+        }
+    });
+
+    const median = (arr) => {
+        if (!arr.length) return null;
+        const s = [...arr].sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+    };
+    const avg = (arr) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+
+    const resolutionByCategoryArr = Array.from(resolutionByCategory.entries())
+        .map(([category, days]) => ({
+            category,
+            avg: avg(days),
+            median: median(days),
+            count: days.length
+        }))
+        .filter(r => r.count > 0)
+        .sort((a, b) => (b.avg || 0) - (a.avg || 0));
+
+    const categoryArr = Array.from(byCategory.entries())
+        .map(([name, v]) => ({ name, ...v }))
+        .sort((a, b) => b.count - a.count);
+
+    const statusArr = Array.from(byStatus.entries())
+        .map(([name, count]) => ({ name, count, bucket: classifyStatus(name) }))
+        .sort((a, b) => b.count - a.count);
+
+    const countryArr = Array.from(byCountry.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+
+    const clientArr = Array.from(byClient.entries())
+        .map(([name, v]) => ({ name, ...v }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+    const serviceArr = Array.from(byService.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+    const fmtDate = (d) => {
+        if (!d) return '';
+        const day = String(d.getDate()).padStart(2, '0');
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const y = String(d.getFullYear()).slice(-2);
+        return `${day}-${m}-${y}`;
+    };
+
+    const recent = rows
+        .filter(r => r.date)
+        .sort((a, b) => b.date.getTime() - a.date.getTime())
+        .slice(0, 20)
+        .map(r => ({
+            dateStr: fmtDate(r.date),
+            client: r.client,
+            category: r.category,
+            status: r.status,
+            bucket: r.bucket,
+            log: r.log,
+            pocService: r.pocService
+        }));
+
+    return {
+        filterCountry,
+        totalTasks: rows.length,
+        openCount,
+        inProgressCount,
+        resolvedCount,
+        resolutionRate: rows.length ? Math.round((resolvedCount / rows.length) * 100) : 0,
+        avgResolutionDays: avg(resolutionDaysAll),
+        medianResolutionDays: median(resolutionDaysAll),
+        categories: categoryArr,
+        statuses: statusArr,
+        countries: countryArr,
+        topClients: clientArr,
+        services: serviceArr,
+        monthLabels,
+        monthlyCreated,
+        monthlyResolved,
+        resolutionByCategory: resolutionByCategoryArr,
+        agingBuckets,
+        recent
+    };
+}

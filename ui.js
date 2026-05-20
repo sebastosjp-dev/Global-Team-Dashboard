@@ -4774,3 +4774,217 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
         </div>
     `;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   TASK Dashboard — operational summary built from the TASK sheet.
+   Complements the CSM tab (filterable log) with distributions,
+   throughput, resolution time, backlog aging, and a recent feed.
+   ═══════════════════════════════════════════════════════════════ */
+export function getTaskDashboardHTML(stats) {
+    const escape = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+    if (!stats || stats.totalTasks === 0) {
+        return `
+            <div class="stat-card" style="background:#FFF; padding:32px; text-align:center; color:#6b7280; font-size:0.9rem;">
+                <i class="fa-solid fa-inbox" style="font-size:2.4rem; color:#d1d5db; display:block; margin-bottom:10px;"></i>
+                No TASK entries${stats?.filterCountry ? ` for ${stats.filterCountry}` : ''} yet.
+            </div>
+        `;
+    }
+
+    const cardWrap = (title, accent, body, extraHeader = '') => `
+        <div class="stat-card" style="background:#FFF; padding:18px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-radius:10px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <div style="width:4px; height:18px; background:${accent}; border-radius:2px;"></div>
+                <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">${title}</span>
+                ${extraHeader}
+            </div>
+            ${body}
+        </div>
+    `;
+
+    const kpi = (label, value, color, sub = '') => `
+        <div style="flex:1 1 150px; min-width:140px; background:#F9FAFB; padding:14px 16px; border-radius:10px; border-left:4px solid ${color};">
+            <div style="font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">${label}</div>
+            <div style="font-size:1.6rem; font-weight:800; color:#111827; margin-top:4px;">${value}</div>
+            ${sub ? `<div style="font-size:0.72rem; color:#9ca3af; margin-top:2px;">${sub}</div>` : ''}
+        </div>
+    `;
+
+    /* ── Summary KPIs ──────────────────────────────────────────── */
+    const summaryHtml = `
+        <div style="display:flex; flex-wrap:wrap; gap:12px;">
+            ${kpi('Total Tasks', stats.totalTasks.toLocaleString(), '#6366f1')}
+            ${kpi('Open', (stats.openCount + stats.inProgressCount).toLocaleString(), '#f59e0b', `${stats.openCount} open · ${stats.inProgressCount} in progress`)}
+            ${kpi('Resolved', stats.resolvedCount.toLocaleString(), '#10b981', `${stats.resolutionRate}% resolution rate`)}
+            ${kpi('Avg Resolution', stats.avgResolutionDays !== null ? `${stats.avgResolutionDays}d` : '—', '#0ea5e9', stats.medianResolutionDays !== null ? `Median ${stats.medianResolutionDays}d` : '')}
+        </div>
+    `;
+
+    /* ── ① Category + Status distributions (side-by-side donuts) ── */
+    const distRowHtml = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+            <div>
+                <div style="font-size:0.74rem; font-weight:700; color:#6b7280; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">By Category</div>
+                <div style="position:relative; height:240px;"><canvas id="task-category-donut"></canvas></div>
+            </div>
+            <div>
+                <div style="font-size:0.74rem; font-weight:700; color:#6b7280; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Status Mix</div>
+                <div style="position:relative; height:240px;"><canvas id="task-status-donut"></canvas></div>
+            </div>
+        </div>
+    `;
+
+    /* ── ② Monthly trend (created vs resolved) ────────────────── */
+    const monthlyHtml = `
+        <div style="position:relative; height:260px;"><canvas id="task-monthly-chart"></canvas></div>
+    `;
+
+    /* ── ③ Resolution time by category ────────────────────────── */
+    const resTimeHtml = stats.resolutionByCategory.length === 0
+        ? `<div style="color:#9ca3af; font-size:0.85rem; padding:14px 0;">No resolved tasks with both Date and Resolved Date yet.</div>`
+        : `
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                    <thead><tr style="background:#F9FAFB;">
+                        <th style="padding:8px 12px; text-align:left; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Category</th>
+                        <th style="padding:8px 12px; text-align:right; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Avg (days)</th>
+                        <th style="padding:8px 12px; text-align:right; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Median</th>
+                        <th style="padding:8px 12px; text-align:right; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Resolved</th>
+                    </tr></thead>
+                    <tbody>
+                        ${stats.resolutionByCategory.map(r => `
+                            <tr style="border-bottom:1px solid #F3F4F6;">
+                                <td style="padding:8px 12px; color:#111827; font-weight:600;">${escape(r.category)}</td>
+                                <td style="padding:8px 12px; text-align:right; font-family:monospace; color:#0369a1; font-weight:700;">${r.avg}d</td>
+                                <td style="padding:8px 12px; text-align:right; font-family:monospace; color:#6b7280;">${r.median}d</td>
+                                <td style="padding:8px 12px; text-align:right; color:#6b7280;">${r.count}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+    /* ── ④ Backlog aging buckets ──────────────────────────────── */
+    const totalOpen = stats.openCount + stats.inProgressCount;
+    const oldestPct = totalOpen > 0 ? Math.round((stats.agingBuckets['30d+'] / totalOpen) * 100) : 0;
+    const agingHtml = totalOpen === 0
+        ? `<div style="color:#9ca3af; font-size:0.85rem;">All tasks resolved. No backlog.</div>`
+        : `
+            <div style="position:relative; height:200px;"><canvas id="task-aging-chart"></canvas></div>
+            ${stats.agingBuckets['30d+'] > 0 ? `
+                <div style="margin-top:10px; padding:10px 14px; background:rgba(239,68,68,0.08); border-left:4px solid #ef4444; border-radius:6px; font-size:0.82rem; color:#991b1b;">
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>
+                    <strong>${stats.agingBuckets['30d+']}</strong> open task${stats.agingBuckets['30d+'] === 1 ? '' : 's'} older than 30 days (${oldestPct}% of backlog).
+                </div>
+            ` : ''}
+        `;
+
+    /* ── ⑤ Country activity ──────────────────────────────────── */
+    const countryHtml = stats.countries.length === 0
+        ? `<div style="color:#9ca3af; font-size:0.85rem;">No country data.</div>`
+        : `
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                ${stats.countries.slice(0, 8).map(c => {
+                    const max = stats.countries[0].count;
+                    const pct = Math.round((c.count / max) * 100);
+                    return `
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="width:120px; font-size:0.82rem; color:#374151; font-weight:600; flex-shrink:0;">${escape(c.name)}</span>
+                            <div style="flex:1; background:#F3F4F6; border-radius:4px; height:18px; position:relative; overflow:hidden;">
+                                <div style="background:linear-gradient(90deg, #6366f1, #8b5cf6); height:100%; width:${pct}%; border-radius:4px;"></div>
+                            </div>
+                            <span style="width:50px; text-align:right; font-family:monospace; font-size:0.8rem; color:#4338ca; font-weight:700;">${c.count}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+    /* ── ⑥ Top clients by touchpoints ─────────────────────────── */
+    const clientsHtml = stats.topClients.length === 0
+        ? `<div style="color:#9ca3af; font-size:0.85rem;">No client data.</div>`
+        : `
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                    <thead><tr style="background:#F9FAFB;">
+                        <th style="padding:8px 12px; text-align:left; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">#</th>
+                        <th style="padding:8px 12px; text-align:left; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">End User</th>
+                        <th style="padding:8px 12px; text-align:right; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Tasks</th>
+                        <th style="padding:8px 12px; text-align:right; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Open</th>
+                        <th style="padding:8px 12px; text-align:right; font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase;">Resolved</th>
+                    </tr></thead>
+                    <tbody>
+                        ${stats.topClients.map((c, i) => `
+                            <tr style="border-bottom:1px solid #F3F4F6;">
+                                <td style="padding:8px 12px; color:#9ca3af; font-family:monospace;">${i + 1}</td>
+                                <td style="padding:8px 12px; color:#111827; font-weight:600;">${escape(c.name)}</td>
+                                <td style="padding:8px 12px; text-align:right; font-weight:700; color:#4338ca;">${c.count}</td>
+                                <td style="padding:8px 12px; text-align:right; color:${c.open > 0 ? '#b45309' : '#9ca3af'}; font-weight:${c.open > 0 ? '700' : '400'};">${c.open}</td>
+                                <td style="padding:8px 12px; text-align:right; color:#059669; font-weight:600;">${c.resolved}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+    /* ── ⑦ POC / Service distribution ─────────────────────────── */
+    const serviceHtml = stats.services.length === 0
+        ? `<div style="color:#9ca3af; font-size:0.85rem;">No POC/Service data populated.</div>`
+        : `
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                ${stats.services.map(s => {
+                    const max = stats.services[0].count;
+                    const intensity = 0.25 + 0.55 * (s.count / max);
+                    return `
+                        <span style="background:rgba(14,165,233,${intensity.toFixed(2)}); color:#FFF; padding:6px 12px; border-radius:14px; font-size:0.78rem; font-weight:700;">
+                            ${escape(s.name)} <span style="opacity:0.85; font-weight:500;">· ${s.count}</span>
+                        </span>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+    /* ── ⑧ Recent activity feed ───────────────────────────────── */
+    const bucketColor = (b) => b === 'Resolved' ? '#10b981' : b === 'In Progress' ? '#f59e0b' : b === 'Open' ? '#3b82f6' : '#9ca3af';
+    const recentHtml = stats.recent.length === 0
+        ? `<div style="color:#9ca3af; font-size:0.85rem;">No recent activity.</div>`
+        : `
+            <div style="display:flex; flex-direction:column; gap:8px; max-height:380px; overflow-y:auto;">
+                ${stats.recent.map(r => `
+                    <div style="display:flex; gap:10px; padding:10px 12px; background:#F9FAFB; border-radius:8px; border-left:3px solid ${bucketColor(r.bucket)};">
+                        <div style="flex-shrink:0; width:72px; font-family:monospace; font-size:0.74rem; color:#6366f1; font-weight:700;">${r.dateStr}</div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:3px;">
+                                <span style="font-size:0.82rem; font-weight:700; color:#111827;">${escape(r.client)}</span>
+                                <span style="font-size:0.66rem; background:#EEF2FF; color:#4338ca; padding:1px 7px; border-radius:8px; font-weight:700;">${escape(r.category)}</span>
+                                ${r.status ? `<span style="font-size:0.66rem; background:rgba(${r.bucket === 'Resolved' ? '16,185,129' : '245,158,11'},0.12); color:${bucketColor(r.bucket)}; padding:1px 7px; border-radius:8px; font-weight:700; text-transform:uppercase;">${escape(r.status)}</span>` : ''}
+                                ${r.pocService ? `<span style="font-size:0.66rem; color:#6b7280;">· ${escape(r.pocService)}</span>` : ''}
+                            </div>
+                            ${r.log ? `<div style="font-size:0.78rem; color:#4b5563; line-height:1.4;">${escape(r.log)}</div>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+    const filterChip = stats.filterCountry
+        ? `<span style="margin-left:auto; font-size:0.7rem; color:#0369a1; background:rgba(14,165,233,0.1); padding:3px 10px; border-radius:10px; font-weight:700;">Country: ${escape(stats.filterCountry)}</span>`
+        : '';
+
+    return `
+        <div style="grid-column:1 / -1; display:flex; flex-direction:column; gap:0;">
+            ${cardWrap('TASK · Overview', '#6366f1', summaryHtml, filterChip)}
+            ${cardWrap('① Distributions — Category &amp; Status', '#a855f7', distRowHtml)}
+            ${cardWrap('② Monthly Throughput (last 12 months)', '#0ea5e9', monthlyHtml)}
+            ${cardWrap('③ Resolution Time by Category', '#10b981', resTimeHtml)}
+            ${cardWrap('④ Open Backlog Aging', '#ef4444', agingHtml)}
+            ${cardWrap('⑤ Country Activity', '#8b5cf6', countryHtml)}
+            ${cardWrap('⑥ Top Clients by Touchpoints', '#3b82f6', clientsHtml)}
+            ${cardWrap('⑦ POC / Service Coverage', '#06b6d4', serviceHtml)}
+            ${cardWrap('⑧ Recent Activity', '#f59e0b', recentHtml)}
+        </div>
+    `;
+}

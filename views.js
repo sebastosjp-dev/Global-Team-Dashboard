@@ -9,7 +9,8 @@ import {
     chartRegistry, initOrderSheetCharts, initPipelineCharts,
     initPartnerCharts, initPartnerPerformanceCharts,
     initPocCharts, initEventCharts, initServiceAnalysisCharts,
-    initTcvArrChart, initProjectCharts, initDealLostCharts
+    initTcvArrChart, initProjectCharts, initDealLostCharts,
+    initTaskDashboardCharts
 } from './charts.js';
 import {
     getOrderSheetStats, getPipelineStats, getPartnerStats,
@@ -21,7 +22,7 @@ import {
     getPartnerROIStats, getPipelineCoverageStats,
     getProjectStats, getDealLostStats,
     getQuarterlyForecastStats, getCsmTaskStats,
-    getCsmViewStats
+    getCsmViewStats, getTaskDashboardStats
 } from './services.js';
 import {
                                                 getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
@@ -34,7 +35,7 @@ import {
     getPipelineChangeLogHTML, getCurrentPipelineListHTML,
     getProjectHTML, getDealLostHTML,
     getQuarterlyForecastHTML, getCsmTasksByClientHTML,
-    getCsmViewHTML
+    getCsmViewHTML, getTaskDashboardHTML
 } from './ui.js';
 import { loadKPIQuarterlyTargets } from './kpi.js';
 
@@ -56,7 +57,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     let hasMetrics = false;
     const isGlobalTab = tabName && tabName.includes('Global(Contract Date)');
     const isCountryTab = tabName && filterCountry === null &&
-        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'CSM', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST'].includes(tabName) &&
+        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'CSM', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST', 'TASK'].includes(tabName) &&
         !isGlobalTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
@@ -120,6 +121,11 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'CSM') {
         _renderCsmView(workbookData, metricsGrid);
+        hasMetrics = true;
+    }
+
+    if (tabName === 'TASK' && workbookData['TASK']) {
+        _renderTaskDashboard(workbookData['TASK'], filterCountry, metricsGrid);
         hasMetrics = true;
     }
 
@@ -662,6 +668,23 @@ function _renderCsmView(workbookData, metricsGrid) {
     };
 
     window.renderCsmViewUI();
+}
+
+/**
+ * Render the TASK operational dashboard — distributions, throughput,
+ * resolution time, backlog aging, country/client/service breakdowns,
+ * and a recent activity feed. Country filter handled via filterCountry.
+ * @param {Object[]} taskData
+ * @param {string|null} filterCountry
+ * @param {HTMLElement} metricsGrid
+ */
+function _renderTaskDashboard(taskData, filterCountry, metricsGrid) {
+    const stats = getTaskDashboardStats(taskData, filterCountry);
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    container.innerHTML = getTaskDashboardHTML(stats);
+    metricsGrid.appendChild(container);
+    if (stats) setTimeout(() => initTaskDashboardCharts(stats), 80);
 }
 
 function _renderEvent(eventData, filterCountry, metricsGrid) {
