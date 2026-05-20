@@ -20,7 +20,7 @@ import {
     getTcvArrStats, getChurnRiskStats,
     getPartnerROIStats, getPipelineCoverageStats,
     getProjectStats, getDealLostStats,
-    getQuarterlyForecastStats
+    getQuarterlyForecastStats, getCsmTaskStats
 } from './services.js';
 import {
                                                 getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
@@ -32,7 +32,7 @@ import {
     getPartnerROIHTML, getPipelineCoverageHTML,
     getPipelineChangeLogHTML, getCurrentPipelineListHTML,
     getProjectHTML, getDealLostHTML,
-    getQuarterlyForecastHTML
+    getQuarterlyForecastHTML, getCsmTasksByClientHTML
 } from './ui.js';
 import { loadKPIQuarterlyTargets } from './kpi.js';
 
@@ -92,7 +92,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     }
 
     if (tabName === 'END USER (CSM)' && workbookData['END USER (CSM)']) {
-        _renderServiceAnalysis(workbookData['END USER (CSM)'], filterCountry, tabName, metricsGrid, searchInput);
+        _renderServiceAnalysis(workbookData['END USER (CSM)'], filterCountry, tabName, metricsGrid, searchInput, workbookData);
         hasMetrics = true;
     }
 
@@ -127,7 +127,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
    Service Analysis Metrics
    ═══════════════════════════════════════════════════════════════ */
 
-function _renderServiceAnalysis(data, filterCountry, tabName, metricsGrid, searchInput) {
+function _renderServiceAnalysis(data, filterCountry, tabName, metricsGrid, searchInput, workbookData) {
     if (!data || data.length === 0) return;
     const stats = getServiceAnalysisStats(data, filterCountry);
 
@@ -136,6 +136,14 @@ function _renderServiceAnalysis(data, filterCountry, tabName, metricsGrid, searc
     container.innerHTML = getServiceAnalysisHTML(stats, filterCountry);
 
     metricsGrid.appendChild(container);
+
+    const taskRows = (workbookData && workbookData['TASK']) || [];
+    const taskStats = getCsmTaskStats(taskRows, filterCountry);
+    const taskContainer = document.createElement('div');
+    taskContainer.style.gridColumn = '1 / -1';
+    taskContainer.innerHTML = getCsmTasksByClientHTML(taskStats, filterCountry || 'All');
+    metricsGrid.appendChild(taskContainer);
+
     setTimeout(() => {
         const selector = document.getElementById('csm-filter-country');
         if (selector) {

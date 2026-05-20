@@ -1504,6 +1504,85 @@ export function getServiceAnalysisStats(data, filterCountry = null) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   CSM TASKS (from TASK sheet)
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Group CSM-category tasks from the TASK sheet by client (End User).
+ * Hady and Yoga log Technical/CSM activities here; this surfaces the
+ * CSM-tagged ones on the END USER (CSM) dashboard so renewal owners can
+ * see what touchpoints have happened per account.
+ *
+ * @param {Object[]} taskData - rows from the TASK sheet
+ * @param {string|null} filterCountry
+ * @returns {Object|null} { totalTasks, totalClients, clients: [{...}] } or null when empty
+ */
+export function getCsmTaskStats(taskData, filterCountry = null) {
+    if (!Array.isArray(taskData) || taskData.length === 0) return null;
+
+    const csmRows = taskData.filter(r => {
+        const cat = String(r['Category'] ?? '').trim().toUpperCase();
+        if (cat !== 'CSM') return false;
+        return isCountryMatch(r, filterCountry);
+    });
+    if (csmRows.length === 0) return null;
+
+    const fmtDate = (d) => {
+        if (!d) return '';
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    const byClient = new Map();
+    csmRows.forEach(r => {
+        const client = String(r['End User'] ?? '').trim() || '(Unspecified client)';
+        const date = parseExcelDateSafe(r['Date']);
+        const resolved = parseExcelDateSafe(r['Resolved Date']);
+        const status = String(r['Status'] ?? '').trim();
+        const log = String(r['Log Details'] ?? '').trim();
+        const country = normalizeCountry(r['Country']) || String(r['Country'] ?? '').trim();
+
+        const entry = byClient.get(client) || {
+            name: client,
+            country,
+            tasks: [],
+            latestTs: 0,
+            openCount: 0,
+            resolvedCount: 0
+        };
+        if (country && !entry.country) entry.country = country;
+        const ts = date ? date.getTime() : 0;
+        if (ts > entry.latestTs) entry.latestTs = ts;
+        if (status && /resolv|done|closed/i.test(status)) entry.resolvedCount += 1;
+        else entry.openCount += 1;
+        entry.tasks.push({
+            no: r['No.'] ?? '',
+            date,
+            dateStr: fmtDate(date),
+            resolvedDate: resolved,
+            resolvedDateStr: fmtDate(resolved),
+            status,
+            log
+        });
+        byClient.set(client, entry);
+    });
+
+    const clients = Array.from(byClient.values()).map(c => {
+        c.tasks.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+        return c;
+    });
+    clients.sort((a, b) => b.latestTs - a.latestTs);
+
+    return {
+        totalTasks: csmRows.length,
+        totalClients: clients.length,
+        clients
+    };
+}
+
+/* ═══════════════════════════════════════════════════════════════
    COLLECTION
    ═══════════════════════════════════════════════════════════════ */
 

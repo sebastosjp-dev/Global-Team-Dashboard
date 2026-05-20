@@ -718,6 +718,78 @@ export function getServiceAnalysisHTML(stats, filterCountry = 'All') {
     return html;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   CSM Task Log — recent activity logged by Hady / Yoga, by client
+   ═══════════════════════════════════════════════════════════════ */
+export function getCsmTasksByClientHTML(stats, filterCountry = 'All') {
+    if (!stats || !stats.clients || stats.clients.length === 0) {
+        return `
+            <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+                <div style="width:4px; height:18px; background:#0ea5e9; border-radius:2px;"></div>
+                <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">⑥ CSM Activity Log</span>
+            </div>
+            <div class="stat-card" style="background:#FFF; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); color:#6b7280; font-size:0.85rem;">
+                No CSM-category tasks logged in the TASK sheet${filterCountry && filterCountry !== 'All' ? ` for ${filterCountry}` : ''} yet.
+                <div style="margin-top:6px; font-size:0.75rem; color:#9ca3af;">Hady and Yoga have been briefed to log CSM activities there.</div>
+            </div>
+        `;
+    }
+
+    const statusBadge = (status) => {
+        const s = String(status || '').trim();
+        if (!s) return '';
+        const isResolved = /resolv|done|closed/i.test(s);
+        const bg = isResolved ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.12)';
+        const color = isResolved ? '#059669' : '#b45309';
+        return `<span style="background:${bg}; color:${color}; font-size:0.66rem; font-weight:700; padding:2px 8px; border-radius:10px; text-transform:uppercase; white-space:nowrap;">${s}</span>`;
+    };
+
+    const clientCards = stats.clients.map(client => {
+        const latestStr = client.tasks[0]?.dateStr || '—';
+        const rows = client.tasks.map(t => `
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:8px 10px; font-family:monospace; font-size:0.75rem; color:#6366f1; white-space:nowrap;">${t.dateStr || '—'}</td>
+                <td style="padding:8px 10px;">${statusBadge(t.status)}</td>
+                <td style="padding:8px 10px; font-size:0.8rem; color:#374151; line-height:1.4;">${t.log || '<span style="color:#9ca3af;">(no details)</span>'}</td>
+                <td style="padding:8px 10px; font-family:monospace; font-size:0.72rem; color:#6b7280; white-space:nowrap;">${t.resolvedDateStr || ''}</td>
+            </tr>
+        `).join('');
+
+        return `
+            <div class="stat-card" style="background:#FFF; padding:14px 16px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-left:4px solid #0ea5e9;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                    <span style="font-size:0.95rem; font-weight:800; color:#111827;">${client.name}</span>
+                    ${client.country ? `<span style="font-size:0.7rem; color:#6b7280; background:#f3f4f6; padding:2px 8px; border-radius:10px;">${client.country}</span>` : ''}
+                    <span style="font-size:0.7rem; color:#0369a1; background:rgba(14,165,233,0.1); padding:2px 8px; border-radius:10px; font-weight:700;">${client.tasks.length} task${client.tasks.length === 1 ? '' : 's'}</span>
+                    ${client.openCount > 0 ? `<span style="font-size:0.7rem; color:#b45309; background:rgba(245,158,11,0.12); padding:2px 8px; border-radius:10px; font-weight:700;">${client.openCount} open</span>` : ''}
+                    <span style="margin-left:auto; font-size:0.7rem; color:#9ca3af;">Latest: <strong style="color:#374151;">${latestStr}</strong></span>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                        <thead><tr style="background:#f9fafb; text-align:left;">
+                            <th style="padding:7px 10px; font-size:0.66rem; color:#9ca3af; font-weight:700; text-transform:uppercase; width:96px;">Date</th>
+                            <th style="padding:7px 10px; font-size:0.66rem; color:#9ca3af; font-weight:700; text-transform:uppercase; width:88px;">Status</th>
+                            <th style="padding:7px 10px; font-size:0.66rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Log Details</th>
+                            <th style="padding:7px 10px; font-size:0.66rem; color:#9ca3af; font-weight:700; text-transform:uppercase; width:96px;">Resolved</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <div style="width:4px; height:18px; background:#0ea5e9; border-radius:2px;"></div>
+            <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">⑥ CSM Activity Log</span>
+            <span style="font-size:0.7rem; color:#0369a1; background:rgba(14,165,233,0.1); padding:2px 8px; border-radius:10px; font-weight:700;">${stats.totalTasks} task${stats.totalTasks === 1 ? '' : 's'} · ${stats.totalClients} client${stats.totalClients === 1 ? '' : 's'}</span>
+            <span style="margin-left:auto; font-size:0.68rem; color:#9ca3af;">Source: TASK sheet · Category = CSM</span>
+        </div>
+        ${clientCards}
+    `;
+}
+
 
 export function getRenewalHTML(filtered) {
     if (filtered.length === 0) {
