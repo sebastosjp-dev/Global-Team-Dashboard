@@ -4792,14 +4792,14 @@ export function getTaskDashboardHTML(stats) {
         `;
     }
 
-    const cardWrap = (title, accent, body, extraHeader = '') => `
-        <div class="stat-card" style="background:#FFF; padding:18px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-radius:10px; margin-bottom:16px;">
+    const cardWrap = (title, accent, body, extraHeader = '', gridSpan = '1 / -1') => `
+        <div class="stat-card" style="grid-column:${gridSpan}; background:#FFF; padding:18px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-radius:10px; display:flex; flex-direction:column;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
                 <div style="width:4px; height:18px; background:${accent}; border-radius:2px;"></div>
                 <span style="font-size:0.78rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.06em;">${title}</span>
                 ${extraHeader}
             </div>
-            ${body}
+            <div style="flex:1; min-height:0;">${body}</div>
         </div>
     `;
 
@@ -4821,18 +4821,14 @@ export function getTaskDashboardHTML(stats) {
         </div>
     `;
 
-    /* ── ① Category + Status distributions (side-by-side donuts) ── */
-    const distRowHtml = `
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
-            <div>
-                <div style="font-size:0.74rem; font-weight:700; color:#6b7280; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">By Category</div>
-                <div style="position:relative; height:240px;"><canvas id="task-category-donut"></canvas></div>
-            </div>
-            <div>
-                <div style="font-size:0.74rem; font-weight:700; color:#6b7280; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Status Mix</div>
-                <div style="position:relative; height:240px;"><canvas id="task-status-donut"></canvas></div>
-            </div>
-        </div>
+    /* ── ① Category distribution donut ─────────────────────────── */
+    const categoryDonutHtml = `
+        <div style="position:relative; height:240px;"><canvas id="task-category-donut"></canvas></div>
+    `;
+
+    /* ── ① Status mix donut ────────────────────────────────────── */
+    const statusDonutHtml = `
+        <div style="position:relative; height:240px;"><canvas id="task-status-donut"></canvas></div>
     `;
 
     /* ── ② Monthly trend (created vs resolved) ────────────────── */
@@ -4890,12 +4886,12 @@ export function getTaskDashboardHTML(stats) {
                     const max = stats.countries[0].count;
                     const pct = Math.round((c.count / max) * 100);
                     return `
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="width:120px; font-size:0.82rem; color:#374151; font-weight:600; flex-shrink:0;">${escape(c.name)}</span>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="width:90px; font-size:0.8rem; color:#374151; font-weight:600; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escape(c.name)}</span>
                             <div style="flex:1; background:#F3F4F6; border-radius:4px; height:18px; position:relative; overflow:hidden;">
                                 <div style="background:linear-gradient(90deg, #6366f1, #8b5cf6); height:100%; width:${pct}%; border-radius:4px;"></div>
                             </div>
-                            <span style="width:50px; text-align:right; font-family:monospace; font-size:0.8rem; color:#4338ca; font-weight:700;">${c.count}</span>
+                            <span style="width:40px; text-align:right; font-family:monospace; font-size:0.78rem; color:#4338ca; font-weight:700;">${c.count}</span>
                         </div>
                     `;
                 }).join('')}
@@ -4952,7 +4948,7 @@ export function getTaskDashboardHTML(stats) {
     const recentHtml = stats.recent.length === 0
         ? `<div style="color:#9ca3af; font-size:0.85rem;">No recent activity.</div>`
         : `
-            <div style="display:flex; flex-direction:column; gap:8px; max-height:380px; overflow-y:auto;">
+            <div style="display:flex; flex-direction:column; gap:8px; max-height:460px; overflow-y:auto; padding-right:4px;">
                 ${stats.recent.map(r => `
                     <div style="display:flex; gap:10px; padding:10px 12px; background:#F9FAFB; border-radius:8px; border-left:3px solid ${bucketColor(r.bucket)};">
                         <div style="flex-shrink:0; width:72px; font-family:monospace; font-size:0.74rem; color:#6366f1; font-weight:700;">${r.dateStr}</div>
@@ -4975,16 +4971,17 @@ export function getTaskDashboardHTML(stats) {
         : '';
 
     return `
-        <div style="grid-column:1 / -1; display:flex; flex-direction:column; gap:0;">
-            ${cardWrap('TASK · Overview', '#6366f1', summaryHtml, filterChip)}
-            ${cardWrap('① Distributions — Category &amp; Status', '#a855f7', distRowHtml)}
-            ${cardWrap('② Monthly Throughput (last 12 months)', '#0ea5e9', monthlyHtml)}
-            ${cardWrap('③ Resolution Time by Category', '#10b981', resTimeHtml)}
-            ${cardWrap('④ Open Backlog Aging', '#ef4444', agingHtml)}
-            ${cardWrap('⑤ Country Activity', '#8b5cf6', countryHtml)}
-            ${cardWrap('⑥ Top Clients by Touchpoints', '#3b82f6', clientsHtml)}
-            ${cardWrap('⑦ POC / Service Coverage', '#06b6d4', serviceHtml)}
-            ${cardWrap('⑧ Recent Activity', '#f59e0b', recentHtml)}
+        <div style="grid-column:1 / -1; display:grid; grid-template-columns:repeat(12, 1fr); gap:14px;">
+            ${cardWrap('TASK · Overview', '#6366f1', summaryHtml, filterChip, '1 / -1')}
+            ${cardWrap('① By Category', '#a855f7', categoryDonutHtml, '', 'span 4')}
+            ${cardWrap('① Status Mix', '#a855f7', statusDonutHtml, '', 'span 4')}
+            ${cardWrap('④ Open Backlog Aging', '#ef4444', agingHtml, '', 'span 4')}
+            ${cardWrap('② Monthly Throughput (last 12 months)', '#0ea5e9', monthlyHtml, '', 'span 8')}
+            ${cardWrap('⑤ Country Activity', '#8b5cf6', countryHtml, '', 'span 4')}
+            ${cardWrap('③ Resolution Time by Category', '#10b981', resTimeHtml, '', 'span 6')}
+            ${cardWrap('⑥ Top Clients by Touchpoints', '#3b82f6', clientsHtml, '', 'span 6')}
+            ${cardWrap('⑦ POC / Service Coverage', '#06b6d4', serviceHtml, '', 'span 5')}
+            ${cardWrap('⑧ Recent Activity', '#f59e0b', recentHtml, '', 'span 7')}
         </div>
     `;
 }

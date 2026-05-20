@@ -679,12 +679,63 @@ function _renderCsmView(workbookData, metricsGrid) {
  * @param {HTMLElement} metricsGrid
  */
 function _renderTaskDashboard(taskData, filterCountry, metricsGrid) {
-    const stats = getTaskDashboardStats(taskData, filterCountry);
+    window.taskFilters = window.taskFilters || { view: 'POC' };
+    if (window.taskFilters.view !== 'POC' && window.taskFilters.view !== 'EndUser') {
+        window.taskFilters.view = 'POC';
+    }
+
+    const tabBar = document.createElement('div');
+    tabBar.id = 'task-tab-bar';
+    tabBar.style.gridColumn = '1 / -1';
+    tabBar.style.marginBottom = '6px';
+
     const container = document.createElement('div');
+    container.id = 'task-dashboard-container';
     container.style.gridColumn = '1 / -1';
-    container.innerHTML = getTaskDashboardHTML(stats);
+
+    metricsGrid.appendChild(tabBar);
     metricsGrid.appendChild(container);
-    if (stats) setTimeout(() => initTaskDashboardCharts(stats), 80);
+
+    const renderTabBar = () => {
+        const tabs = [
+            { key: 'POC', label: 'POC' },
+            { key: 'EndUser', label: 'End User' }
+        ];
+        const v = window.taskFilters.view;
+        tabBar.innerHTML = `
+            <div style="display:flex; gap:4px; border-bottom:2px solid #e5e7eb;">
+                ${tabs.map(t => `
+                    <button data-task-view="${t.key}" style="
+                        padding:10px 22px;
+                        background:${v === t.key ? '#FFF' : 'transparent'};
+                        border:1px solid ${v === t.key ? '#e5e7eb' : 'transparent'};
+                        border-bottom:3px solid ${v === t.key ? '#6366f1' : 'transparent'};
+                        border-radius:8px 8px 0 0;
+                        color:${v === t.key ? '#4338ca' : '#6b7280'};
+                        font-weight:${v === t.key ? '700' : '600'};
+                        font-size:0.85rem;
+                        cursor:pointer;
+                        margin-bottom:-2px;
+                    ">${t.label}</button>
+                `).join('')}
+            </div>
+        `;
+        tabBar.querySelectorAll('[data-task-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                window.taskFilters.view = btn.dataset.taskView;
+                renderAll();
+            });
+        });
+    };
+
+    const renderAll = () => {
+        renderTabBar();
+        const stats = getTaskDashboardStats(taskData, filterCountry, window.taskFilters.view);
+        container.innerHTML = getTaskDashboardHTML(stats);
+        if (stats && stats.totalTasks > 0) setTimeout(() => initTaskDashboardCharts(stats), 80);
+    };
+
+    renderAll();
 }
 
 function _renderEvent(eventData, filterCountry, metricsGrid) {

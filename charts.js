@@ -2032,7 +2032,7 @@ export function initTaskDashboardCharts(stats) {
                 maintainAspectRatio: false,
                 cutout: '60%',
                 plugins: {
-                    legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+                    legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 }, padding: 8 } },
                     tooltip: {
                         callbacks: {
                             label: (ctx) => {
@@ -2074,7 +2074,7 @@ export function initTaskDashboardCharts(stats) {
                 maintainAspectRatio: false,
                 cutout: '60%',
                 plugins: {
-                    legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+                    legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 }, padding: 8 } },
                     tooltip: {
                         callbacks: {
                             label: (ctx) => {

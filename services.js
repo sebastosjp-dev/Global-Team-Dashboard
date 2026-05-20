@@ -2394,7 +2394,7 @@ export function getDealLostStats(data, filterCountry) {
  * @param {string|null} filterCountry
  * @returns {Object|null}
  */
-export function getTaskDashboardStats(taskData, filterCountry = null) {
+export function getTaskDashboardStats(taskData, filterCountry = null, taskView = 'All') {
     if (!Array.isArray(taskData) || taskData.length === 0) return null;
 
     const sample = taskData.find(r => Object.values(r).some(v => v !== null && v !== '')) || {};
@@ -2415,6 +2415,11 @@ export function getTaskDashboardStats(taskData, filterCountry = null) {
         k => k.toLowerCase().includes('poc') && k.toLowerCase().includes('service'),
         k => k.toLowerCase().includes('poc'));
 
+    const hasVal = (v) => {
+        const s = String(v ?? '').trim();
+        return s !== '' && s !== '-';
+    };
+
     // Pre-classify status into a coarse bucket so charts agree on definitions.
     const classifyStatus = (raw) => {
         const s = String(raw || '').trim().toLowerCase();
@@ -2432,20 +2437,29 @@ export function getTaskDashboardStats(taskData, filterCountry = null) {
             const date = parseExcelDateSafe(r[dateKey]);
             const resolved = parseExcelDateSafe(r[resolvedKey]);
             const status = String(r[statusKey] ?? '').trim();
+            const rawPoc = pocServiceKey ? String(r[pocServiceKey] ?? '').trim() : '';
+            const rawEndUser = String(r[endUserKey] ?? '').trim();
             return {
                 date,
                 resolved,
                 status,
                 bucket: classifyStatus(status),
                 category: String(r[categoryKey] ?? '').trim() || '(Uncategorized)',
-                client: String(r[endUserKey] ?? '').trim() || '(Unspecified)',
+                client: rawEndUser || '(Unspecified)',
                 country: normalizeCountry(r['Country']) || String(r['Country'] ?? '').trim() || '',
-                pocService: pocServiceKey ? String(r[pocServiceKey] ?? '').trim() : '',
+                pocService: rawPoc,
+                hasPoc: hasVal(rawPoc),
+                hasEndUser: hasVal(rawEndUser),
                 log: String(r[logKey] ?? '').trim()
             };
+        })
+        .filter(r => {
+            if (taskView === 'POC') return r.hasPoc;
+            if (taskView === 'EndUser') return r.hasEndUser && !r.hasPoc;
+            return true;
         });
 
-    if (rows.length === 0) return null;
+    if (rows.length === 0) return { filterCountry, taskView, totalTasks: 0 };
 
     const now = new Date();
     const oneDay = 86400000;
@@ -2588,6 +2602,7 @@ export function getTaskDashboardStats(taskData, filterCountry = null) {
 
     return {
         filterCountry,
+        taskView,
         totalTasks: rows.length,
         openCount,
         inProgressCount,
