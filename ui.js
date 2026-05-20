@@ -1994,15 +1994,20 @@ export function getCollectionHTML(stats, detailedStats, showOnlyUnpaid = false) 
             </div>
         </div>
 
-        <div class="stat-card" style="background:#FFF; padding: 16px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; max-width: 600px; display: flex; flex-direction: column; align-items: stretch;">
-            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+        <div class="stat-card" style="background:#FFF; padding: 16px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; max-width: 820px; display: flex; flex-direction: column; align-items: stretch;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 4px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-calculator"></i> Total Balance by Distributor (Descending)
             </h3>
+            <p style="margin: 0 0 12px 0; font-size: 0.72rem; color: #94a3b8;">
+                Total balance split into amount due through ${currentYear} (current period) and amount expected in later contract years (future projected).
+            </p>
             <div style="overflow-x: auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
                     <thead>
                         <tr style="background:#F8FAFC; text-align:left; border-bottom: 1px solid #E2E8F0;">
                             <th style="padding:10px; color:#475569; font-weight:700;">Distributor</th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Current Period Due<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(through ${currentYear})</span></th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Future Projected<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(after ${currentYear})</span></th>
                             <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Total Balance</th>
                         </tr>
                     </thead>
@@ -2010,6 +2015,8 @@ export function getCollectionHTML(stats, detailedStats, showOnlyUnpaid = false) 
                         ${detailedStats.summary.map(s => `
                             <tr style="border-bottom: 1px solid #F1F5F9;">
                                 <td style="padding:8px 10px; font-weight:600;">${s.name}</td>
+                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.currentPeriodDue > 0 ? '#ef4444' : '#94a3b8'};">$${formatCurrency(s.currentPeriodDue)}</td>
+                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.futureProjected > 0 ? '#6366f1' : '#94a3b8'};">$${formatCurrency(s.futureProjected)}</td>
                                 <td style="padding:8px 10px; font-weight:800; text-align:right; color: ${s.balance > 0 ? '#ef4444' : '#10b981'};">$${formatCurrency(s.balance)}</td>
                             </tr>
                         `).join('')}

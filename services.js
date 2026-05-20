@@ -1764,6 +1764,25 @@ export function getDetailedCollectionAnalysis(data) {
 
         const balance = isPerpetual ? 0 : Math.round((korTcv - totalReceived) * 100) / 100;
 
+        // Split balance into amount due in the current period (up to and including
+        // current year) vs. amount projected for future periods. Annual expectation
+        // is straight-line korTcv / numYears across the contract term. Pre-payments
+        // toward future years roll forward (overpayment in the current period
+        // reduces the future projected figure).
+        let currentPeriodDue = 0;
+        let futureProjected = 0;
+        if (!isPerpetual && startYear && numYears > 0 && korTcv > 0) {
+            const annualAmount = korTcv / numYears;
+            const yearsElapsed = Math.max(0, Math.min(numYears, cy - startYear + 1));
+            const expectedThroughCurrentYear = annualAmount * yearsElapsed;
+            const expectedAfterCurrentYear = korTcv - expectedThroughCurrentYear;
+            currentPeriodDue = Math.max(0, expectedThroughCurrentYear - totalReceived);
+            const overpayment = Math.max(0, totalReceived - expectedThroughCurrentYear);
+            futureProjected = Math.max(0, expectedAfterCurrentYear - overpayment);
+        }
+        currentPeriodDue = Math.round(currentPeriodDue * 100) / 100;
+        futureProjected = Math.round(futureProjected * 100) / 100;
+
         const statusKeys = {};
         yearsToTrack.forEach(y => { statusKeys[`status${y}`] = status[y]; });
 
@@ -1775,7 +1794,9 @@ export function getDetailedCollectionAnalysis(data) {
             contractYr: contractYrRaw,
             ...statusKeys,
             totalTcv: korTcv,
-            balance: balance
+            balance: balance,
+            currentPeriodDue,
+            futureProjected
         };
     });
 
@@ -1786,15 +1807,24 @@ export function getDetailedCollectionAnalysis(data) {
         return a.contractStart - b.contractStart;
     });
 
-    // Summary by Distributor
+    // Summary by Distributor — total balance plus the current/future split.
     const distributorSummary = {};
     resultRows.forEach(r => {
-        if (!distributorSummary[r.distributor]) distributorSummary[r.distributor] = 0;
-        distributorSummary[r.distributor] += r.balance;
+        if (!distributorSummary[r.distributor]) {
+            distributorSummary[r.distributor] = { balance: 0, currentPeriodDue: 0, futureProjected: 0 };
+        }
+        distributorSummary[r.distributor].balance += r.balance;
+        distributorSummary[r.distributor].currentPeriodDue += r.currentPeriodDue;
+        distributorSummary[r.distributor].futureProjected += r.futureProjected;
     });
 
     const sortedSummary = Object.entries(distributorSummary)
-        .map(([name, balance]) => ({ name, balance }))
+        .map(([name, agg]) => ({
+            name,
+            balance: Math.round(agg.balance * 100) / 100,
+            currentPeriodDue: Math.round(agg.currentPeriodDue * 100) / 100,
+            futureProjected: Math.round(agg.futureProjected * 100) / 100
+        }))
         .sort((a, b) => b.balance - a.balance);
 
     return {
