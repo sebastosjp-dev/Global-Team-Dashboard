@@ -634,8 +634,8 @@ function _renderDealLost(data, metricsGrid) {
  * resolution time, backlog aging, country/client/service breakdowns,
  * and a recent activity feed. Country filter handled via filterCountry.
  *
- * Hosts three sub-tabs: POC and End User (operational dashboards), and
- * CSM (a filterable task-log view, originally a top-level sidebar tab).
+ * Hosts two sub-tabs: End User (operational dashboard) and CSM
+ * (a filterable task-log view, originally a top-level sidebar tab).
  *
  * @param {Object[]} taskData
  * @param {string|null} filterCountry
@@ -643,9 +643,9 @@ function _renderDealLost(data, metricsGrid) {
  * @param {Object} workbookData - Full workbook (CSM sub-view reads TASK here)
  */
 function _renderTaskDashboard(taskData, filterCountry, metricsGrid, workbookData) {
-    window.taskFilters = window.taskFilters || { view: 'POC' };
-    if (!['POC', 'EndUser', 'CSM'].includes(window.taskFilters.view)) {
-        window.taskFilters.view = 'POC';
+    window.taskFilters = window.taskFilters || { view: 'EndUser' };
+    if (!['EndUser', 'CSM'].includes(window.taskFilters.view)) {
+        window.taskFilters.view = 'EndUser';
     }
 
     const tabBar = document.createElement('div');
@@ -662,7 +662,6 @@ function _renderTaskDashboard(taskData, filterCountry, metricsGrid, workbookData
 
     const renderTabBar = () => {
         const tabs = [
-            { key: 'POC', label: 'POC' },
             { key: 'EndUser', label: 'End User' },
             { key: 'CSM', label: 'CSM' }
         ];
