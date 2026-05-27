@@ -38,7 +38,7 @@ import {
     getQuarterlyForecastHTML, getCsmTasksByClientHTML,
     getCsmViewHTML, getTaskDashboardHTML
 } from './ui.js';
-import { loadKPIQuarterlyTargets } from './kpi.js';
+import { loadKPIQuarterlyTargets, renderKPISheetDashboard } from './kpi.js';
 
 /* ═══════════════════════════════════════════════════════════════
    Metrics Router
@@ -58,7 +58,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     let hasMetrics = false;
     const isGlobalTab = tabName && tabName.includes('Global(Contract Date)');
     const isCountryTab = tabName && filterCountry === null &&
-        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST', 'TASK'].includes(tabName) &&
+        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST', 'TASK', 'KPI'].includes(tabName) &&
         !isGlobalTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
@@ -122,6 +122,11 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'TASK' && workbookData['TASK']) {
         _renderTaskDashboard(workbookData['TASK'], filterCountry, metricsGrid, workbookData);
+        hasMetrics = true;
+    }
+
+    if (tabName === 'KPI') {
+        renderKPISheetDashboard(metricsGrid, workbookData['KPI'] || [], window.__rawSheets?.['KPI']);
         hasMetrics = true;
     }
 

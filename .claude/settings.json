@@ -29,10 +29,19 @@
       "Bash(curl -s http://localhost:8765/index.html -o /tmp/dashboard_index.html)",
       "Bash(pkill -f \"node.*8765\")",
       "PowerShell(Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force -ErrorAction Stop; \"Stopped PID $\\($_.OwningProcess\\)\" } catch { \"Could not stop $\\($_.OwningProcess\\)\" } })",
-      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe -e ' *)"
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe -e ' *)",
+      "Bash(cp views.js /tmp/views_check.mjs)",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe --check /tmp/views_check.mjs)",
+      "Bash(cp app.js /tmp/app_check.mjs)",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe --check /tmp/app_check.mjs)",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe /tmp/parser_test.mjs)",
+      "Bash(cp /tmp/parser_test.mjs \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\parser_test.mjs\")",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe parser_test.mjs)"
     ],
     "additionalDirectories": [
-      "C:\\Users\\LG\\Downloads\\global dashboard making"
+      "C:\\Users\\LG\\Downloads\\global dashboard making",
+      "\\tmp",
+      "c:\\tmp"
     ]
   }
 }

@@ -108,6 +108,8 @@ function processWorkbook(workbook) {
         const worksheet = workbook.Sheets[sheetName];
         workbookData[sheetName] = XLSX.utils.sheet_to_json(worksheet, { defval: "", cellDates: true });
     });
+    // Expose raw worksheets so views can re-parse non-tabular sheets (e.g. KPI)
+    window.__rawSheets = workbook.Sheets;
 
     dropZone.classList.remove('active');
     dashboardContainer.classList.add('active');
@@ -181,8 +183,15 @@ function renderTableData(searchTerm = "", filterCountry = null) {
 
     if (data.length === 0) {
         if (dataSection) dataSection.classList.add('hidden');
-        emptyState.classList.remove('hidden');
+        if (currentTab !== 'KPI') {
+            emptyState.classList.remove('hidden');
+            dataTable.classList.add('hidden');
+            return;
+        }
+        // KPI tab: data may be empty (non-tabular sheet) but we still want to render the dashboard
+        emptyState.classList.add('hidden');
         dataTable.classList.add('hidden');
+        renderTabMetrics([], currentTab, filterCountry, workbookData, searchInput);
         return;
     }
 
@@ -206,14 +215,14 @@ function renderTableData(searchTerm = "", filterCountry = null) {
         dataTable.classList.add('hidden');
     } else {
         if (dataSection) {
-            if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK') {
+            if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK' || currentTab === 'KPI') {
                 dataSection.classList.add('hidden');
             } else {
                 dataSection.classList.remove('hidden');
             }
         }
         emptyState.classList.add('hidden');
-        if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK') {
+        if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK' || currentTab === 'KPI') {
             dataTable.classList.add('hidden');
         } else {
             dataTable.classList.remove('hidden');

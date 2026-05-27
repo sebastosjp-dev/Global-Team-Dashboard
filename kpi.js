@@ -114,8 +114,181 @@ function getMergedData() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Server API Calls
+   KPI Sheet Parser — reads BSC structure from a raw worksheet
    ═══════════════════════════════════════════════════════════════ */
+
+const CAT_COLORS = {
+    'FINANCIAL': '#8b5cf6',
+    'CUSTOMER': '#f59e0b',
+    'INTERNAL PROCESS': '#3b82f6',
+    'INTERNAL PROCESSES': '#3b82f6',
+    'LEARNING & GROWTH': '#22c55e',
+    'LEARNING AND GROWTH': '#22c55e'
+};
+
+function isCategoryName(s) {
+    const u = String(s || '').trim().toUpperCase();
+    if (!u) return false;
+    return /^(FINANCIAL|CUSTOMER|INTERNAL\s+PROCESS(ES)?|LEARNING\s*(&|AND)\s*GROWTH)$/.test(u);
+}
+
+function normalizeCategoryName(s) {
+    const u = String(s || '').trim().toUpperCase();
+    if (/^INTERNAL\s+PROCESS(ES)?$/.test(u)) return 'INTERNAL PROCESSES';
+    if (/^LEARNING\s*(&|AND)\s*GROWTH$/.test(u)) return 'LEARNING & GROWTH';
+    return u;
+}
+
+function toNum(v) {
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'number') return v;
+    const n = parseFloat(String(v).replace(/[,$\s%]/g, ''));
+    return isNaN(n) ? 0 : n;
+}
+
+function toPct(v) {
+    if (typeof v === 'number') return v <= 1.0001 ? Math.round(v * 100) : Math.round(v);
+    if (!v) return 0;
+    const s = String(v).replace(/[%\s]/g, '');
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : Math.round(n);
+}
+
+/**
+ * Parse a raw KPI worksheet (SheetJS sheet object) into our BSC structure.
+ * Returns null when the sheet doesn't look like a Balanced Scorecard.
+ */
+function parseKPISheet(rawSheet) {
+    if (!rawSheet || typeof XLSX === 'undefined') return null;
+    const rows = XLSX.utils.sheet_to_json(rawSheet, { header: 1, defval: '', cellDates: false });
+    if (!rows.length) return null;
+
+    // 1) Locate header row containing "STRATEGIC OBJECTIVES" and column layout
+    let headerRow = -1, colCat = -1, colObj = -1, colKPI = -1, colWeight = -1;
+    for (let r = 0; r < Math.min(rows.length, 30); r++) {
+        const row = rows[r];
+        for (let c = 0; c < row.length; c++) {
+            const v = String(row[c] || '').trim();
+            if (/strategic\s+objective/i.test(v)) { headerRow = r; colObj = c; }
+            if (/key\s+performance\s+indicator/i.test(v)) colKPI = c;
+            if (/^weight$/i.test(v)) colWeight = c;
+        }
+        if (headerRow === r && colObj >= 0) break;
+    }
+    if (headerRow < 0 || colObj < 0 || colKPI < 0) return null;
+    colCat = Math.max(0, colObj - 1);
+
+    // 2) Locate Q1 column (the row right after the header that has Q1)
+    let colQ1 = -1, qHeaderRow = -1;
+    for (let r = headerRow; r <= Math.min(headerRow + 2, rows.length - 1); r++) {
+        const row = rows[r];
+        for (let c = 0; c < row.length; c++) {
+            if (/^q1$/i.test(String(row[c] || '').trim())) { colQ1 = c; qHeaderRow = r; break; }
+        }
+        if (colQ1 >= 0) break;
+    }
+    if (colQ1 < 0) return null;
+
+    // 3) Walk data rows. Each objective spans 2 rows: target row + achievement row
+    const categories = [];
+    let currentCat = null;
+    let currentObj = null;
+    let achTotals = null; // [q1..q4] aggregated achievements for current objective
+
+    const startRow = qHeaderRow + 1;
+    for (let r = startRow; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row.some(v => v !== '' && v !== null && v !== undefined)) continue;
+
+        const catCellRaw = String(row[colCat] || '').trim();
+        const objCell = String(row[colObj] || '').trim();
+        const kpiCell = String(row[colKPI] || '').trim();
+        const q = [colQ1, colQ1 + 1, colQ1 + 2, colQ1 + 3].map(c => toNum(row[c]));
+
+        const isAchRow = /^achievement$/i.test(objCell) || /^achievement$/i.test(kpiCell);
+
+        // Category transition
+        if (isCategoryName(catCellRaw)) {
+            const norm = normalizeCategoryName(catCellRaw);
+            if (!currentCat || currentCat.name !== norm) {
+                currentCat = {
+                    name: norm,
+                    color: CAT_COLORS[norm] || '#6366f1',
+                    objectives: []
+                };
+                categories.push(currentCat);
+            }
+        }
+
+        if (isAchRow) {
+            if (currentObj) {
+                achTotals = q;
+                // Stash achievements onto subItems[0] so getMergedData can find them
+                currentObj.subItems = [
+                    { name: 'Sheet', achievements: q },
+                    { name: '', achievements: [0, 0, 0, 0] },
+                    { name: '', achievements: [0, 0, 0, 0] }
+                ];
+                currentObj.__sheetAch = q.slice();
+            }
+            continue;
+        }
+
+        // Target row — must have a non-empty objective name
+        if (objCell && objCell.length > 0) {
+            const w = colWeight >= 0 ? toPct(row[colWeight]) : 0;
+            currentObj = {
+                name: objCell,
+                kpis: kpiCell,
+                targets: q,
+                weight: w,
+                subItems: [
+                    { name: '', achievements: [0, 0, 0, 0] },
+                    { name: '', achievements: [0, 0, 0, 0] },
+                    { name: '', achievements: [0, 0, 0, 0] }
+                ]
+            };
+            if (!currentCat) {
+                currentCat = { name: 'UNCATEGORIZED', color: '#6366f1', objectives: [] };
+                categories.push(currentCat);
+            }
+            currentCat.objectives.push(currentObj);
+        }
+    }
+
+    if (!categories.length || categories.every(c => !c.objectives.length)) return null;
+    return { categories };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Inline KPI dashboard renderer (called from views.js for the 'KPI' sheet tab)
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Render the KPI BSC dashboard directly into a container, using sheet data
+ * when available and falling back to the saved structure otherwise.
+ *
+ * @param {HTMLElement} container - usually #tab-metrics-grid
+ * @param {Object[]} sheetRows - workbookData['KPI'] (unused except as a presence signal)
+ * @param {Object} [rawSheet] - raw SheetJS worksheet for header:1 reparse
+ */
+export function renderKPISheetDashboard(container, sheetRows, rawSheet) {
+    if (!container) return;
+
+    const parsed = parseKPISheet(rawSheet);
+    const data = parsed || kpiStructure || JSON.parse(JSON.stringify(DEFAULT_STRUCTURE));
+
+    const year = currentKPIYear || new Date().getFullYear();
+    container.innerHTML = `
+        ${parsed ? '' : `
+            <div style="margin-bottom:14px; padding:10px 14px; background:#FEF3C7; border:1px solid #FCD34D; border-radius:10px; color:#92400E; font-size:0.82rem; font-weight:600;">
+                <i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;"></i>
+                Could not parse the KPI sheet — showing default Balanced Scorecard structure.
+            </div>
+        `}
+        ${getKPIDashboardHTML(data, year, true, 'admin', [])}
+    `;
+}
 
 /**
  * BSC quarterly target baseline — used as a fallback when the KPI tab hasn't
