@@ -2125,76 +2125,112 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
 }
 
 /**
- * Generate HTML for the COLLECTION category dashboard
- * @param {Object} stats - Basic statistics
- * @param {Object} detailedStats - Detailed analysis (rows and summary)
- * @param {boolean} showOnlyUnpaid - Whether to filter for balance > 0
+ * Generate HTML for the COLLECTION category dashboard.
+ * Driven directly off the new COLLECTION sheet columns
+ * (KOR TCV After TAX, Total Collected, Outstanding, Payment Status, …).
+ *
+ * @param {Object} stats - Stats from getCollectionStats
+ * @param {boolean} showOnlyUnpaid - Filter table to outstanding > 0
  */
-export function getCollectionHTML(stats, detailedStats, showOnlyUnpaid = false) {
-    const currentYear = new Date().getFullYear();
-    const totalCollectionRate = stats.globalTotalTcv > 0
-        ? Math.round((stats.globalTotalReceived / stats.globalTotalTcv) * 100)
+export function getCollectionHTML(stats, showOnlyUnpaid = false) {
+    const collectionRate = stats.globalTotalKtcvNet > 0
+        ? Math.round((stats.globalTotalCollected / stats.globalTotalKtcvNet) * 100)
         : 0;
 
+    const STATUS_STYLE = {
+        'Completed': { bg: '#ecfdf5', border: '#a7f3d0', fg: '#047857' },
+        'Upcoming':  { bg: '#fffbeb', border: '#fde68a', fg: '#b45309' },
+        'On Track':  { bg: '#eff6ff', border: '#bfdbfe', fg: '#1d4ed8' },
+        'Overdue':   { bg: '#fef2f2', border: '#fecaca', fg: '#b91c1c' },
+        '—':         { bg: '#F9FAFB', border: '#E5E7EB', fg: '#6B7280' }
+    };
+    const statusPill = (s) => {
+        const sty = STATUS_STYLE[s] || STATUS_STYLE['—'];
+        return `<span style="background:${sty.bg}; border:1px solid ${sty.border}; color:${sty.fg}; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700; white-space:nowrap;">${s}</span>`;
+    };
+
+    const displayRows = showOnlyUnpaid
+        ? stats.rows.filter(r => r.outstanding > 0)
+        : stats.rows;
+
+    const statusCardChip = (label) => {
+        const sty = STATUS_STYLE[label];
+        const amt = stats.byStatusAmount[label] || 0;
+        const cnt = stats.byStatusCount[label] || 0;
+        return `
+            <div style="flex:1; min-width:130px; background:${sty.bg}; border:1px solid ${sty.border}; border-radius:10px; padding:10px 12px;">
+                <div style="font-size:0.62rem; color:${sty.fg}; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${label}</div>
+                <div style="font-size:1rem; font-weight:800; color:#111827; line-height:1.2; margin-top:2px;">$${formatCurrency(amt)}</div>
+                <div style="font-size:0.62rem; color:#9CA3AF; margin-top:2px;">${cnt} row${cnt === 1 ? '' : 's'}</div>
+            </div>`;
+    };
+
     return `
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
             <div class="stat-card" style="border-left: 4px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#64748b; font-size:0.75rem; font-weight:700;">ACCUMULATED KTCV</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalTcv)}</h2>
+                <h3 style="color:#64748b; font-size:0.75rem; font-weight:700;">ACCUMULATED KTCV (AFTER TAX)</h3>
+                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalKtcvNet)}</h2>
+                <div style="font-size: 0.7rem; color: #94a3b8;">Net of 15% withholding tax</div>
             </div>
             <div class="stat-card" style="border-left: 4px solid #8b5cf6; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#8b5cf6; font-size:0.75rem; font-weight:700;">ACCUMULATED KTCV RECEIVED</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalReceived)}</h2>
-                <div style="font-size: 0.7rem; color: #94a3b8;">Total Progress: ${totalCollectionRate}% of TCV</div>
+                <h3 style="color:#8b5cf6; font-size:0.75rem; font-weight:700;">TOTAL COLLECTED</h3>
+                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalCollected)}</h2>
+                <div style="font-size: 0.7rem; color: #94a3b8;">Collection Rate: ${collectionRate}% of net KTCV</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #ef4444; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
+                <h3 style="color:#ef4444; font-size:0.75rem; font-weight:700;">OUTSTANDING</h3>
+                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalOutstanding)}</h2>
+                <div style="font-size: 0.7rem; color: #94a3b8;">Sum of Outstanding column</div>
             </div>
         </div>
 
         <div class="stat-card" style="background:#FFF; padding: 16px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: stretch;">
-            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-chart-line" style="color: #6366f1;"></i> Yearly Collection Performance Graph
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-chart-column" style="color: #6366f1;"></i> Collected by Payment Status
             </h3>
-            <div style="height: 280px; position: relative;"><canvas id="collection-performance-chart"></canvas></div>
-            <!-- Container for Year Specific Detail List -->
-            <div id="collection-year-detail-container" style="margin-top: 20px; display: none;"></div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+                ${['Completed', 'Upcoming', 'On Track', 'Overdue'].map(statusCardChip).join('')}
+            </div>
+            <div style="height: 280px; position: relative;"><canvas id="collection-status-chart"></canvas></div>
         </div>
 
         <div class="stat-card" style="background:#FFF; padding: 16px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: stretch;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #6366f1; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-list-check"></i> Collection Fulfillment Status (by Contract Start)
+                    <i class="fa-solid fa-list-check"></i> Collection Detail (by Payment Status)
                 </h3>
                 <button id="collection-unpaid-toggle" style="background: ${showOnlyUnpaid ? '#ef4444' : '#6366f1'}; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                     <i class="fa-solid ${showOnlyUnpaid ? 'fa-filter-circle-xmark' : 'fa-filter'}"></i>
-                    ${showOnlyUnpaid ? 'Show All Items' : 'Show Only Unpaid (Balance > 0)'}
+                    ${showOnlyUnpaid ? 'Show All Items' : 'Show Only Outstanding (> 0)'}
                 </button>
             </div>
             <div style="overflow-x: auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
                     <thead>
                         <tr style="background:#F8FAFC; text-align:left; border-bottom: 1px solid #E2E8F0;">
-                            <th style="padding:10px; color:#475569; font-weight:700;">Start</th>
                             <th style="padding:10px; color:#475569; font-weight:700;">Distributor</th>
                             <th style="padding:10px; color:#475569; font-weight:700;">End User</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">Yr</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">${currentYear - 2}</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">${currentYear - 1}</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">${currentYear}</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">TCV</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">Balance</th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">KOR TCV (Net)</th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Total Collected</th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Outstanding</th>
+                            <th style="padding:10px; color:#475569; font-weight:700;">Last Payment</th>
+                            <th style="padding:10px; color:#475569; font-weight:700;">Next Due</th>
+                            <th style="padding:10px; color:#475569; font-weight:700;">Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${detailedStats.rows.map(r => `
+                        ${displayRows.length === 0 ? `
+                            <tr><td colspan="8" style="padding:20px; text-align:center; color:#94a3b8;">No rows to display.</td></tr>
+                        ` : displayRows.map(r => `
                             <tr style="border-bottom: 1px solid #F1F5F9;">
-                                <td style="padding:6px 10px; font-family: monospace; white-space: nowrap;">${r.contractStartDateStr}</td>
                                 <td style="padding:6px 10px; font-weight:600;">${r.distributor}</td>
                                 <td style="padding:6px 10px;">${r.endUser}</td>
-                                <td style="padding:6px 10px; text-align:center;">${r.contractYr}</td>
-                                <td style="padding:6px 10px; font-weight:700; color: ${r['status' + (currentYear - 2)].includes('✅') ? '#10b981' : (r['status' + (currentYear - 2)].includes('❌') ? '#ef4444' : '#94a3b8')}">${r['status' + (currentYear - 2)]}</td>
-                                <td style="padding:6px 10px; font-weight:700; color: ${r['status' + (currentYear - 1)].includes('✅') ? '#10b981' : (r['status' + (currentYear - 1)].includes('❌') ? '#ef4444' : '#94a3b8')}">${r['status' + (currentYear - 1)]}</td>
-                                <td style="padding:6px 10px; font-weight:700; color: ${r['status' + currentYear].includes('✅') ? '#10b981' : (r['status' + currentYear].includes('❌') ? '#ef4444' : '#94a3b8')}">${r['status' + currentYear]}</td>
-                                <td style="padding:6px 10px; font-weight:700; color:#1e293b;">$${formatCurrency(r.totalTcv)}</td>
-                                <td style="padding:6px 10px; font-weight:800; color: ${r.balance > 0 ? '#ef4444' : '#10b981'};">$${formatCurrency(r.balance)}</td>
+                                <td style="padding:6px 10px; font-weight:700; color:#1e293b; text-align:right;">$${formatCurrency(r.ktcvNet)}</td>
+                                <td style="padding:6px 10px; font-weight:700; color:#8b5cf6; text-align:right;">$${formatCurrency(r.collected)}</td>
+                                <td style="padding:6px 10px; font-weight:800; color: ${r.outstanding > 0 ? '#ef4444' : '#10b981'}; text-align:right;">$${formatCurrency(r.outstanding)}</td>
+                                <td style="padding:6px 10px; font-family: monospace; white-space: nowrap; color:#64748b;">${r.lastPaymentDateStr || '—'}</td>
+                                <td style="padding:6px 10px; font-family: monospace; white-space: nowrap; color:#64748b;">${r.nextDueDateStr || '—'}</td>
+                                <td style="padding:6px 10px;">${statusPill(r.status)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -2202,30 +2238,35 @@ export function getCollectionHTML(stats, detailedStats, showOnlyUnpaid = false) 
             </div>
         </div>
 
-        <div class="stat-card" style="background:#FFF; padding: 16px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; max-width: 820px; display: flex; flex-direction: column; align-items: stretch;">
+        <div class="stat-card" style="background:#FFF; padding: 16px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; display: flex; flex-direction: column; align-items: stretch;">
             <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 4px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-calculator"></i> Total Balance by Distributor (Descending)
+                <i class="fa-solid fa-calculator"></i> Total Collected by Distributor (Descending)
             </h3>
             <p style="margin: 0 0 12px 0; font-size: 0.72rem; color: #94a3b8;">
-                Total balance split into amount due through ${currentYear} (current period) and amount expected in later contract years (future projected).
+                Current Period Due = sum of Total Collected where Payment Status = Upcoming.
+                Future Projected = sum of Total Collected where Payment Status = On Track.
             </p>
             <div style="overflow-x: auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
                     <thead>
                         <tr style="background:#F8FAFC; text-align:left; border-bottom: 1px solid #E2E8F0;">
                             <th style="padding:10px; color:#475569; font-weight:700;">Distributor</th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Current Period Due<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(through ${currentYear})</span></th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Future Projected<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(after ${currentYear})</span></th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Total Balance</th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Total Collected</th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Current Period Due<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(Upcoming)</span></th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Future Projected<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(On Track)</span></th>
+                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Outstanding</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${detailedStats.summary.map(s => `
+                        ${stats.distributorSummary.length === 0 ? `
+                            <tr><td colspan="5" style="padding:20px; text-align:center; color:#94a3b8;">No distributor data.</td></tr>
+                        ` : stats.distributorSummary.map(s => `
                             <tr style="border-bottom: 1px solid #F1F5F9;">
                                 <td style="padding:8px 10px; font-weight:600;">${s.name}</td>
-                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.currentPeriodDue > 0 ? '#ef4444' : '#94a3b8'};">$${formatCurrency(s.currentPeriodDue)}</td>
-                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.futureProjected > 0 ? '#6366f1' : '#94a3b8'};">$${formatCurrency(s.futureProjected)}</td>
-                                <td style="padding:8px 10px; font-weight:800; text-align:right; color: ${s.balance > 0 ? '#ef4444' : '#10b981'};">$${formatCurrency(s.balance)}</td>
+                                <td style="padding:8px 10px; font-weight:800; text-align:right; color:#8b5cf6;">$${formatCurrency(s.totalCollected)}</td>
+                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.currentPeriodDue > 0 ? '#b45309' : '#94a3b8'};">$${formatCurrency(s.currentPeriodDue)}</td>
+                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.futureProjected > 0 ? '#1d4ed8' : '#94a3b8'};">$${formatCurrency(s.futureProjected)}</td>
+                                <td style="padding:8px 10px; font-weight:800; text-align:right; color: ${s.outstanding > 0 ? '#ef4444' : '#10b981'};">$${formatCurrency(s.outstanding)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -2236,45 +2277,191 @@ export function getCollectionHTML(stats, detailedStats, showOnlyUnpaid = false) 
 }
 
 /**
- * 특정 연도 클릭 시 대리점별 상세 목표 리스트 생성
+ * Render the Collection Change Log for a scope (country or "ALL"). Mirrors the
+ * Pipeline change log shape but tracks row-level fields specific to the
+ * COLLECTION sheet (Total Collected, Outstanding, Payment Status, Next Due).
+ *
+ * @param {string} scope - filter country or 'ALL'
+ * @param {Array} history - newest-last array of snapshots
+ * @param {Array} rowDiffs - same length as oldest-first sorted history; entries
+ *   are null for the initial snapshot, otherwise `{ added, removed, modified }`
+ * @returns {string} HTML
  */
-window.renderCollectionYearDetail = function (year, distributorData) {
-    const container = document.getElementById('collection-year-detail-container');
-    if (!container) return;
-
-    const sortedDistributors = Object.entries(distributorData).sort((a, b) => b[1] - a[1]);
-    const totalAmount = sortedDistributors.reduce((acc, curr) => acc + curr[1], 0);
-
-    let rowsHtml = sortedDistributors.map(([name, amount]) => `
-        <tr style="border-bottom: 1px solid #F1F5F9;">
-            <td style="padding: 10px; font-weight: 600; color: #1e293b;">${name}</td>
-            <td style="padding: 10px; text-align: right; color: #6366f1; font-weight: 700;">$${formatCurrency(amount)}</td>
-        </tr>
-    `).join('');
-
-    container.innerHTML = `
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; animation: fadeIn 0.3s ease-out;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #E2E8F0; padding-bottom: 8px;">
-                <h4 style="margin: 0; font-size: 0.95rem; color: #1e293b; font-weight: 800;">
-                    <i class="fa-solid fa-calendar-day" style="color: #6366f1; margin-right: 6px;"></i> ${year} Collection Target Breakdown
-                </h4>
-                <span style="font-size: 0.85rem; font-weight: 800; color: #6366f1;">Total: $${formatCurrency(totalAmount)}</span>
+export function getCollectionChangeLogHTML(scope, history, rowDiffs = []) {
+    const headerLeft = `
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div class="stat-icon" style="width:36px; height:36px; font-size:1rem; background:rgba(99,102,241,0.15); color:#6366f1; border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <div>
+                <h3 style="margin:0; font-size:0.72rem; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">COLLECTION CHANGE LOG</h3>
+                <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827;">${scope} — historical snapshots</h2>
             </div>
-            <div style="max-height: 300px; overflow-y: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
-                    <thead>
-                        <tr style="text-align: left; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">
-                            <th style="padding: 8px 10px;">Distributor</th>
-                            <th style="padding: 8px 10px; text-align: right;">Target Amount (ARR)</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
+        </div>`;
+
+    if (!history || history.length === 0) {
+        return `
+        <div style="padding:22px; background:#FFFFFF; border:1px solid #ddd6fe; border-radius:14px; box-shadow:0 2px 10px rgba(99,102,241,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; border-bottom:1px solid #ede9fe; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
+                ${headerLeft}
+            </div>
+            <p style="color:#6B7280; font-size:0.8rem; margin:0;">No snapshots yet. The first snapshot will be recorded automatically the next time the COLLECTION sheet for ${scope} changes.</p>
+        </div>`;
+    }
+
+    const oldestFirst = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const initial = oldestFirst[0];
+    const latest = oldestFirst[oldestFirst.length - 1];
+
+    const fmtDateLong = (d) => new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+    const statusPills = ['Completed', 'Upcoming', 'On Track', 'Overdue'].map(s => {
+        const v = initial.byStatusAmount?.[s] || 0;
+        const c = initial.byStatusCount?.[s] || 0;
+        return `<span style="background:#fff; border:1px solid #ddd6fe; padding:3px 8px; border-radius:6px; font-size:0.65rem; color:#4338ca; font-weight:600;">${s} <span style="color:#111827; font-weight:700;">$${formatCurrency(v)}</span> <span style="color:#9CA3AF;">·${c}</span></span>`;
+    }).join('');
+
+    const baselineStrip = `
+        <div style="display:flex; align-items:center; gap:14px; padding:10px 14px; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:10px; margin-bottom:14px; flex-wrap:wrap;">
+            <span style="background:#4338ca; color:#fff; font-size:0.6rem; font-weight:800; padding:3px 8px; border-radius:6px; letter-spacing:0.05em; white-space:nowrap;"><i class="fa-solid fa-flag" style="margin-right:4px;"></i>INITIAL BASELINE</span>
+            <span style="font-size:0.7rem; color:#6B7280; white-space:nowrap;">${fmtDateLong(initial.date)}</span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Collected <strong style="color:#8b5cf6;">$${formatCurrency(initial.totalCollected || 0)}</strong></span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Outstanding <strong style="color:#ef4444;">$${formatCurrency(initial.totalOutstanding || 0)}</strong></span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">KTCV (Net) <strong style="color:#111827;">$${formatCurrency(initial.ktcvNet || 0)}</strong></span>
+            <span style="display:flex; gap:5px; flex-wrap:wrap; margin-left:auto;">${statusPills}</span>
+        </div>`;
+
+    const changeEvents = [];
+    for (let i = 1; i < oldestFirst.length; i++) {
+        const before = oldestFirst[i - 1];
+        const after = oldestFirst[i];
+        const diff = rowDiffs[i] || { added: [], removed: [], modified: [] };
+        changeEvents.push({ before, after, diff });
+    }
+    changeEvents.reverse();
+
+    const STATUS_COLOR = {
+        'Completed': '#10b981',
+        'Upcoming':  '#f59e0b',
+        'On Track':  '#3b82f6',
+        'Overdue':   '#ef4444'
+    };
+    const statusBadge = (s) => `<span style="background:#fff; border:1px solid #E5E7EB; color:${STATUS_COLOR[s] || '#6B7280'}; font-weight:700; font-size:0.62rem; padding:1px 6px; border-radius:5px;">${s}</span>`;
+
+    const renderRowChip = (mode, row, beforeRow) => {
+        const bg = mode === 'added' ? '#F0FDF4' : (mode === 'removed' ? '#FEF2F2' : '#FFFBEB');
+        const border = mode === 'added' ? '#bbf7d0' : (mode === 'removed' ? '#fecaca' : '#fde68a');
+        const tagBg = mode === 'added' ? '#10b981' : (mode === 'removed' ? '#ef4444' : '#f59e0b');
+        const tagText = mode === 'added' ? 'NEW' : (mode === 'removed' ? 'GONE' : 'CHG');
+        const label = `${row.distributor} — ${row.endUser}`;
+        let body;
+        if (mode === 'modified') {
+            const parts = [];
+            if ((beforeRow.collected || 0) !== (row.collected || 0)) {
+                const d = (row.collected || 0) - (beforeRow.collected || 0);
+                const ar = d > 0 ? '▲' : '▼'; const cl = d > 0 ? '#10b981' : '#ef4444';
+                parts.push(`<span style="color:#9CA3AF;">Coll $${formatCurrency(beforeRow.collected || 0)} →</span> <span style="font-weight:700;">$${formatCurrency(row.collected || 0)}</span> <span style="color:${cl}; font-weight:800;">${ar} $${formatCurrency(Math.abs(d))}</span>`);
+            }
+            if ((beforeRow.outstanding || 0) !== (row.outstanding || 0)) {
+                const d = (row.outstanding || 0) - (beforeRow.outstanding || 0);
+                const ar = d > 0 ? '▲' : '▼'; const cl = d > 0 ? '#ef4444' : '#10b981';
+                parts.push(`<span style="color:#9CA3AF;">Outs $${formatCurrency(beforeRow.outstanding || 0)} →</span> <span style="font-weight:700;">$${formatCurrency(row.outstanding || 0)}</span> <span style="color:${cl}; font-weight:800;">${ar} $${formatCurrency(Math.abs(d))}</span>`);
+            }
+            if ((beforeRow.status || '') !== (row.status || '')) {
+                parts.push(`${statusBadge(beforeRow.status || '—')} <span style="color:#7c3aed; font-weight:700;">→</span> ${statusBadge(row.status || '—')}`);
+            }
+            if ((beforeRow.nextDue || '') !== (row.nextDue || '')) {
+                parts.push(`<span style="color:#9CA3AF; font-family:monospace; font-size:0.65rem;">Due ${beforeRow.nextDue || '—'} → ${row.nextDue || '—'}</span>`);
+            }
+            body = parts.join(' · ');
+        } else {
+            body = `${statusBadge(row.status || '—')} <span style="font-weight:700;">$${formatCurrency(row.collected || 0)}</span> <span style="color:#9CA3AF; font-size:0.62rem;">outs $${formatCurrency(row.outstanding || 0)}</span>`;
+        }
+        return `<span style="display:inline-flex; align-items:center; gap:6px; background:${bg}; border:1px solid ${border}; padding:5px 9px; border-radius:8px; font-size:0.7rem; line-height:1.3; max-width:100%;">
+            <span style="background:${tagBg}; color:#fff; font-size:0.55rem; font-weight:800; padding:1px 5px; border-radius:4px; letter-spacing:0.04em;">${tagText}</span>
+            <span style="color:#111827; font-weight:600; max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${label.replace(/"/g, '&quot;')}">${label}</span>
+            ${body}
+        </span>`;
+    };
+
+    const secondaryChip = (label, color, before, after) => {
+        const d = (after || 0) - (before || 0);
+        if (Math.abs(d) < 1) return '';
+        const arrow = d > 0 ? '▲' : '▼';
+        const sign = d > 0 ? '+' : '−';
+        const c = d > 0 ? '#10b981' : '#ef4444';
+        return `<span style="display:inline-flex; align-items:center; gap:5px; background:#F9FAFB; border:1px solid #E5E7EB; padding:3px 8px; border-radius:6px; font-size:0.66rem;">
+            <span style="color:${color}; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;">${label}</span>
+            <span style="color:#111827; font-weight:700;">$${formatCurrency(after)}</span>
+            <span style="color:${c}; font-weight:800;">${arrow} ${sign}$${formatCurrency(Math.abs(d))}</span>
+        </span>`;
+    };
+
+    let changeListHTML;
+    if (changeEvents.length === 0) {
+        changeListHTML = `<div style="padding:18px; text-align:center; font-size:0.78rem; color:#9CA3AF; font-style:italic; background:#FAFAFA; border:1px dashed #E5E7EB; border-radius:10px;">No changes recorded yet — the baseline above is the only snapshot so far.</div>`;
+    } else {
+        changeListHTML = changeEvents.map(ev => {
+            const dColl = (ev.after.totalCollected || 0) - (ev.before.totalCollected || 0);
+            const arrow = dColl > 0 ? '▲' : (dColl < 0 ? '▼' : '–');
+            const color = dColl > 0 ? '#10b981' : (dColl < 0 ? '#ef4444' : '#6B7280');
+            const sign = dColl > 0 ? '+' : (dColl < 0 ? '−' : '');
+            const accentBg = dColl < 0 ? '#FEF2F2' : (dColl > 0 ? '#F0FDF4' : '#F9FAFB');
+            const accentBorder = dColl < 0 ? '#fecaca' : (dColl > 0 ? '#bbf7d0' : '#E5E7EB');
+
+            const diff = ev.diff || { added: [], removed: [], modified: [] };
+            const totalRowChanges = diff.added.length + diff.removed.length + diff.modified.length;
+            const rowSection = totalRowChanges === 0 ? '' : `
+                <div>
+                    <div style="font-size:0.62rem; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;"><i class="fa-solid fa-list-check" style="margin-right:4px;"></i>Row-level changes (${totalRowChanges} — ${diff.removed.length} removed · ${diff.added.length} added · ${diff.modified.length} modified)</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        ${diff.removed.map(r => renderRowChip('removed', r)).join('')}
+                        ${diff.added.map(r => renderRowChip('added', r)).join('')}
+                        ${diff.modified.map(m => renderRowChip('modified', m.after, m.before)).join('')}
+                    </div>
+                </div>`;
+
+            const secondaryChips = [
+                secondaryChip('Outstanding', '#ef4444', ev.before.totalOutstanding, ev.after.totalOutstanding),
+                secondaryChip('KTCV Net', '#6366f1', ev.before.ktcvNet, ev.after.ktcvNet)
+            ].filter(Boolean).join(' ');
+
+            return `
+            <div style="display:grid; grid-template-columns: minmax(220px, 260px) 1fr; gap:0; border:1px solid ${accentBorder}; border-radius:12px; overflow:hidden; background:#fff;">
+                <div style="padding:14px 16px; background:${accentBg}; border-right:1px solid ${accentBorder}; display:flex; flex-direction:column; gap:4px;">
+                    <div style="font-size:0.68rem; color:#6B7280; font-weight:600;">${fmtDateLong(ev.after.date)}</div>
+                    <div style="font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-top:6px;">Total Collected</div>
+                    <div style="font-size:0.72rem; color:#9CA3AF;">$${formatCurrency(ev.before.totalCollected || 0)} →</div>
+                    <div style="font-size:1.15rem; color:#111827; font-weight:800; line-height:1.1;">$${formatCurrency(ev.after.totalCollected || 0)}</div>
+                    <div style="font-size:0.95rem; color:${color}; font-weight:800; margin-top:2px;">${arrow} ${sign}$${formatCurrency(Math.abs(dColl))}</div>
+                </div>
+                <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+                    ${rowSection || `<div style="font-size:0.72rem; color:#9CA3AF; font-style:italic;">Totals shifted but no row-level diff captured.</div>`}
+                    ${secondaryChips ? `
+                    <div>
+                        <div style="font-size:0.62rem; color:#6B7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Other metrics that moved</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">${secondaryChips}</div>
+                    </div>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    return `
+        <div style="padding:22px; background:#FFFFFF; border:1px solid #ddd6fe; border-radius:14px; box-shadow:0 2px 10px rgba(99,102,241,0.05);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; border-bottom:1px solid #ede9fe; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
+                ${headerLeft}
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:0.7rem; color:#6B7280;">${history.length} snapshot${history.length === 1 ? '' : 's'} · ${changeEvents.length} change${changeEvents.length === 1 ? '' : 's'}</span>
+                    <button id="collection-changelog-reset" style="background:#fff; border:1px solid #E5E7EB; color:#6B7280; padding:6px 10px; border-radius:8px; font-size:0.7rem; cursor:pointer; font-weight:600;"><i class="fa-solid fa-trash" style="margin-right:4px;"></i>Clear Log</button>
+                </div>
+            </div>
+            ${baselineStrip}
+            <div style="display:flex; flex-direction:column; gap:10px;">${changeListHTML}</div>
+            <div style="margin-top:12px; padding:8px 12px; background:#f5f3ff; border:1px solid #ede9fe; border-radius:8px; font-size:0.68rem; color:#4338ca;">
+                <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>A new snapshot is recorded automatically whenever any row in the COLLECTION sheet changes. Stored locally in this browser.
             </div>
         </div>
     `;
-    container.style.display = 'block';
-};
+}
 
 export function getPartnerHTML(stats, filterCountry, tabName) {
     const displayCountries = CONFIG.COUNTRIES.filter(c => (!filterCountry || filterCountry === 'All') || c === filterCountry);

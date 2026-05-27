@@ -7,7 +7,16 @@
       "Bash(\"./node_portable/node-v20.11.1-win-x64/node.exe\" --check _check.mjs)",
       "Bash(echo \"exit=$?\")",
       "Bash(rm _check.mjs)",
-      "Bash(cp views.js _check.mjs)"
+      "Bash(cp views.js _check.mjs)",
+      "Bash(ls \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\_xlsx_extract\" 2>nul | head -20)",
+      "Bash(ls \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\_xlsx_extract\\\\xl\\\\worksheets\" 2>nul)",
+      "Bash(ls \"c:/Users/LG/Downloads/global dashboard making/\" *.xlsx 2>nul)",
+      "Bash(node -e \"import\\('./services.js'\\).then\\(m=>console.log\\('services OK, has:', Object.keys\\(m\\).filter\\(k=>k.includes\\('Coll'\\)\\)\\)\\).catch\\(e=>console.error\\('FAIL:',e.message\\)\\)\" --input-type=module)",
+      "PowerShell($node = \"node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; Copy-Item services.js services.mjs -Force; & $node --check services.mjs 2>&1 | Select-Object -First 5; Remove-Item services.mjs -Force)",
+      "PowerShell($node = \"node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; foreach \\($f in @\\('ui.js','views.js'\\)\\) { Copy-Item $f \"$f.mjs\" -Force; Write-Host \"=== $f ===\"; & $node --check \"$f.mjs\" 2>&1 | Select-Object -First 5; Remove-Item \"$f.mjs\" -Force })"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\LG\\Downloads\\global dashboard making"
     ]
   }
 }

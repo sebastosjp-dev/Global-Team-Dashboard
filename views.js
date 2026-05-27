@@ -17,7 +17,7 @@ import {
     getGenericCountryStats, getExpiringContractsStats,
     getPartnerPerformanceStats, getPocStats, getEventStats,
     getCountrySpecificStats, getServiceAnalysisStats,
-    getCollectionStats, getDetailedCollectionAnalysis,
+    getCollectionStats,
     getTcvArrStats, getChurnRiskStats,
     getPartnerROIStats, getPipelineCoverageStats,
     getProjectStats, getDealLostStats,
@@ -33,6 +33,7 @@ import {
     getTcvArrHTML, getChurnRiskHTML,
     getPartnerROIHTML, getPipelineCoverageHTML,
     getPipelineChangeLogHTML, getCurrentPipelineListHTML,
+    getCollectionChangeLogHTML,
     getProjectHTML, getDealLostHTML,
     getQuarterlyForecastHTML, getCsmTasksByClientHTML,
     getCsmViewHTML, getTaskDashboardHTML
@@ -738,7 +739,6 @@ function _renderEvent(eventData, filterCountry, metricsGrid) {
 function _renderCollection(data, filterCountry, metricsGrid) {
     const stats = getCollectionStats(data);
 
-    // 필터 상태 유지 (세션)
     if (window.collectionShowUnpaid === undefined) window.collectionShowUnpaid = false;
 
     const container = document.createElement('div');
@@ -746,55 +746,50 @@ function _renderCollection(data, filterCountry, metricsGrid) {
     metricsGrid.appendChild(container);
 
     const updateUI = () => {
-        const detailedStats = getDetailedCollectionAnalysis(data);
-        const displayStats = {
-            ...detailedStats,
-            rows: window.collectionShowUnpaid ? detailedStats.rows.filter(r => r.balance > 0) : detailedStats.rows
-        };
+        container.innerHTML = getCollectionHTML(stats, window.collectionShowUnpaid);
 
-        container.innerHTML = getCollectionHTML(stats, displayStats, window.collectionShowUnpaid);
+        const ctx = document.getElementById('collection-status-chart');
+        if (ctx) {
+            const labels = ['Completed', 'Upcoming', 'On Track', 'Overdue'];
+            const amounts = labels.map(l => stats.byStatusAmount[l] || 0);
+            const colors = ['rgba(16, 185, 129, 0.85)', 'rgba(245, 158, 11, 0.85)', 'rgba(59, 130, 246, 0.85)', 'rgba(239, 68, 68, 0.85)'];
 
-        const ctx = document.getElementById('collection-performance-chart');
-        if (!ctx) return;
-
-        const years = Object.keys(stats.yearlyStats).sort();
-        const targets = years.map(y => stats.yearlyStats[y].target);
-        const actuals = years.map(y => stats.yearlyStats[y].actual);
-
-        if (window.collectionChart) window.collectionChart.destroy();
-        window.collectionChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: years,
-                datasets: [
-                    { label: 'Collection Target (ARR)', data: targets, backgroundColor: 'rgba(99, 102, 241, 0.6)', borderRadius: 4, barPercentage: 0.6 },
-                    { label: 'Actual Performance (Received)', data: actuals, backgroundColor: 'rgba(16, 185, 129, 0.8)', borderRadius: 4, barPercentage: 0.6 }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                onClick: (event, elements) => {
-                    if (elements.length > 0) {
-                        const index = elements[0].index;
-                        const year = years[index];
-                        const detailData = stats.yearlyDistributorTargets[year] || {};
-                        window.renderCollectionYearDetail(year, detailData);
+            if (window.collectionStatusChart) window.collectionStatusChart.destroy();
+            window.collectionStatusChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Total Collected',
+                        data: amounts,
+                        backgroundColor: colors,
+                        borderRadius: 6,
+                        barPercentage: 0.55
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Total Collected grouped by Payment Status', font: { size: 11, weight: 'normal' }, color: '#94a3b8' },
+                        tooltip: {
+                            callbacks: {
+                                label: (item) => {
+                                    const cnt = stats.byStatusCount[item.label] || 0;
+                                    return ` $${formatCurrency(item.raw)} · ${cnt} row${cnt === 1 ? '' : 's'}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: { callback: (v) => '$' + formatCurrency(v) } },
+                        x: { grid: { display: false } }
                     }
-                },
-                plugins: {
-                    legend: { position: 'top', labels: { usePointStyle: true, padding: 20 } },
-                    title: { display: true, text: 'Click bar to see distributor breakdown', font: { size: 11, weight: 'normal' }, color: '#94a3b8' },
-                    tooltip: { callbacks: { label: (ctx) => ` $${formatCurrency(ctx.raw)}` } }
-                },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: { callback: (v) => '$' + formatCurrency(v) } },
-                    x: { grid: { display: false } }
                 }
-            }
-        });
+            });
+        }
 
-        // 필터 토글 이벤트 바인딩
         const toggleBtn = document.getElementById('collection-unpaid-toggle');
         if (toggleBtn) {
             toggleBtn.onclick = () => {
@@ -802,9 +797,118 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                 updateUI();
             };
         }
+
+        _renderCollectionChangeLog(stats, filterCountry, container);
     };
 
     updateUI();
+}
+
+/**
+ * Snapshot the Collection sheet (totals + row-level) into localStorage and
+ * render a change log mirroring the Pipeline pattern. Tracks new rows,
+ * removed rows, and modified rows (Total Collected, Outstanding, Payment
+ * Status, Next Due Date) with timestamps.
+ *
+ * @param {Object} stats - Output of getCollectionStats
+ * @param {string|null} filterCountry
+ * @param {HTMLElement} container - Where to append the change-log card
+ */
+function _renderCollectionChangeLog(stats, filterCountry, container) {
+    const scope = filterCountry || 'ALL';
+    const storageKey = `collectionChangeLog::${scope}`;
+
+    const rowsByKey = stats.rows.map(r => ({
+        key: `${r.distributor}::${r.endUser}`,
+        distributor: r.distributor,
+        endUser: r.endUser,
+        collected: Math.round(r.collected),
+        outstanding: Math.round(r.outstanding),
+        status: r.status,
+        nextDue: r.nextDueDateStr || ''
+    }));
+    const seen = new Map();
+    const dedupedRows = rowsByKey.map(r => {
+        const dup = seen.get(r.key) || 0;
+        seen.set(r.key, dup + 1);
+        return dup === 0 ? r : { ...r, key: `${r.key}#${dup + 1}` };
+    });
+
+    const rowsFp = dedupedRows
+        .map(r => `${r.key}|${r.collected}|${r.outstanding}|${r.status}|${r.nextDue}`)
+        .sort()
+        .join('||');
+
+    const current = {
+        date: new Date().toISOString(),
+        totalCollected: Math.round(stats.globalTotalCollected),
+        totalOutstanding: Math.round(stats.globalTotalOutstanding),
+        ktcvNet: Math.round(stats.globalTotalKtcvNet),
+        byStatusAmount: { ...stats.byStatusAmount },
+        byStatusCount: { ...stats.byStatusCount },
+        rows: dedupedRows,
+        rowsFp
+    };
+
+    let history = [];
+    try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) history = JSON.parse(raw);
+        if (!Array.isArray(history)) history = [];
+    } catch { history = []; }
+
+    const last = history[history.length - 1];
+    const changed = !last
+        || last.totalCollected !== current.totalCollected
+        || last.totalOutstanding !== current.totalOutstanding
+        || last.ktcvNet !== current.ktcvNet
+        || (last.rowsFp || '') !== current.rowsFp;
+
+    if (changed) {
+        history.push(current);
+        if (history.length > 100) history = history.slice(-100);
+        try { localStorage.setItem(storageKey, JSON.stringify(history)); }
+        catch (e) { console.warn('[CollectionChangeLog] localStorage write failed:', e); }
+    }
+
+    const sorted = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const rowDiffs = sorted.map((snap, i) => {
+        if (i === 0) return null;
+        const before = sorted[i - 1].rows || [];
+        const after = snap.rows || [];
+        const beforeMap = new Map(before.map(r => [r.key, r]));
+        const afterMap = new Map(after.map(r => [r.key, r]));
+        const added = [];
+        const removed = [];
+        const modified = [];
+        afterMap.forEach((a, k) => { if (!beforeMap.has(k)) added.push(a); });
+        beforeMap.forEach((b, k) => { if (!afterMap.has(k)) removed.push(b); });
+        afterMap.forEach((a, k) => {
+            const b = beforeMap.get(k);
+            if (!b) return;
+            if (b.collected !== a.collected || b.outstanding !== a.outstanding || b.status !== a.status || b.nextDue !== a.nextDue) {
+                modified.push({ before: b, after: a });
+            }
+        });
+        return { added, removed, modified };
+    });
+
+    const logHost = document.createElement('div');
+    logHost.style.gridColumn = '1 / -1';
+    logHost.style.marginTop = '12px';
+    logHost.innerHTML = getCollectionChangeLogHTML(scope, history, rowDiffs);
+    container.appendChild(logHost);
+
+    setTimeout(() => {
+        const resetBtn = document.getElementById('collection-changelog-reset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (!confirm(`Clear all collection change history for ${scope}? This cannot be undone.`)) return;
+                try { localStorage.removeItem(storageKey); } catch {}
+                logHost.innerHTML = getCollectionChangeLogHTML(scope, [], []);
+            });
+        }
+    }, 80);
 }
 
 /* ═══════════════════════════════════════════════════════════════

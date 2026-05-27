@@ -1855,251 +1855,196 @@ export function getCsmViewStats(taskData, filters = {}) {
    COLLECTION
    ═══════════════════════════════════════════════════════════════ */
 
+const COLLECTION_STATUSES = ['Completed', 'Upcoming', 'On Track', 'Overdue'];
+
+function _normalizeCollectionStatus(raw) {
+    const s = String(raw || '').trim().toLowerCase();
+    if (!s) return null;
+    if (s === 'completed' || s === 'complete' || s === 'paid') return 'Completed';
+    if (s === 'upcoming' || s === 'pending') return 'Upcoming';
+    if (s === 'on track' || s === 'ontrack' || s === 'on-track') return 'On Track';
+    if (s === 'overdue' || s === 'late' || s === 'past due') return 'Overdue';
+    return null;
+}
+
+function _formatCollectionDate(val) {
+    if (val === null || val === undefined || val === '') return '';
+    if (val instanceof Date && !isNaN(val.getTime())) {
+        return val.toISOString().split('T')[0];
+    }
+    const parsed = parseExcelDateSafe(val);
+    if (parsed && !isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+    }
+    return String(val).trim();
+}
+
 /**
- * Compute stats for the COLLECTION dashboard.
+ * Compute stats for the COLLECTION dashboard from the new column layout:
+ * KOR TCV, KOR TCV (After TAX), Total Collected, Outstanding,
+ * Last Payment Date, Next Due Date, Payment Status, Notes.
+ *
  * @param {Object[]} data
  * @returns {Object}
  */
 export function getCollectionStats(data) {
-    const currentYear = new Date().getFullYear();
-    let globalTotalTcv = 0;
-    let globalTotalReceived = 0;
-    const yearlyStats = {}; // { 2024: { target: 0, actual: 0 }, ... }
-    const yearlyDistributorTargets = {}; // { 2024: { 'Distributor A': 100, ... }, ... }
-    const unpaidList = [];
-    const distributorEndYears = {};
+    const empty = {
+        globalTotalKtcvGross: 0,
+        globalTotalKtcvNet: 0,
+        globalTotalCollected: 0,
+        globalTotalOutstanding: 0,
+        byStatusAmount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 },
+        byStatusCount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 },
+        currentPeriodDue: 0,
+        futureProjected: 0,
+        distributorSummary: [],
+        rows: []
+    };
+    if (!data || data.length === 0) return empty;
 
-    // Initialize data structure for 2024 to 2030
-    for (let y = 2024; y <= 2030; y++) {
-        yearlyStats[y] = { target: 0, actual: 0 };
-    }
+    const keys = Object.keys(data[0]);
+    const ktcvGrossKey = findKey(keys,
+        k => k.toUpperCase().replace(/\s/g, '') === 'KORTCV',
+        k => k.toUpperCase().includes('KOR TCV') && !k.toUpperCase().includes('AFTER')
+    );
+    const ktcvNetKey = findKey(keys,
+        k => k.toUpperCase().includes('KOR TCV') && k.toUpperCase().includes('AFTER'),
+        k => k.toUpperCase().includes('AFTER TAX'),
+        k => k.toUpperCase().replace(/\s/g, '').includes('AFTERTAX')
+    );
+    const collectedKey = findKey(keys,
+        k => k.toLowerCase().includes('total collected'),
+        k => k.toLowerCase() === 'collected'
+    );
+    const outstandingKey = findKey(keys,
+        k => k.toLowerCase() === 'outstanding',
+        k => k.toLowerCase().includes('outstanding')
+    );
+    const statusKey = findKey(keys,
+        k => k.toLowerCase().replace(/\s/g, '') === 'paymentstatus',
+        k => k.toLowerCase().includes('payment status'),
+        k => k.toLowerCase() === 'status'
+    );
+    const lastPmtKey = findKey(keys,
+        k => k.toLowerCase().includes('last payment'),
+        k => k.toLowerCase().includes('last paid')
+    );
+    const nextDueKey = findKey(keys,
+        k => k.toLowerCase().includes('next due'),
+        k => k.toLowerCase().includes('due date')
+    );
+    const notesKey = findKey(keys,
+        k => k.toLowerCase() === 'notes',
+        k => k.toLowerCase().includes('note')
+    );
+
+    const stats = {
+        ...empty,
+        byStatusAmount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 },
+        byStatusCount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 }
+    };
+    const distributorAgg = {};
+    const resultRows = [];
 
     data.forEach(row => {
-        const keys = Object.keys(row);
-        const tcv = parseCurrency(row[findKorTcvKey(keys)] || row['KOR TCV']);
-        globalTotalTcv += tcv;
+        const distributor = String(row['Distributor'] || row['Partner'] || 'Unknown').trim() || 'Unknown';
+        const partner = String(row['Partner'] || '').trim();
+        const endUser = String(row['End User'] || 'N/A').trim() || 'N/A';
 
-        // Accumulate all received columns dynamically (2023, 2024, 2025...)
-        keys.forEach(key => {
-            if (key.toUpperCase().includes('RECEIVED')) {
-                globalTotalReceived += parseCurrency(row[key]);
-            }
-        });
+        const ktcvGross = ktcvGrossKey ? parseCurrency(row[ktcvGrossKey]) : 0;
+        const ktcvNet = ktcvNetKey
+            ? parseCurrency(row[ktcvNetKey])
+            : Math.round(ktcvGross * 0.85 * 100) / 100;
+        const collected = collectedKey ? parseCurrency(row[collectedKey]) : 0;
+        const outstanding = outstandingKey
+            ? parseCurrency(row[outstandingKey])
+            : Math.max(0, ktcvNet - collected);
+        const statusRaw = statusKey ? row[statusKey] : '';
+        const status = _normalizeCollectionStatus(statusRaw);
+        const notes = notesKey ? String(row[notesKey] || '').trim() : '';
+        const lastPaymentDateStr = lastPmtKey ? _formatCollectionDate(row[lastPmtKey]) : '';
+        const nextDueDateStr = nextDueKey ? _formatCollectionDate(row[nextDueKey]) : '';
 
-        const distributor = row['Distributor'] || row['Partner'] || 'Unknown';
-        const endUser = row['End User'] || 'N/A';
-        const contractStart = parseExcelDateSafe(row[findContractStartKey(keys)]);
-        const contractEnd = parseExcelDateSafe(row[findContractEndKey(keys)] || row['Contract End']);
+        // Skip rows with no contract value AND no activity at all (sheet padding).
+        if (ktcvGross <= 0 && ktcvNet <= 0 && collected <= 0 && outstanding <= 0) return;
 
-        // Calculate Monthly Amortized TCV (MRR)
-        let monthlyAmortized = 0;
-        if (contractStart && contractEnd && tcv > 0) {
-            const totalMonths = ((contractEnd.getFullYear() - contractStart.getFullYear()) * 12) + (contractEnd.getMonth() - contractStart.getMonth()) + 1;
-            monthlyAmortized = totalMonths > 0 ? tcv / totalMonths : 0;
+        stats.globalTotalKtcvGross += ktcvGross;
+        stats.globalTotalKtcvNet += ktcvNet;
+        stats.globalTotalCollected += collected;
+        stats.globalTotalOutstanding += outstanding;
+
+        if (status) {
+            stats.byStatusAmount[status] += collected;
+            stats.byStatusCount[status] += 1;
         }
 
-        let lastArrYear = null;
-
-        for (let y = 2024; y <= 2030; y++) {
-            // Calculate Target for this specific year based on active months within the year
-            let targetForYear = 0;
-            if (monthlyAmortized > 0 && y >= contractStart.getFullYear() && y <= contractEnd.getFullYear()) {
-                const mStart = (y === contractStart.getFullYear()) ? contractStart.getMonth() : 0;
-                const mEnd = (y === contractEnd.getFullYear()) ? contractEnd.getMonth() : 11;
-                const activeMonths = mEnd - mStart + 1;
-                targetForYear = monthlyAmortized * activeMonths;
-            }
-
-            const recVal = parseCurrency(row[`${y} RECEIVED`]);
-
-            yearlyStats[y].target += targetForYear;
-            yearlyStats[y].actual += recVal;
-
-            if (targetForYear > 0) {
-                if (!yearlyDistributorTargets[y]) yearlyDistributorTargets[y] = {};
-                yearlyDistributorTargets[y][distributor] = (yearlyDistributorTargets[y][distributor] || 0) + targetForYear;
-
-                lastArrYear = y;
-
-                // Unpaid logic: current year or earlier, and target > 0 but RECEIVED is 0 or less
-                if (y <= currentYear && recVal <= 0) {
-                    unpaidList.push({
-                        distributor,
-                        endUser,
-                        year: y,
-                        unpaidAmount: targetForYear,
-                        contractEnd: contractEnd,
-                        contractEndDateStr: contractEnd ? contractEnd.toISOString().split('T')[0] : 'N/A'
-                    });
-                }
-            }
+        if (!distributorAgg[distributor]) {
+            distributorAgg[distributor] = {
+                totalCollected: 0,
+                outstanding: 0,
+                ktcvNet: 0,
+                currentPeriodDue: 0,
+                futureProjected: 0,
+                completed: 0,
+                overdueAmount: 0,
+                count: 0
+            };
         }
+        const agg = distributorAgg[distributor];
+        agg.totalCollected += collected;
+        agg.outstanding += outstanding;
+        agg.ktcvNet += ktcvNet;
+        agg.count += 1;
+        if (status === 'Completed') agg.completed += collected;
+        if (status === 'Upcoming') agg.currentPeriodDue += collected;
+        if (status === 'On Track') agg.futureProjected += collected;
+        if (status === 'Overdue') agg.overdueAmount += outstanding;
 
-        if (lastArrYear) {
-            if (!distributorEndYears[distributor] || lastArrYear > distributorEndYears[distributor]) {
-                distributorEndYears[distributor] = lastArrYear;
-            }
-        }
-    });
-
-    // Calculate dunning priority: Unpaid amount DESC, Contract End ASC
-    unpaidList.sort((a, b) => {
-        if (b.unpaidAmount !== a.unpaidAmount) return b.unpaidAmount - a.unpaidAmount;
-        if (!a.contractEnd) return 1;
-        if (!b.contractEnd) return -1;
-        return a.contractEnd - b.contractEnd;
-    });
-
-    return {
-        globalTotalTcv,
-        globalTotalReceived,
-        yearlyStats,
-        yearlyDistributorTargets,
-        unpaidList,
-        distributorEndYears,
-        currentYearTarget: yearlyStats[currentYear].target,
-        currentYearActual: yearlyStats[currentYear].actual
-    };
-}
-
-/**
- * Detailed collection analysis for the new UI table.
- * @param {Object[]} data
- * @returns {Object}
- */
-export function getDetailedCollectionAnalysis(data) {
-    const keys = data.length > 0 ? Object.keys(data[0]) : [];
-    const korTcvKey = findKorTcvKey(keys);
-    const startKey = findContractStartKey(keys);
-    const yrKey = findKey(keys, k => k.toUpperCase().includes('CONTRACT YR'), k => k.toUpperCase() === 'YR');
-
-    const resultRows = data.map(row => {
-        const distributor = row['Distributor'] || row['Partner'] || 'Unknown';
-        const endUser = row['End User'] || 'N/A';
-        const contractStart = parseExcelDateSafe(row[startKey]);
-        const contractYrRaw = row[yrKey];
-        const korTcv = parseCurrency(row[korTcvKey]);
-
-        let startYear = contractStart ? contractStart.getFullYear() : null;
-        let numYears = 0;
-        let isPerpetual = false;
-
-        if (String(contractYrRaw).toLowerCase().includes('perpetual')) {
-            isPerpetual = true;
-            numYears = 1; // Or handle as ongoing
-        } else {
-            numYears = parseInt(contractYrRaw) || 0;
-        }
-
-        const cy = new Date().getFullYear();
-        const yearsToTrack = [cy - 2, cy - 1, cy];
-        const status = {};
-        let totalReceived = 0;
-
-        // Sum 2023-2028 RECEIVED
-        for (let y = 2023; y <= 2028; y++) {
-            let recVal = parseCurrency(row[`${y} RECEIVED`]);
-
-            // For Perpetual, we assume 100% collection in the start year
-            if (isPerpetual && y === startYear) {
-                recVal = korTcv;
-            }
-
-            totalReceived += recVal;
-            if (yearsToTrack.includes(y)) {
-                // Check if Y is within contract period
-                let inPeriod = false;
-                if (startYear && !isNaN(numYears)) {
-                    if (isPerpetual) {
-                        inPeriod = (y === startYear); // Only the start year is a collection year for Perpetual
-                    } else {
-                        inPeriod = (y >= startYear && y < (startYear + numYears));
-                    }
-                }
-
-                if (inPeriod) {
-                    let displayRecVal = recVal;
-                    // Double check display value for Perpetual start year
-                    if (isPerpetual && y === startYear) {
-                        displayRecVal = korTcv;
-                    }
-                    const formattedVal = `$${formatCurrency(displayRecVal)}`;
-                    status[y] = displayRecVal > 0 ? `${formattedVal} ✅` : `${formattedVal} ❌`;
-                } else {
-                    status[y] = '-';
-                }
-            }
-        }
-
-        const balance = isPerpetual ? 0 : Math.round((korTcv - totalReceived) * 100) / 100;
-
-        // Split balance into amount due in the current period (up to and including
-        // current year) vs. amount projected for future periods. Annual expectation
-        // is straight-line korTcv / numYears across the contract term. Pre-payments
-        // toward future years roll forward (overpayment in the current period
-        // reduces the future projected figure).
-        let currentPeriodDue = 0;
-        let futureProjected = 0;
-        if (!isPerpetual && startYear && numYears > 0 && korTcv > 0) {
-            const annualAmount = korTcv / numYears;
-            const yearsElapsed = Math.max(0, Math.min(numYears, cy - startYear + 1));
-            const expectedThroughCurrentYear = annualAmount * yearsElapsed;
-            const expectedAfterCurrentYear = korTcv - expectedThroughCurrentYear;
-            currentPeriodDue = Math.max(0, expectedThroughCurrentYear - totalReceived);
-            const overpayment = Math.max(0, totalReceived - expectedThroughCurrentYear);
-            futureProjected = Math.max(0, expectedAfterCurrentYear - overpayment);
-        }
-        currentPeriodDue = Math.round(currentPeriodDue * 100) / 100;
-        futureProjected = Math.round(futureProjected * 100) / 100;
-
-        const statusKeys = {};
-        yearsToTrack.forEach(y => { statusKeys[`status${y}`] = status[y]; });
-
-        return {
-            contractStart,
-            contractStartDateStr: contractStart ? contractStart.toISOString().split('T')[0] : 'N/A',
+        resultRows.push({
             distributor,
+            partner,
             endUser,
-            contractYr: contractYrRaw,
-            ...statusKeys,
-            totalTcv: korTcv,
-            balance: balance,
-            currentPeriodDue,
-            futureProjected
-        };
+            ktcvGross,
+            ktcvNet,
+            collected,
+            outstanding,
+            status: status || (String(statusRaw || '').trim() || '—'),
+            statusKnown: !!status,
+            lastPaymentDateStr,
+            nextDueDateStr,
+            notes
+        });
     });
 
-    // Sort by Contract Start ASC
-    resultRows.sort((a, b) => {
-        if (!a.contractStart) return 1;
-        if (!b.contractStart) return -1;
-        return a.contractStart - b.contractStart;
-    });
+    const round2 = (n) => Math.round(n * 100) / 100;
 
-    // Summary by Distributor — total balance plus the current/future split.
-    const distributorSummary = {};
-    resultRows.forEach(r => {
-        if (!distributorSummary[r.distributor]) {
-            distributorSummary[r.distributor] = { balance: 0, currentPeriodDue: 0, futureProjected: 0 };
-        }
-        distributorSummary[r.distributor].balance += r.balance;
-        distributorSummary[r.distributor].currentPeriodDue += r.currentPeriodDue;
-        distributorSummary[r.distributor].futureProjected += r.futureProjected;
-    });
+    stats.currentPeriodDue = stats.byStatusAmount['Upcoming'];
+    stats.futureProjected = stats.byStatusAmount['On Track'];
 
-    const sortedSummary = Object.entries(distributorSummary)
+    stats.distributorSummary = Object.entries(distributorAgg)
         .map(([name, agg]) => ({
             name,
-            balance: Math.round(agg.balance * 100) / 100,
-            currentPeriodDue: Math.round(agg.currentPeriodDue * 100) / 100,
-            futureProjected: Math.round(agg.futureProjected * 100) / 100
+            count: agg.count,
+            ktcvNet: round2(agg.ktcvNet),
+            totalCollected: round2(agg.totalCollected),
+            outstanding: round2(agg.outstanding),
+            currentPeriodDue: round2(agg.currentPeriodDue),
+            futureProjected: round2(agg.futureProjected),
+            completed: round2(agg.completed),
+            overdueAmount: round2(agg.overdueAmount)
         }))
-        .sort((a, b) => b.balance - a.balance);
+        .sort((a, b) => b.totalCollected - a.totalCollected);
 
-    return {
-        rows: resultRows,
-        summary: sortedSummary
-    };
+    // Surface overdue first, then largest outstanding.
+    const statusRank = { 'Overdue': 0, 'Upcoming': 1, 'On Track': 2, 'Completed': 3 };
+    stats.rows = resultRows.sort((a, b) => {
+        const ra = statusRank[a.status] ?? 4;
+        const rb = statusRank[b.status] ?? 4;
+        if (ra !== rb) return ra - rb;
+        return b.outstanding - a.outstanding;
+    });
+
+    return stats;
 }
 
 /* ═══════════════════════════════════════════════════════════════
