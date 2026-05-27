@@ -38,7 +38,6 @@ export function buildSidebar(sheetNames, callbacks) {
         _buildSimpleNav(sidebarNav, 'DEAL LOST', callbacks.onSelectTab);
     }
 
-    _buildKPINav(sidebarNav, callbacks.onSelectKPI);
     _buildTcvArrNav(sidebarNav, callbacks.onSelectTcvArr);
     _buildTrainingNav(sidebarNav, callbacks.onSelectTraining);
     _buildWeeklyReportNav(sidebarNav, callbacks.onSelectWeeklyReport);
@@ -102,22 +101,6 @@ function _buildSimpleNav(container, name, onSelect) {
     navItem.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${name}</span>`;
     navItem.onclick = () => onSelect(name, null);
     container.appendChild(navItem);
-}
-
-/**
- * Build the KPI Goals nav item at the bottom.
- * @param {HTMLElement} container
- * @param {function():void} onSelectKPI
- */
-function _buildKPINav(container, onSelectKPI) {
-    const kpiItem = document.createElement('div');
-    kpiItem.className = 'nav-item kpi-tab';
-    kpiItem.style.marginTop = '10px';
-    kpiItem.style.borderTop = '1px solid rgba(255,255,255,0.1)';
-    kpiItem.style.paddingTop = '15px';
-    kpiItem.innerHTML = `<i class="fa-solid fa-bullseye" style="color: #ef4444;"></i> <span style="font-weight: 700;">KPI GOALS</span>`;
-    kpiItem.onclick = () => onSelectKPI();
-    container.appendChild(kpiItem);
 }
 
 /**

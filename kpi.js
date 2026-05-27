@@ -286,7 +286,7 @@ export function renderKPISheetDashboard(container, sheetRows, rawSheet) {
                 Could not parse the KPI sheet — showing default Balanced Scorecard structure.
             </div>
         `}
-        ${getKPIDashboardHTML(data, year, true, 'admin', [])}
+        ${getKPIDashboardHTML(data, year, true, 'admin', [], { readOnly: true })}
     `;
 }
 

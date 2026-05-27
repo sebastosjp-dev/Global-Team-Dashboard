@@ -4053,7 +4053,8 @@ export function getCountrySpecificHTML(stats, countryName) {
  * @param {string} currentUser
  * @param {Array<string>} availableUsers
  */
-export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFullYear(), isAdmin = true, currentUser = 'admin', availableUsers = []) {
+export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFullYear(), isAdmin = true, currentUser = 'admin', availableUsers = [], opts = {}) {
+    const readOnly = !!opts.readOnly;
     if (!kpiData || !kpiData.categories) {
         return '<p style="padding:40px; text-align:center; color:#6B7280;">No KPI data found.</p>';
     }
@@ -4135,16 +4136,22 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                     <p style="margin:0; color:#a5b4fc; font-size:0.86rem;">WhaTap Labs Inc. — Quarterly target vs achievement</p>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                    <select onchange="window.changeKPIYear(this.value)" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-weight:700; font-size:0.85rem; outline:none; cursor:pointer;">
-                        ${[2026, 2027, 2028, 2029, 2030].map(y => `<option value="${y}" ${currentKPIYear === y ? 'selected' : ''} style="color:#1E293B;">${y}</option>`).join('')}
-                    </select>
-                    <select onchange="window.switchKPIMode(this.value)" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-weight:600; font-size:0.85rem; outline:none; cursor:pointer; min-width:180px;">
-                        ${userOptions.replace(/<option /g, '<option style="color:#1E293B;" ')}
-                    </select>
-                    <button onclick="window.addKPIUser()" title="Add team member" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-size:0.82rem; font-weight:700; cursor:pointer;">+ Member</button>
-                    <button onclick="window.toggleKPIView('edit')" title="Edit structure / Enter achievements" style="padding:8px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.18); color:white; font-size:0.82rem; font-weight:700; cursor:pointer;">
-                        <i class="fa-solid fa-pen-to-square" style="margin-right:6px;"></i>${isAdmin ? 'Edit Structure' : 'Enter Achievements'}
-                    </button>
+                    ${readOnly ? `
+                        <div style="padding:8px 14px; border-radius:10px; background: rgba(255,255,255,0.10); color:#c7d2fe; font-size:0.78rem; font-weight:600; border:1px solid rgba(255,255,255,0.15);">
+                            <i class="fa-solid fa-table" style="margin-right:6px;"></i>Live from KPI sheet
+                        </div>
+                    ` : `
+                        <select onchange="window.changeKPIYear(this.value)" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-weight:700; font-size:0.85rem; outline:none; cursor:pointer;">
+                            ${[2026, 2027, 2028, 2029, 2030].map(y => `<option value="${y}" ${currentKPIYear === y ? 'selected' : ''} style="color:#1E293B;">${y}</option>`).join('')}
+                        </select>
+                        <select onchange="window.switchKPIMode(this.value)" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-weight:600; font-size:0.85rem; outline:none; cursor:pointer; min-width:180px;">
+                            ${userOptions.replace(/<option /g, '<option style="color:#1E293B;" ')}
+                        </select>
+                        <button onclick="window.addKPIUser()" title="Add team member" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-size:0.82rem; font-weight:700; cursor:pointer;">+ Member</button>
+                        <button onclick="window.toggleKPIView('edit')" title="Edit structure / Enter achievements" style="padding:8px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.18); color:white; font-size:0.82rem; font-weight:700; cursor:pointer;">
+                            <i class="fa-solid fa-pen-to-square" style="margin-right:6px;"></i>${isAdmin ? 'Edit Structure' : 'Enter Achievements'}
+                        </button>
+                    `}
                 </div>
             </div>
 
