@@ -4038,6 +4038,266 @@ export function getCountrySpecificHTML(stats, countryName) {
     `;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   KPI DASHBOARD VIEW (presentation-focused, read-only)
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Render a presentation-style KPI dashboard from the Balanced Scorecard structure.
+ * Highlights quarterly achievement rates, per-objective progress bars, and the
+ * overall weighted achievement %.
+ *
+ * @param {Object} kpiData - merged structure (categories[].objectives[].subItems[].achievements)
+ * @param {number} currentKPIYear
+ * @param {boolean} isAdmin
+ * @param {string} currentUser
+ * @param {Array<string>} availableUsers
+ */
+export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFullYear(), isAdmin = true, currentUser = 'admin', availableUsers = []) {
+    if (!kpiData || !kpiData.categories) {
+        return '<p style="padding:40px; text-align:center; color:#6B7280;">No KPI data found.</p>';
+    }
+
+    const isCurrencyCat = (catName) => /FINANCIAL/i.test(catName || '');
+
+    const formatVal = (v, currency) => {
+        if (!v) return currency ? '$0' : '0';
+        if (currency) {
+            // formatCurrency returns digits-only; prepend $ for visual cue
+            return '$' + formatCurrency(Math.round(v));
+        }
+        return String(Math.round(v * 100) / 100);
+    };
+
+    const sumSub = (obj, qi) =>
+        (obj.subItems || []).reduce((s, sub) => s + (sub.achievements?.[qi] || 0), 0);
+
+    // Per-objective stats
+    const objectiveStats = (obj) => {
+        const targets = obj.targets || [0, 0, 0, 0];
+        const ach = [0, 1, 2, 3].map(qi => sumSub(obj, qi));
+        const quarterRates = [0, 1, 2, 3].map(qi => {
+            if (targets[qi] === 0) return ach[qi] > 0 ? 100 : 0;
+            return Math.round((ach[qi] / targets[qi]) * 100);
+        });
+        const sumT = targets.reduce((a, b) => a + b, 0);
+        const sumA = ach.reduce((a, b) => a + b, 0);
+        const annualRate = sumT === 0
+            ? (sumA > 0 ? 100 : 0)
+            : Math.min(200, Math.round((sumA / sumT) * 100));
+        const weightedConv = Math.round(annualRate * (obj.weight || 0) / 100);
+        return { targets, ach, quarterRates, sumT, sumA, annualRate, weightedConv };
+    };
+
+    // Global aggregates
+    let totalWeight = 0, totalWeightedRate = 0;
+    const quarterWeightedRate = [0, 0, 0, 0];
+    let quarterWeightSum = 0;
+
+    kpiData.categories.forEach(cat => {
+        (cat.objectives || []).forEach(obj => {
+            const s = objectiveStats(obj);
+            const w = obj.weight || 0;
+            totalWeight += w;
+            totalWeightedRate += s.annualRate * w / 100;
+            quarterWeightSum += w;
+            for (let q = 0; q < 4; q++) {
+                quarterWeightedRate[q] += Math.min(200, s.quarterRates[q]) * w / 100;
+            }
+        });
+    });
+
+    const overallRate = Math.round(totalWeightedRate);
+    const overallColor = overallRate >= 100 ? '#10B981' : (overallRate >= 70 ? '#F59E0B' : (overallRate >= 40 ? '#F97316' : '#EF4444'));
+
+    const rateColor = (r) =>
+        r >= 100 ? '#10B981' : (r >= 70 ? '#F59E0B' : (r >= 40 ? '#F97316' : '#EF4444'));
+
+    const userListForDropdown = [...availableUsers];
+    if (!isAdmin && currentUser && currentUser !== 'admin' && !userListForDropdown.includes(currentUser)) {
+        userListForDropdown.push(currentUser);
+    }
+    const userOptions = [
+        `<option value="admin" ${isAdmin ? 'selected' : ''}>🔐 Admin (Targets)</option>`,
+        ...userListForDropdown.map(u => `<option value="${u}" ${!isAdmin && currentUser === u ? 'selected' : ''}>👤 ${u}</option>`)
+    ].join('');
+
+    // ── Top hero block ─────────────────────────────────────────
+    const hero = `
+        <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); border-radius: 18px; padding: 26px 30px; color: white; margin-bottom: 22px; box-shadow: 0 18px 40px rgba(67,56,202,0.25); position: relative; overflow: hidden;">
+            <div style="position:absolute; top:-40px; right:-40px; width:200px; height:200px; background: radial-gradient(circle, rgba(255,255,255,0.08), transparent 70%); border-radius:50%;"></div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px; flex-wrap:wrap; position:relative;">
+                <div>
+                    <div style="font-size:0.72rem; font-weight:700; letter-spacing:0.18em; color:#c7d2fe; text-transform:uppercase; margin-bottom:6px;">
+                        <i class="fa-solid fa-bullseye" style="margin-right:6px;"></i>Balanced Scorecard
+                    </div>
+                    <h2 style="margin:0 0 4px; font-size:1.75rem; font-weight:800; letter-spacing:-0.025em;">${currentKPIYear} Global KPI</h2>
+                    <p style="margin:0; color:#a5b4fc; font-size:0.86rem;">WhaTap Labs Inc. — Quarterly target vs achievement</p>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <select onchange="window.changeKPIYear(this.value)" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-weight:700; font-size:0.85rem; outline:none; cursor:pointer;">
+                        ${[2026, 2027, 2028, 2029, 2030].map(y => `<option value="${y}" ${currentKPIYear === y ? 'selected' : ''} style="color:#1E293B;">${y}</option>`).join('')}
+                    </select>
+                    <select onchange="window.switchKPIMode(this.value)" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-weight:600; font-size:0.85rem; outline:none; cursor:pointer; min-width:180px;">
+                        ${userOptions.replace(/<option /g, '<option style="color:#1E293B;" ')}
+                    </select>
+                    <button onclick="window.addKPIUser()" title="Add team member" style="padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:white; font-size:0.82rem; font-weight:700; cursor:pointer;">+ Member</button>
+                    <button onclick="window.toggleKPIView('edit')" title="Edit structure / Enter achievements" style="padding:8px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.18); color:white; font-size:0.82rem; font-weight:700; cursor:pointer;">
+                        <i class="fa-solid fa-pen-to-square" style="margin-right:6px;"></i>${isAdmin ? 'Edit Structure' : 'Enter Achievements'}
+                    </button>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:18px; margin-top:22px; position:relative;">
+                <div style="background: rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.18); border-radius:14px; padding:18px 22px;">
+                    <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe; text-transform:uppercase;">Overall Weighted Achievement</div>
+                    <div style="font-size:3.2rem; font-weight:800; margin:6px 0 4px; line-height:1; color:${overallColor === '#10B981' ? '#6ee7b7' : (overallColor === '#F59E0B' ? '#fcd34d' : (overallColor === '#F97316' ? '#fdba74' : '#fca5a5'))};">${overallRate}<span style="font-size:1.4rem; opacity:0.7;">%</span></div>
+                    <div style="height:8px; background:rgba(255,255,255,0.12); border-radius:6px; overflow:hidden; margin-top:8px;">
+                        <div style="height:100%; width:${Math.min(100, overallRate)}%; background: linear-gradient(90deg, #818cf8, #6ee7b7); transition: width 0.8s;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#c7d2fe; margin-top:6px;">
+                        <span>Weight: ${Math.round(totalWeight)}%</span>
+                        <span>Target: 100%</span>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); border-radius:14px; padding:14px 18px;">
+                    <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe; text-transform:uppercase; margin-bottom:10px;">Quarterly Progress</div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px;">
+                        ${quarterWeightedRate.map((r, qi) => {
+                            const qr = Math.round(r);
+                            const c = qr >= 100 ? '#6ee7b7' : (qr >= 70 ? '#fcd34d' : (qr >= 40 ? '#fdba74' : '#fca5a5'));
+                            return `
+                                <div style="background:rgba(255,255,255,0.05); padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.10);">
+                                    <div style="font-size:0.66rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe;">Q${qi+1}</div>
+                                    <div style="font-size:1.45rem; font-weight:800; color:${c}; margin-top:2px; line-height:1;">${qr}%</div>
+                                    <div style="height:5px; background:rgba(255,255,255,0.10); border-radius:5px; margin-top:8px; overflow:hidden;">
+                                        <div style="height:100%; width:${Math.min(100, qr)}%; background:${c};"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // ── Per-category sections ──────────────────────────────────
+    const renderObjective = (cat, obj) => {
+        const currency = isCurrencyCat(cat.name);
+        const s = objectiveStats(obj);
+        const annualColor = rateColor(s.annualRate);
+        const maxBar = Math.max(s.sumT, s.sumA, 1);
+
+        const quarterRows = [0, 1, 2, 3].map(qi => {
+            const t = s.targets[qi] || 0;
+            const a = s.ach[qi] || 0;
+            const r = s.quarterRates[qi];
+            const rc = rateColor(r);
+            const tbar = (t / maxBar) * 100;
+            const abar = (a / maxBar) * 100;
+            return `
+                <div style="display:grid; grid-template-columns: 36px 110px 1fr 110px 70px; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #F1F5F9;">
+                    <div style="font-size:0.72rem; font-weight:800; color:#475569; letter-spacing:0.08em;">Q${qi+1}</div>
+                    <div style="font-size:0.78rem; color:#64748B; font-weight:600;">${formatVal(t, currency)}</div>
+                    <div style="position:relative; height:18px; background:#F1F5F9; border-radius:10px; overflow:hidden;">
+                        <div style="position:absolute; left:0; top:0; height:100%; width:${Math.min(100, tbar)}%; background:linear-gradient(90deg, #c7d2fe, #a5b4fc); opacity:0.45;"></div>
+                        <div style="position:absolute; left:0; top:0; height:100%; width:${Math.min(100, abar)}%; background:linear-gradient(90deg, ${rc}, ${rc}); opacity:0.95;"></div>
+                    </div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#0F172A; text-align:right;">${formatVal(a, currency)}</div>
+                    <div style="font-size:0.85rem; font-weight:800; color:${rc}; text-align:right;">${r}%</div>
+                </div>
+            `;
+        }).join('');
+
+        const kpiLines = (obj.kpis || '').split('\n').filter(Boolean);
+        const kpiDesc = kpiLines.length
+            ? `<div style="font-size:0.78rem; color:#475569; line-height:1.5; margin-top:4px;">${kpiLines.map(l => `<div>• ${l.replace(/</g, '&lt;')}</div>`).join('')}</div>`
+            : '';
+
+        return `
+            <div style="background:white; border:1px solid #E2E8F0; border-radius:14px; padding:18px 20px; box-shadow:0 2px 6px rgba(15,23,42,0.04);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:10px;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:1rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">${obj.name || '—'}</div>
+                        ${kpiDesc}
+                    </div>
+                    <div style="display:flex; gap:8px; flex-shrink:0;">
+                        <div style="background:#F1F5F9; padding:6px 10px; border-radius:8px; text-align:center;">
+                            <div style="font-size:0.62rem; color:#64748B; font-weight:700; letter-spacing:0.1em;">WEIGHT</div>
+                            <div style="font-size:0.95rem; font-weight:800; color:#1E293B;">${obj.weight || 0}%</div>
+                        </div>
+                        <div style="background:${annualColor}15; padding:6px 10px; border-radius:8px; text-align:center; border:1px solid ${annualColor}40;">
+                            <div style="font-size:0.62rem; color:${annualColor}; font-weight:700; letter-spacing:0.1em;">RATE</div>
+                            <div style="font-size:0.95rem; font-weight:800; color:${annualColor};">${s.annualRate}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:8px;">
+                    ${quarterRows}
+                </div>
+
+                <div style="margin-top:12px; padding:10px 14px; background:linear-gradient(90deg, ${annualColor}08, transparent); border-left:3px solid ${annualColor}; border-radius:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="font-size:0.72rem; color:#475569; font-weight:600;">
+                        Annual: <strong style="color:#0F172A;">${formatVal(s.sumT, currency)}</strong> target · <strong style="color:${annualColor};">${formatVal(s.sumA, currency)}</strong> achieved
+                    </div>
+                    <div style="font-size:0.72rem; color:#475569; font-weight:600;">
+                        Weighted contribution: <strong style="color:${rateColor(s.weightedConv * 100 / (obj.weight || 1))};">${s.weightedConv}%</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    const categoryBlocks = kpiData.categories.map(cat => {
+        const catWeight = (cat.objectives || []).reduce((s, o) => s + (o.weight || 0), 0);
+        let catWeightedRate = 0;
+        (cat.objectives || []).forEach(o => {
+            const st = objectiveStats(o);
+            catWeightedRate += st.annualRate * (o.weight || 0) / 100;
+        });
+        const catRate = Math.round(catWeightedRate);
+        const catRateColor = rateColor(catRate);
+
+        const objectives = (cat.objectives || []).map(o => renderObjective(cat, o)).join('');
+
+        return `
+            <div style="margin-bottom:22px;">
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px; padding:14px 18px; border-radius:12px; background: ${cat.color}; color:white; box-shadow:0 4px 12px ${cat.color}30;">
+                    <div style="font-size:1rem; font-weight:800; letter-spacing:0.06em;">${cat.name}</div>
+                    <div style="font-size:0.7rem; opacity:0.85; background:rgba(255,255,255,0.18); padding:3px 10px; border-radius:6px; font-weight:700; letter-spacing:0.08em;">${(cat.objectives || []).length} OBJECTIVES</div>
+                    <div style="margin-left:auto; display:flex; gap:14px; align-items:center;">
+                        <div style="text-align:right;">
+                            <div style="font-size:0.62rem; opacity:0.8; letter-spacing:0.1em;">CATEGORY WEIGHT</div>
+                            <div style="font-size:0.95rem; font-weight:800;">${catWeight}%</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:0.62rem; opacity:0.8; letter-spacing:0.1em;">WEIGHTED</div>
+                            <div style="font-size:0.95rem; font-weight:800;">${catRate}%</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr; gap:14px;">
+                    ${objectives}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // ── Container ──────────────────────────────────────────────
+    return `
+        <div class="kpi-dashboard-container" style="max-width:1400px; margin:0 auto;">
+            ${hero}
+            ${categoryBlocks}
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:6px;">
+                <button class="btn-kpi btn-export" onclick="window.exportKPIData()"><i class="fa-solid fa-download"></i> Export</button>
+            </div>
+        </div>
+    `;
+}
+
 export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), isAdmin = true, currentUser = 'admin', availableUsers = []) {
     if (!kpiData || !kpiData.categories) return '<p>No KPI data found.</p>';
 

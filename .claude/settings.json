@@ -13,7 +13,22 @@
       "Bash(ls \"c:/Users/LG/Downloads/global dashboard making/\" *.xlsx 2>nul)",
       "Bash(node -e \"import\\('./services.js'\\).then\\(m=>console.log\\('services OK, has:', Object.keys\\(m\\).filter\\(k=>k.includes\\('Coll'\\)\\)\\)\\).catch\\(e=>console.error\\('FAIL:',e.message\\)\\)\" --input-type=module)",
       "PowerShell($node = \"node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; Copy-Item services.js services.mjs -Force; & $node --check services.mjs 2>&1 | Select-Object -First 5; Remove-Item services.mjs -Force)",
-      "PowerShell($node = \"node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; foreach \\($f in @\\('ui.js','views.js'\\)\\) { Copy-Item $f \"$f.mjs\" -Force; Write-Host \"=== $f ===\"; & $node --check \"$f.mjs\" 2>&1 | Select-Object -First 5; Remove-Item \"$f.mjs\" -Force })"
+      "PowerShell($node = \"node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; foreach \\($f in @\\('ui.js','views.js'\\)\\) { Copy-Item $f \"$f.mjs\" -Force; Write-Host \"=== $f ===\"; & $node --check \"$f.mjs\" 2>&1 | Select-Object -First 5; Remove-Item \"$f.mjs\" -Force })",
+      "Bash(node -e \"const x=require\\('./node_modules/xlsx'\\); const w=x.readFile\\('2026 Global Rev.01.xlsx'\\); console.log\\(w.SheetNames.join\\('\\\\n'\\)\\);\")",
+      "PowerShell($env:PATH = \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable;\" + $env:PATH; node -e \"const x=require\\('./node_modules/xlsx'\\); const w=x.readFile\\('2026 Global Rev.01.xlsx'\\); console.log\\(w.SheetNames.join\\('\\\\n'\\)\\);\")",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe -e \"const x=require\\('./node_modules/xlsx'\\); const w=x.readFile\\('2026 Global Rev.01.xlsx'\\); console.log\\(w.SheetNames.join\\('\\\\n'\\)\\);\")",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe --check kpi.js)",
+      "Bash(cp ui.js /tmp/ui_check.mjs)",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe --check /tmp/ui_check.mjs)",
+      "Bash(cp kpi.js /tmp/kpi_check.mjs)",
+      "Bash(./node_portable/node-v20.11.1-win-x64/node.exe --check /tmp/kpi_check.mjs)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8001 -ErrorAction SilentlyContinue)",
+      "PowerShell(\"---\")",
+      "Bash(python -m http.server 8765)",
+      "Bash(curl -s http://localhost:8765/index.html -o /tmp/dashboard_index.html)",
+      "Bash(pkill -f \"node.*8765\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8765 -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force -ErrorAction Stop; \"Stopped PID $\\($_.OwningProcess\\)\" } catch { \"Could not stop $\\($_.OwningProcess\\)\" } })"
     ],
     "additionalDirectories": [
       "C:\\Users\\LG\\Downloads\\global dashboard making"

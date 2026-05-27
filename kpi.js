@@ -3,7 +3,7 @@
  * Storage: server files (kpi_structure_YEAR.json, kpi_ach_YEAR_NAME.json)
  */
 import { parseCurrency, formatCurrency } from './utils.js';
-import { getKPIHTML } from './ui.js';
+import { getKPIHTML, getKPIDashboardHTML } from './ui.js';
 
 /* ═══════════════════════════════════════════════════════════════
    State
@@ -15,6 +15,7 @@ let currentKPIYear = new Date().getFullYear();
 let currentUser = 'admin';
 let isAdmin = true;
 let availableUsers = [];
+let kpiViewMode = 'dashboard';   // 'dashboard' (default) | 'edit'
 
 /* ═══════════════════════════════════════════════════════════════
    Defaults
@@ -26,11 +27,11 @@ const DEFAULT_STRUCTURE = {
             name: "FINANCIAL", color: "#8b5cf6",
             objectives: [
                 { name: "Nett Base + New Revenue",
-                  kpis: "IDN: 900,000 (Base 200,000 + new 600,000 + upsell 100,000)\nMAL: 200,000\nTHAI: 100,000",
+                  kpis: "900,000 TVC Korea --> 1.8M TCV IDN\nIDN: 900,000 (Base 200,000 + new 600,000 + upsell 100,000)\nMAL: 200,000\nTHAI: 100,000",
                   targets: [100000, 400000, 500000, 200000], weight: 60,
                   subItems: [{name:""},{name:""},{name:""}] },
                 { name: "Up/cross selling",
-                  kpis: "US$100,000 — Base recurring = US$200,000 × 50%",
+                  kpis: "US$100,000\nBase recurring = US$200,000 × 50%",
                   targets: [0, 50000, 50000, 0], weight: 10,
                   subItems: [{name:""},{name:""},{name:""}] }
             ]
@@ -38,23 +39,35 @@ const DEFAULT_STRUCTURE = {
         {
             name: "CUSTOMER", color: "#f59e0b",
             objectives: [
-                { name: "New Strategic Account", kpis: "", targets: [0,0,0,0], weight: 0,
+                { name: "New Strategic Account",
+                  kpis: "Named brands 3ea",
+                  targets: [0, 1, 1, 1], weight: 5,
                   subItems: [{name:""},{name:""},{name:""}] },
-                { name: "Customer Retention", kpis: "", targets: [0,0,0,0], weight: 0,
+                { name: "Customer Retention",
+                  kpis: "Retention Rate : 100%\nfrom last year (20 customers)",
+                  targets: [1, 3, 6, 10], weight: 5,
                   subItems: [{name:""},{name:""},{name:""}] }
             ]
         },
         {
-            name: "INTERNAL PROCESS", color: "#3b82f6",
+            name: "INTERNAL PROCESSES", color: "#3b82f6",
             objectives: [
-                { name: "Conversion : POC to Deal", kpis: "", targets: [0,0,0,0], weight: 0,
+                { name: "Conversion : POC to Deal",
+                  kpis: "Conversion Rate : 20% (data needed from BA).",
+                  targets: [0, 5, 6, 1], weight: 5,
                   subItems: [{name:""},{name:""},{name:""}] }
             ]
         },
         {
             name: "LEARNING & GROWTH", color: "#22c55e",
             objectives: [
-                { name: "Staff Training & Development", kpis: "", targets: [0,0,0,0], weight: 0,
+                { name: "Online Training",
+                  kpis: "500 Hours (for the whole team, 10hrs a month per person, for 5ppl)",
+                  targets: [125, 125, 125, 125], weight: 5,
+                  subItems: [{name:""},{name:""},{name:""}] },
+                { name: "Fundamental workshop",
+                  kpis: "Partner Fundamental Workshop. 4 times.\nPOC generation. 5per session. Total 20",
+                  targets: [5, 5, 5, 5], weight: 5,
                   subItems: [{name:""},{name:""},{name:""}] }
             ]
         }
@@ -239,9 +252,26 @@ async function renderKPIView() {
     if (dataTable) dataTable.classList.add('hidden');
     if (emptyState) emptyState.classList.add('hidden');
     if (metricsGrid) {
-        metricsGrid.innerHTML = getKPIHTML(getMergedData(), currentKPIYear, isAdmin, currentUser, availableUsers);
+        const html = kpiViewMode === 'edit'
+            ? wrapEditWithBackButton(getKPIHTML(getMergedData(), currentKPIYear, isAdmin, currentUser, availableUsers))
+            : getKPIDashboardHTML(getMergedData(), currentKPIYear, isAdmin, currentUser, availableUsers);
+        metricsGrid.innerHTML = html;
         metricsGrid.classList.remove('hidden');
     }
+}
+
+function wrapEditWithBackButton(innerHtml) {
+    return `
+        <div style="margin-bottom:14px; display:flex; align-items:center; gap:10px;">
+            <button onclick="window.toggleKPIView('dashboard')" style="padding:8px 14px; border-radius:10px; border:1px solid #CBD5E1; background:#FFFFFF; color:#1E293B; font-weight:700; font-size:0.85rem; cursor:pointer;">
+                <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Back to Dashboard
+            </button>
+            <div style="font-size:0.78rem; color:#64748B; font-weight:600;">
+                ${isAdmin ? 'Editing structure & quarterly targets' : 'Entering quarterly achievements'}
+            </div>
+        </div>
+        ${innerHtml}
+    `;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -310,6 +340,11 @@ function refreshKPIObjectiveRow(catIdx, objIdx) {
 /* ═══════════════════════════════════════════════════════════════
    Public API — window handlers called from inline HTML
    ═══════════════════════════════════════════════════════════════ */
+
+window.toggleKPIView = function (mode) {
+    kpiViewMode = (mode === 'edit') ? 'edit' : 'dashboard';
+    renderKPIView();
+};
 
 window.saveKPIData = async function () {
     if (isAdmin) {
