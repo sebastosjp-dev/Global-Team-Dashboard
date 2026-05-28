@@ -1764,6 +1764,12 @@ export function initDealLostCharts(stats) {
     if (!stats || stats.totalDeals === 0) return;
 
     const reasonPalette = {
+        'Price & Budgeting Issue': '#EF4444',
+        'Lost to Competitor': '#F97316',
+        'Product Requirement Issue': '#0EA5E9',
+        'Partner Issue': '#EC4899',
+        'Client Decision': '#A855F7',
+        'Disqualified - Internal Drop': '#6B7280',
         'Price / Budget': '#EF4444',
         'Competitor Won': '#F97316',
         'No Decision': '#9CA3AF',

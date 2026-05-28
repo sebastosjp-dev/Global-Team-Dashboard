@@ -5185,10 +5185,13 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
         const r = String(reason || '').toLowerCase();
         if (r.includes('price') || r.includes('budget')) return '#EF4444';
         if (r.includes('competitor')) return '#F97316';
+        if (r.includes('product') || r.includes('requirement')) return '#0EA5E9';
+        if (r.includes('partner')) return '#EC4899';
+        if (r.includes('client') && r.includes('decision')) return '#A855F7';
+        if (r.includes('disqualified') || r.includes('internal')) return '#6B7280';
         if (r.includes('no decision')) return '#9CA3AF';
         if (r.includes('technical')) return '#0EA5E9';
         if (r.includes('timing')) return '#A855F7';
-        if (r.includes('internal')) return '#F59E0B';
         if (r.includes('ghosted')) return '#6B7280';
         return '#6366F1';
     };

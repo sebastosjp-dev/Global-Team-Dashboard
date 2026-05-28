@@ -2253,7 +2253,11 @@ export function getDealLostStats(data, filterCountry) {
     const competitorKey = findKey(keys, k => k.toLowerCase().includes('competitor'));
     const amountKey = findKorTcvKey(keys)
         || findKey(keys, k => k.toLowerCase().includes('amount') && k.toLowerCase().includes('usd'), k => k.toLowerCase().includes('amount'));
-    const reasonKey = findKey(keys, k => k.toLowerCase().includes('reason'));
+    const reasonKey = findKey(keys,
+        k => k.toLowerCase().replace(/\s/g, '') === 'dealexplanation',
+        k => k.toLowerCase().includes('deal') && k.toLowerCase().includes('explanation'),
+        k => k.toLowerCase().includes('explanation'),
+        k => k.toLowerCase().includes('reason'));
     const descKey = findKey(keys, k => k.toLowerCase().includes('description'));
 
     // Pipeline rows are "lost" iff Deal Stage equals "Lost" (case-insensitive).
