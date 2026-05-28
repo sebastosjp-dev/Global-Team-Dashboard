@@ -113,6 +113,93 @@ export function calculateTrainingStats(trainingData, staffNames, year = new Date
 }
 
 /**
+ * Renders the Online Training KPI vs achievement card.
+ * Mirrors the L&G > Online Training KPI: 500 hrs/year (125 per quarter).
+ */
+function renderKPIAchievement(stats, staffNames, year) {
+    const ANNUAL_TARGET = 500;
+    const QUARTER_TARGET = 125;
+
+    const quarterHours = [0, 0, 0, 0];
+    staffNames.forEach(name => {
+        const monthly = stats[name]?.monthlyHours || [];
+        monthly.forEach((h, mi) => {
+            const q = Math.floor(mi / 3);
+            quarterHours[q] += h;
+        });
+    });
+
+    const totalAchieved = quarterHours.reduce((a, b) => a + b, 0);
+    const annualRate = (totalAchieved / ANNUAL_TARGET) * 100;
+    const weightedContribution = (annualRate / 100) * 5; // Objective weight = 5%
+
+    const fmt = v => Number.isInteger(v) ? v : v.toFixed(2).replace(/\.?0+$/, '');
+    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+    const currentMonth = new Date().getMonth(); // 0-11
+    const currentQ = Math.floor(currentMonth / 3);
+
+    return `
+        <div class="stat-card" style="grid-column: 1 / -1; padding: 0; background: white; border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 18px 28px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="color: white; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em;">LEARNING &amp; GROWTH</span>
+                    <span style="background: rgba(255,255,255,0.25); color: white; font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;">Online Training</span>
+                </div>
+                <div style="display: flex; gap: 24px;">
+                    <div style="text-align: right;">
+                        <div style="color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Annual Target</div>
+                        <div style="color: white; font-size: 1rem; font-weight: 800;">${ANNUAL_TARGET} hrs</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Achievement</div>
+                        <div style="color: white; font-size: 1rem; font-weight: 800;">${annualRate.toFixed(1)}%</div>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 24px 28px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+                    <h3 style="font-size: 1.05rem; font-weight: 800; color: #1e293b;">Online Training KPI vs Achievement</h3>
+                    <span style="font-size: 0.75rem; color: #64748b;">${year} · 10 hrs/month per person × ${staffNames.length} ppl</span>
+                </div>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 18px;">Goal: 500 hrs/year (125 hrs per quarter for the whole team)</p>
+
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    ${quarters.map((q, qi) => {
+                        const achieved = quarterHours[qi];
+                        const rate = (achieved / QUARTER_TARGET) * 100;
+                        const clampedRate = Math.min(rate, 100);
+                        const isCurrent = qi === currentQ;
+                        const barColor = rate >= 100 ? '#10b981' : rate >= 60 ? '#f59e0b' : '#fb923c';
+                        const rateColor = rate >= 100 ? '#10b981' : rate >= 60 ? '#f59e0b' : '#ef4444';
+                        return `
+                            <div style="display: grid; grid-template-columns: 50px 60px 1fr 70px 60px; align-items: center; gap: 16px;">
+                                <div style="font-size: 0.85rem; font-weight: 700; color: ${isCurrent ? '#16a34a' : '#475569'};">${q}${isCurrent ? ' •' : ''}</div>
+                                <div style="font-size: 0.85rem; color: #64748b;">${QUARTER_TARGET}</div>
+                                <div style="position: relative; height: 14px; background: #e0e7ff; border-radius: 999px; overflow: hidden;">
+                                    <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${clampedRate}%; background: ${barColor}; border-radius: 999px; transition: width 0.4s;"></div>
+                                </div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: #1e293b; text-align: right;">${fmt(achieved)}</div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: ${rateColor}; text-align: right;">${rate.toFixed(0)}%</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div style="margin-top: 18px; padding: 14px 18px; background: #fef2f2; border-left: 4px solid ${annualRate >= 100 ? '#10b981' : '#ef4444'}; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 0.85rem; color: #334155;">
+                        Annual: <strong>${ANNUAL_TARGET} target</strong> · <strong style="color: ${annualRate >= 100 ? '#10b981' : '#ef4444'};">${fmt(totalAchieved)} achieved</strong>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #334155;">
+                        Weighted contribution: <strong style="color: ${annualRate >= 100 ? '#10b981' : '#ef4444'};">${weightedContribution.toFixed(1)}%</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
  * Renders the top metric cards with unique colors.
  */
 function renderMetricCards(displayTop, stats, staffNames) {
@@ -312,6 +399,7 @@ export function selectTrainingView(setCurrentTab, workbookData) {
     let html = `<div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">`;
     html += renderMetricCards(displayTop, stats, staffNames);
     html += `</div>`;
+    html += renderKPIAchievement(stats, staffNames, trainingYear);
     html += renderMonthlyTable(staffNames, stats, months, trainingYear);
     
     // Bottom Section: Comparison Chart and Activity
