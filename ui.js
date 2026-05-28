@@ -1206,18 +1206,58 @@ window.openQuarterlyForecastModal = function (qId) {
 
     const fmt = window.__qfFmt || (n => Math.round(n || 0).toLocaleString('en-US'));
 
+    const MODAL_TYPE_LABEL = { New: 'New', Upsell: 'Existing', Recurring: 'Renewal', Unspecified: 'Other' };
+    const MODAL_TYPE_COLOR = {
+        New:         { fg: '#16a34a', bg: 'rgba(22,163,74,0.12)',  br: 'rgba(22,163,74,0.30)' },
+        Upsell:      { fg: '#2563eb', bg: 'rgba(37,99,235,0.12)',  br: 'rgba(37,99,235,0.30)' },
+        Recurring:   { fg: '#9333ea', bg: 'rgba(147,51,234,0.12)', br: 'rgba(147,51,234,0.30)' },
+        Unspecified: { fg: '#64748b', bg: 'rgba(100,116,139,0.12)', br: 'rgba(100,116,139,0.30)' }
+    };
+    const renderRevTypeBadge = (t) => {
+        const c = MODAL_TYPE_COLOR[t] || MODAL_TYPE_COLOR.Unspecified;
+        const label = MODAL_TYPE_LABEL[t] || t || 'Other';
+        return `<span style="display:inline-block; font-size:0.62rem; font-weight:800; color:${c.fg}; background:${c.bg}; border:1px solid ${c.br}; padding:2px 8px; border-radius:8px; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;">${label}</span>`;
+    };
+
     const fullBookedRows = q.booked.deals.length === 0
-        ? `<tr><td colspan="3" style="padding:18px; text-align:center; color:#9ca3af; font-style:italic;">No booked deals</td></tr>`
+        ? `<tr><td colspan="4" style="padding:18px; text-align:center; color:#9ca3af; font-style:italic;">No booked deals</td></tr>`
         : q.booked.deals.map((d, i) => `
             <tr style="border-bottom:1px solid #F3F4F6;">
                 <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
                 <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
+                <td style="padding:9px 12px;">${renderRevTypeBadge(d.revenueType)}</td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
                     <span style="color:#0EA5E9; font-weight:800;">TCV $${fmt(d.tcv)}</span>
                     <span style="color:#10B981; font-weight:700; margin-left:10px;">ARR $${fmt(d.arr)}</span>
                 </td>
             </tr>
         `).join('');
+
+    const bookedByType = q.booked.byType || {};
+    const bookedTypeOrder = ['New', 'Upsell', 'Recurring', 'Unspecified'];
+    const presentBookedTypes = [
+        ...bookedTypeOrder.filter(t => bookedByType[t] && (bookedByType[t].tcv > 0 || bookedByType[t].arr > 0)),
+        ...Object.keys(bookedByType).filter(t => !bookedTypeOrder.includes(t) && (bookedByType[t].tcv > 0 || bookedByType[t].arr > 0))
+    ];
+    const bookedTypeStrip = presentBookedTypes.length === 0 ? '' : `
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin:-2px 0 10px;">
+            ${presentBookedTypes.map(t => {
+                const b = bookedByType[t];
+                const c = MODAL_TYPE_COLOR[t] || MODAL_TYPE_COLOR.Unspecified;
+                const label = MODAL_TYPE_LABEL[t] || t;
+                return `
+                    <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid ${c.br}; background:${c.bg}; border-radius:10px;">
+                        <span style="font-size:0.62rem; font-weight:800; color:${c.fg}; text-transform:uppercase; letter-spacing:0.04em;">${label}</span>
+                        <span style="font-size:0.72rem; color:#374151; font-weight:700; font-variant-numeric:tabular-nums;">
+                            <span style="color:#0EA5E9;">TCV</span> $${fmt(b.tcv)}
+                            <span style="color:#10B981; margin-left:6px;">ARR</span> $${fmt(b.arr)}
+                            <span style="color:#9CA3AF; margin-left:6px; font-weight:600;">· ${b.deals} deal${b.deals === 1 ? '' : 's'}</span>
+                        </span>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
 
     const fullForecastRows = q.forecast.deals.length === 0
         ? `<tr><td colspan="4" style="padding:18px; text-align:center; color:#9ca3af; font-style:italic;">No forecast deals</td></tr>`
@@ -1289,9 +1329,10 @@ window.openQuarterlyForecastModal = function (qId) {
             </button>
         </div>
         <div style="padding:22px 26px 26px;">
+            ${bookedTypeStrip}
             ${sectionWrap('NEW · Booked',  '#10b981',
                 `TCV $${fmt(q.booked.tcv)} · ARR $${fmt(q.booked.arr)} · ${q.booked.deals.length} deals`,
-                [{label:'#'},{label:'Deal Name'},{label:'Value', right:true}],
+                [{label:'#'},{label:'Deal Name'},{label:'Type'},{label:'Value', right:true}],
                 fullBookedRows)}
             ${sectionWrap('NEW · Forecast (Stage-Weighted)', '#f59e0b',
                 `TCV $${fmt(q.forecast.tcv)} · ARR $${fmt(q.forecast.arr)} · wTCV $${fmt(q.forecast.wTcv)} · wARR $${fmt(q.forecast.wArr)} · ${q.forecast.deals.length} deals`,
