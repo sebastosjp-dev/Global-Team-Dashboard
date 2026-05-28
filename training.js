@@ -23,6 +23,13 @@ function getStaffColor(index) {
     return TRAINING_PALETTE[index % TRAINING_PALETTE.length];
 }
 
+function formatHrs(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return v ?? '';
+    if (Number.isInteger(n)) return n;
+    return n.toFixed(2).replace(/\.?0+$/, '');
+}
+
 /**
  * Find a key in a row using case/whitespace-insensitive matching.
  */
@@ -213,7 +220,7 @@ function renderMetricCards(displayTop, stats, staffNames) {
                     <i class="fa-solid fa-user-graduate" style="color: ${color}; opacity: 0.2;"></i>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 8px;">
-                    <h1 style="font-size: 2.2rem; font-weight: 800; color: #1e293b;">${s.totalHours} <span style="font-size: 1rem; font-weight: 500; color: #64748b;">hrs</span></h1>
+                    <h1 style="font-size: 2.2rem; font-weight: 800; color: #1e293b;">${formatHrs(s.totalHours)} <span style="font-size: 1rem; font-weight: 500; color: #64748b;">hrs</span></h1>
                     <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Avg: ${s.avgPerMonth.toFixed(1)}/mo</span>
                 </div>
             </div>
@@ -301,7 +308,7 @@ function renderMonthlyTable(staffNames, stats, months, year) {
                                     ${s.monthlyHours.map(hrs => `
                                         <td style="padding: 16px; text-align: center; border-bottom: 1px solid #f1f5f9;">
                                             <div style="padding: 6px; border-radius: 8px; font-weight: 500; color: ${hrs > 0 ? '#1e293b' : '#cbd5e1'}; background: ${hrs > 0 ? '#f0f9ff' : 'transparent'}; border: 1px solid ${hrs > 0 ? '#bae6fd' : '#f1f5f9'}; width: 45px; margin: 0 auto; transition: all 0.2s;">
-                                                ${hrs}
+                                                ${formatHrs(hrs)}
                                             </div>
                                         </td>
                                     `).join('')}
@@ -384,9 +391,9 @@ export function selectTrainingView(setCurrentTab, workbookData) {
     totalCard.innerHTML = `
         <p style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.12em; margin: 0 0 8px 0;">TOTAL ACCUMULATED TRAINING HOURS</p>
         <div style="display: flex; align-items: baseline; gap: 10px;">
-            <span style="font-size: 3rem; font-weight: 900; color: #ffffff; line-height: 1;">${allTimeTotal % 1 === 0 ? allTimeTotal : allTimeTotal.toFixed(1)}</span>
+            <span style="font-size: 3rem; font-weight: 900; color: #ffffff; line-height: 1;">${formatHrs(allTimeTotal)}</span>
             <span style="font-size: 1.2rem; font-weight: 600; color: #94a3b8;">hrs</span>
-            <span style="font-size: 0.85rem; color: #64748b; margin-left: 8px;">(${staffNames.length} staff · avg ${(allTimeTotal / (staffNames.length || 1)).toFixed(1)} hrs/person)</span>
+            <span style="font-size: 0.85rem; color: #64748b; margin-left: 8px;">(${staffNames.length} staff · avg ${formatHrs(allTimeTotal / (staffNames.length || 1))} hrs/person)</span>
         </div>
     `;
     metricsGrid.appendChild(totalCard);
@@ -429,7 +436,7 @@ export function selectTrainingView(setCurrentTab, workbookData) {
                                 <tr style="border-bottom: 1px solid #f1f5f9;">
                                     <td style="padding: 10px; font-size: 0.8rem; font-weight: 600; color: #334155;">${nm || ''}</td>
                                     <td style="padding: 10px; font-size: 0.8rem; color: #64748b;">${ttl || 'Self Development'}</td>
-                                    <td style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: #10b981; text-align: right;">${hrs !== '' && hrs != null ? hrs + 'h' : ''}</td>
+                                    <td style="padding: 10px; font-size: 0.8rem; font-weight: 700; color: #10b981; text-align: right;">${hrs !== '' && hrs != null ? formatHrs(hrs) + 'h' : ''}</td>
                                 </tr>
                             `;
                             }).join('')}
