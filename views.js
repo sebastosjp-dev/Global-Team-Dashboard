@@ -764,7 +764,7 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                 data: {
                     labels,
                     datasets: [{
-                        label: 'Total Collected',
+                        label: 'Amount',
                         data: amounts,
                         backgroundColor: colors,
                         borderRadius: 6,
@@ -776,7 +776,7 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
-                        title: { display: true, text: 'Total Collected grouped by Payment Status', font: { size: 11, weight: 'normal' }, color: '#94a3b8' },
+                        title: { display: true, text: 'Amount by Payment Status (Completed/On Track: Total Collected · Upcoming/Overdue: Due Amount)', font: { size: 11, weight: 'normal' }, color: '#94a3b8' },
                         tooltip: {
                             callbacks: {
                                 label: (item) => {

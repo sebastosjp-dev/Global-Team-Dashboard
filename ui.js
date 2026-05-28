@@ -2247,9 +2247,18 @@ export function getCollectionHTML(stats, showOnlyUnpaid = false) {
         return `<span style="background:${sty.bg}; border:1px solid ${sty.border}; color:${sty.fg}; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700; white-space:nowrap;">${s}</span>`;
     };
 
-    const displayRows = showOnlyUnpaid
+    const baseRows = showOnlyUnpaid
         ? stats.rows.filter(r => r.outstanding > 0)
         : stats.rows;
+    // Most recent Last Payment first; rows with no Last Payment fall to the bottom.
+    const displayRows = [...baseRows].sort((a, b) => {
+        const ad = a.lastPaymentDateStr || '';
+        const bd = b.lastPaymentDateStr || '';
+        if (!ad && !bd) return 0;
+        if (!ad) return 1;
+        if (!bd) return -1;
+        return bd.localeCompare(ad);
+    });
 
     const statusCardChip = (label) => {
         const sty = STATUS_STYLE[label];
@@ -2341,7 +2350,7 @@ export function getCollectionHTML(stats, showOnlyUnpaid = false) {
                 <i class="fa-solid fa-calculator"></i> Total Collected by Distributor (Descending)
             </h3>
             <p style="margin: 0 0 12px 0; font-size: 0.72rem; color: #94a3b8;">
-                Current Period Due = sum of Total Collected where Payment Status = Upcoming.
+                Current Period Due = sum of Due Amount where Payment Status = Upcoming.
                 Future Projected = sum of Total Collected where Payment Status = On Track.
             </p>
             <div style="overflow-x: auto;">

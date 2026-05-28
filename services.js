@@ -1952,6 +1952,8 @@ export function getCollectionStats(data) {
         k => k.toLowerCase() === 'collected'
     );
     const outstandingKey = findKey(keys,
+        k => k.toLowerCase() === 'due amount',
+        k => k.toLowerCase().includes('due amount'),
         k => k.toLowerCase() === 'outstanding',
         k => k.toLowerCase().includes('outstanding')
     );
@@ -2009,7 +2011,12 @@ export function getCollectionStats(data) {
         stats.globalTotalOutstanding += outstanding;
 
         if (status) {
-            stats.byStatusAmount[status] += collected;
+            // Upcoming and Overdue are reported off the Due Amount column (formerly
+            // "Outstanding"); Completed and On Track stay on Total Collected.
+            const statusAmount = (status === 'Upcoming' || status === 'Overdue')
+                ? outstanding
+                : collected;
+            stats.byStatusAmount[status] += statusAmount;
             stats.byStatusCount[status] += 1;
         }
 
@@ -2031,7 +2038,7 @@ export function getCollectionStats(data) {
         agg.ktcvNet += ktcvNet;
         agg.count += 1;
         if (status === 'Completed') agg.completed += collected;
-        if (status === 'Upcoming') agg.currentPeriodDue += collected;
+        if (status === 'Upcoming') agg.currentPeriodDue += outstanding;
         if (status === 'On Track') agg.futureProjected += collected;
         if (status === 'Overdue') agg.overdueAmount += outstanding;
 
