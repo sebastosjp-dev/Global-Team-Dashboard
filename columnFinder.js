@@ -180,6 +180,19 @@ export function findWeightedValueKey(keys) {
 }
 
 /**
+ * Find a Revenue Type column key (e.g. New / Upsell / Recurring).
+ * @param {string[]} keys
+ * @returns {string|undefined}
+ */
+export function findRevenueTypeKey(keys) {
+    return findKey(keys,
+        k => _norm(k) === 'REVENUETYPE',
+        k => k.toUpperCase().includes('REVENUE') && k.toUpperCase().includes('TYPE'),
+        k => _norm(k) === 'DEALTYPE'
+    );
+}
+
+/**
  * Parse any Excel cell value into a Date safely.
  * Handles Date objects, serial numbers (>30000), numeric strings, and date strings.
  * @param {*} val

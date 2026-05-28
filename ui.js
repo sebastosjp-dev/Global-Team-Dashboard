@@ -1275,6 +1275,103 @@ if (typeof window !== 'undefined' && !window.__qfEscBound) {
     window.__qfFmt = (n) => Math.round(n || 0).toLocaleString('en-US');
 }
 
+/**
+ * Build the Revenue Type breakdown card (New / Upsell / Recurring).
+ * Renders accumulated KTCV, ARR, deal count and share-of-TCV per type.
+ * Falls back to a "column missing" hint when the ORDER SHEET has no Revenue Type field.
+ * @param {Object} stats - output of getOrderSheetStats
+ * @returns {string}
+ */
+function _getRevenueTypeBreakdownHTML(stats) {
+    const TYPE_ORDER = ['New', 'Upsell', 'Recurring'];
+    const TYPE_COLORS = {
+        New:         { fg: '#16a34a', bg: 'rgba(22,163,74,0.10)'  },
+        Upsell:      { fg: '#2563eb', bg: 'rgba(37,99,235,0.10)'  },
+        Recurring:   { fg: '#9333ea', bg: 'rgba(147,51,234,0.10)' },
+        Unspecified: { fg: '#64748b', bg: 'rgba(100,116,139,0.10)' }
+    };
+    const breakdown = stats.revenueTypeBreakdown || {};
+    const allTypes = Object.keys(breakdown);
+    const ordered = [
+        ...TYPE_ORDER.filter(t => allTypes.includes(t)),
+        ...allTypes.filter(t => !TYPE_ORDER.includes(t) && t !== 'Unspecified'),
+        ...(allTypes.includes('Unspecified') ? ['Unspecified'] : [])
+    ];
+
+    const cardWrap = (inner) => `
+        <div class="stat-card" style="grid-column: span 2; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #14b8a6; display: flex; flex-direction: column; align-items: stretch;">
+            <div class="metric-title-row" style="margin-bottom:10px;"><h3 style="color:#14b8a6; font-size:0.75rem; font-weight:700; margin:0;">REVENUE TYPE BREAKDOWN</h3><span class="metric-info" data-tooltip="Accumulated KTCV and ARR grouped by Revenue Type (New / Upsell / Recurring) from the ORDER SHEET.">i</span></div>
+            ${inner}
+        </div>`;
+
+    if (!stats.hasRevenueType) {
+        return cardWrap(`<div style="font-size:0.78rem; color:#64748b; padding:14px; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px;">ORDER SHEET 에 <b>Revenue Type</b> 열이 없습니다. 헤더(예: <code>Revenue Type</code>) 를 추가하면 New / Upsell / Recurring 분포가 여기 표시됩니다.</div>`);
+    }
+
+    if (ordered.length === 0) {
+        return cardWrap(`<div style="font-size:0.78rem; color:#64748b; padding:14px;">Revenue Type 데이터가 비어 있습니다.</div>`);
+    }
+
+    const totalTcv  = ordered.reduce((s, t) => s + (breakdown[t].tcv  || 0), 0);
+    const totalArr  = ordered.reduce((s, t) => s + (breakdown[t].arr  || 0), 0);
+    const totalDeals = ordered.reduce((s, t) => s + (breakdown[t].deals || 0), 0);
+    const totalCurTcv = ordered.reduce((s, t) => s + (breakdown[t].currentYearTcv || 0), 0);
+    const totalCurArr = ordered.reduce((s, t) => s + (breakdown[t].currentYearArr || 0), 0);
+
+    const pct = (num, den) => den > 0 ? `${(num / den * 100).toFixed(1)}%` : '—';
+
+    const rows = ordered.map(type => {
+        const b = breakdown[type];
+        const c = TYPE_COLORS[type] || TYPE_COLORS.Unspecified;
+        return `
+            <tr>
+                <td style="padding:8px 10px; border-bottom:1px solid #F1F5F9;">
+                    <span style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:${c.fg}; background:${c.bg}; padding:3px 9px; border-radius:999px; font-size:0.72rem;">
+                        <span style="width:6px; height:6px; border-radius:50%; background:${c.fg};"></span>${type}
+                    </span>
+                </td>
+                <td style="padding:8px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric: tabular-nums;">${b.deals}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric: tabular-nums; font-weight:700;">US$ ${formatCurrency(b.tcv)}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric: tabular-nums;">US$ ${formatCurrency(b.arr)}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric: tabular-nums;">US$ ${formatCurrency(b.currentYearTcv)}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric: tabular-nums;">US$ ${formatCurrency(b.currentYearArr)}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric: tabular-nums; color:#475569;">${pct(b.tcv, totalTcv)}</td>
+            </tr>`;
+    }).join('');
+
+    const currentYear = new Date().getFullYear();
+
+    return cardWrap(`
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+                <thead>
+                    <tr style="background:#F8FAFC; color:#475569; text-align:left;">
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em;">Revenue Type</th>
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">Deals</th>
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">Accum. KTCV</th>
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">Accum. ARR</th>
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">${currentYear} KTCV</th>
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">${currentYear} ARR</th>
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">Share (TCV)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                    <tr style="background:#F8FAFC; font-weight:800;">
+                        <td style="padding:9px 10px;">Total</td>
+                        <td style="padding:9px 10px; text-align:right; font-variant-numeric: tabular-nums;">${totalDeals}</td>
+                        <td style="padding:9px 10px; text-align:right; font-variant-numeric: tabular-nums;">US$ ${formatCurrency(totalTcv)}</td>
+                        <td style="padding:9px 10px; text-align:right; font-variant-numeric: tabular-nums;">US$ ${formatCurrency(totalArr)}</td>
+                        <td style="padding:9px 10px; text-align:right; font-variant-numeric: tabular-nums;">US$ ${formatCurrency(totalCurTcv)}</td>
+                        <td style="padding:9px 10px; text-align:right; font-variant-numeric: tabular-nums;">US$ ${formatCurrency(totalCurArr)}</td>
+                        <td style="padding:9px 10px; text-align:right; color:#475569;">100%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `);
+}
+
 export function getOrderSheetHTML(stats, filterCountry = null) {
     const currentYear = new Date().getFullYear();
     return `
@@ -1335,6 +1432,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#f59e0b; font-size:0.75rem; font-weight:700; margin:0;">QUARTERLY TCV (${currentYear})</h3><span class="metric-info" data-tooltip="Total Contract Value broken down by quarter for the current year, showing seasonal revenue distribution.">i</span></div>
                 <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
             </div>
+            ${_getRevenueTypeBreakdownHTML(stats)}
             <div class="stat-card" style="grid-column: span 2; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #0ea5e9; display: flex; flex-direction: column; align-items: stretch;">
                 <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">TCV CAGR</h3><span class="metric-info" data-tooltip="Compound Annual Growth Rate — the smoothed annual growth rate from the baseline year to each subsequent year. Top number shows the full-period CAGR.">i</span></div>
                 <div style="display:flex; gap:20px; align-items:stretch;">

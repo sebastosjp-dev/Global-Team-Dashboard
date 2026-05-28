@@ -9,9 +9,25 @@ import {
     findCountryKey, findKorTcvKey, findArrKey, findMrrKey,
     findContractStartKey, findContractEndKey, findStatusKey,
     findDealNameKey, findPocNameKey, findPocStartKey,
-    findEstimatedValueKey, findWeightedValueKey,
+    findEstimatedValueKey, findWeightedValueKey, findRevenueTypeKey,
     findKey, parseExcelDateSafe
 } from './columnFinder.js';
+
+/**
+ * Normalize a raw Revenue Type cell into one of: 'New', 'Upsell', 'Recurring', or 'Unspecified'.
+ * @param {*} raw
+ * @returns {string}
+ */
+function _normalizeRevenueType(raw) {
+    if (raw === null || raw === undefined) return 'Unspecified';
+    const s = String(raw).trim();
+    if (!s) return 'Unspecified';
+    const u = s.toLowerCase();
+    if (u === 'new') return 'New';
+    if (u === 'upsell' || u === 'up-sell' || u === 'up sell') return 'Upsell';
+    if (u === 'recurring' || u === 'renewal') return 'Recurring';
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 /* ═══════════════════════════════════════════════════════════════
    ORDER SHEET
@@ -40,6 +56,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     const startDateKey = findContractStartKey(keys);
     const dealNameKey = findDealNameKey(keys);
     const countryKey = findCountryKey(keys);
+    const revenueTypeKey = findRevenueTypeKey(keys);
 
     let sumLocalTcv = 0, sumKorTcv = 0, sumArr = 0, sumMrr = 0, dealCount = 0;
     const yearlyTcv = {};
@@ -50,6 +67,12 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     const lastYearQSums = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
     const tcvByCountry = {};
     const tcvByCountryYear = {};
+    /**
+     * Revenue Type breakdown — keyed by normalized type.
+     * `tcv` = accumulated KOR TCV, `arr` = sum of per-contract KOR ARR,
+     * `currentYearTcv` = KOR TCV of contracts whose Contract Start falls in the current year.
+     */
+    const revenueTypeBreakdown = {};
     const currentYear = new Date().getFullYear();
 
     /**
@@ -74,6 +97,15 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
         const countryName = countryKey ? (normalizeCountry(row[countryKey]) || 'Other') : 'Other';
         tcvByCountry[countryName] = (tcvByCountry[countryName] || 0) + kTcv;
 
+        const rType = _normalizeRevenueType(revenueTypeKey ? row[revenueTypeKey] : null);
+        if (!revenueTypeBreakdown[rType]) {
+            revenueTypeBreakdown[rType] = { tcv: 0, arr: 0, mrr: 0, deals: 0, currentYearTcv: 0, currentYearArr: 0 };
+        }
+        revenueTypeBreakdown[rType].tcv += kTcv;
+        revenueTypeBreakdown[rType].arr += arrVal;
+        revenueTypeBreakdown[rType].mrr += mrrVal;
+        revenueTypeBreakdown[rType].deals += 1;
+
         const d = parseExcelDateSafe(row[startDateKey]);
         if (d) {
             const startYear = d.getFullYear();
@@ -92,6 +124,8 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
                 qSums[qId] += kTcv;
                 const name = dealNameKey ? String(row[dealNameKey] || 'N/A').trim() : 'N/A';
                 qDeals[qId].push({ name, tcv: kTcv, arr: arrVal });
+                revenueTypeBreakdown[rType].currentYearTcv += kTcv;
+                revenueTypeBreakdown[rType].currentYearArr += arrVal;
             } else if (startYear === currentYear - 1) {
                 lastYearQSums[qId] += kTcv;
             }
@@ -121,7 +155,8 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     return {
         sumLocalTcv, sumKorTcv, sumArr, sumMrr, dealCount,
         yearlyTcv, yearlyArr, yearlyMrr,
-        qSums, qDeals, lastYearQSums, tcvByCountry, tcvByCountryYear
+        qSums, qDeals, lastYearQSums, tcvByCountry, tcvByCountryYear,
+        revenueTypeBreakdown, hasRevenueType: !!revenueTypeKey
     };
 }
 
