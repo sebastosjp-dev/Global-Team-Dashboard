@@ -4230,7 +4230,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                     <div style="font-size:0.72rem; font-weight:700; letter-spacing:0.18em; color:#c7d2fe; text-transform:uppercase; margin-bottom:6px;">
                         <i class="fa-solid fa-bullseye" style="margin-right:6px;"></i>Balanced Scorecard
                     </div>
-                    <h2 style="margin:0 0 4px; font-size:1.75rem; font-weight:800; letter-spacing:-0.025em;">${currentKPIYear} Global KPI</h2>
+                    <h2 style="margin:0 0 4px; font-size:1.75rem; font-weight:800; letter-spacing:-0.025em; color:#ffffff;">${currentKPIYear} Global KPI</h2>
                     <p style="margin:0; color:#a5b4fc; font-size:0.86rem;">WhaTap Labs Inc. — Quarterly target vs achievement</p>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
