@@ -181,12 +181,13 @@ function renderTableData(searchTerm = "", filterCountry = null) {
 
     if (data.length === 0) {
         if (dataSection) dataSection.classList.add('hidden');
-        if (currentTab !== 'KPI') {
+        if (currentTab !== 'KPI' && currentTab !== 'DEAL LOST') {
             emptyState.classList.remove('hidden');
             dataTable.classList.add('hidden');
             return;
         }
-        // KPI tab: data may be empty (non-tabular sheet) but we still want to render the dashboard
+        // KPI / DEAL LOST: own sheet may be absent or empty (DEAL LOST is derived
+        // from PIPELINE), but we still want to render the dashboard.
         emptyState.classList.add('hidden');
         dataTable.classList.add('hidden');
         renderTabMetrics([], currentTab, filterCountry, workbookData, searchInput);
