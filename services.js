@@ -366,12 +366,19 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const currentQuarter = `Q${Math.floor(today.getMonth() / 3) + 1}`;
 
+    const mkTypeBuckets = () => ({
+        New:         { tcv: 0, arr: 0, deals: 0 },
+        Upsell:      { tcv: 0, arr: 0, deals: 0 },
+        Recurring:   { tcv: 0, arr: 0, deals: 0 },
+        Unspecified: { tcv: 0, arr: 0, deals: 0 }
+    });
     const mkQ = () => ({
-        booked:   { arr: 0, tcv: 0, deals: [] },
+        booked:   { arr: 0, tcv: 0, deals: [], byType: mkTypeBuckets() },
         forecast: { wArr: 0, wTcv: 0, arr: 0, tcv: 0, deals: [] },
         renewal:  { arr: 0, deals: [] }
     });
     const quarters = { Q1: mkQ(), Q2: mkQ(), Q3: mkQ(), Q4: mkQ() };
+    let hasRevenueType = false;
 
     /* ── BOOKED (ORDER SHEET, current year) ── */
     const orderData = (workbookData['ORDER SHEET'] || []).filter(r => isCountryMatch(r, filterCountry));
@@ -381,6 +388,8 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
         const oArrKey = findArrKey(oKeys);
         const oStartKey = findContractStartKey(oKeys);
         const oNameKey = findDealNameKey(oKeys);
+        const oRevTypeKey = findRevenueTypeKey(oKeys);
+        hasRevenueType = !!oRevTypeKey;
 
         orderData.forEach(row => {
             const d = parseExcelDateSafe(row[oStartKey]);
@@ -389,9 +398,15 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
             const arrVal = oArrKey ? parseCurrency(row[oArrKey]) : 0;
             const tcvVal = oTcvKey ? parseCurrency(row[oTcvKey]) : 0;
             const name = oNameKey ? String(row[oNameKey] || 'N/A').trim() : 'N/A';
+            const rType = _normalizeRevenueType(oRevTypeKey ? row[oRevTypeKey] : null);
             quarters[qId].booked.arr += arrVal;
             quarters[qId].booked.tcv += tcvVal;
-            quarters[qId].booked.deals.push({ name, arr: arrVal, tcv: tcvVal });
+            quarters[qId].booked.deals.push({ name, arr: arrVal, tcv: tcvVal, revenueType: rType });
+            const bucket = quarters[qId].booked.byType[rType]
+                || (quarters[qId].booked.byType[rType] = { tcv: 0, arr: 0, deals: 0 });
+            bucket.tcv += tcvVal;
+            bucket.arr += arrVal;
+            bucket.deals += 1;
         });
     }
 
@@ -461,7 +476,7 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
         weightedArr: acc.weightedArr + quarters[q].forecast.wArr
     }), { bookedArr: 0, bookedTcv: 0, renewalArr: 0, weightedArr: 0 });
 
-    return { country: countryLabel, currentYear, currentQuarter, quarters, kpiTotals };
+    return { country: countryLabel, currentYear, currentQuarter, quarters, kpiTotals, hasRevenueType };
 }
 
 /* ═══════════════════════════════════════════════════════════════

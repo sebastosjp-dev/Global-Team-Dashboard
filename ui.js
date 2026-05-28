@@ -1076,6 +1076,49 @@ export function getQuarterlyForecastHTML(stats) {
         </div>
     `;
 
+    const TYPE_LABEL = { New: 'New', Upsell: 'Existing', Recurring: 'Renewal', Unspecified: 'Other' };
+    const TYPE_COLOR = {
+        New:         { fg: '#16a34a', bg: 'rgba(22,163,74,0.10)' },
+        Upsell:      { fg: '#2563eb', bg: 'rgba(37,99,235,0.10)' },
+        Recurring:   { fg: '#9333ea', bg: 'rgba(147,51,234,0.10)' },
+        Unspecified: { fg: '#64748b', bg: 'rgba(100,116,139,0.10)' }
+    };
+    const TYPE_ORDER_LIST = ['New', 'Upsell', 'Recurring', 'Unspecified'];
+
+    const orderedTypesIn = (byType) => {
+        if (!byType) return [];
+        const known = TYPE_ORDER_LIST.filter(t => byType[t] && (byType[t].tcv > 0 || byType[t].arr > 0));
+        const extras = Object.keys(byType).filter(t => !TYPE_ORDER_LIST.includes(t) && byType[t] && (byType[t].tcv > 0 || byType[t].arr > 0));
+        return [...known, ...extras];
+    };
+
+    const renderBookedByTypeBlock = (byType) => {
+        const types = orderedTypesIn(byType);
+        if (types.length === 0) return '';
+        const rows = types.map(t => {
+            const b = byType[t];
+            const c = TYPE_COLOR[t] || TYPE_COLOR.Unspecified;
+            const label = TYPE_LABEL[t] || t;
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:3px 9px; gap:6px;">
+                    <span style="display:inline-flex; align-items:center; gap:4px; font-size:0.48rem; font-weight:800; color:${c.fg}; background:${c.bg}; padding:1px 6px; border-radius:6px; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;">
+                        <span style="width:4px; height:4px; border-radius:50%; background:${c.fg};"></span>${label}
+                    </span>
+                    <span style="font-size:0.62rem; font-weight:700; color:#374151; line-height:1; white-space:nowrap; font-variant-numeric:tabular-nums;">
+                        <span style="color:#0ea5e9; font-weight:800;">T</span>$${formatCurrency(b.tcv)}
+                        <span style="color:#10b981; font-weight:800; margin-left:4px;">A</span>$${formatCurrency(b.arr)}
+                    </span>
+                </div>
+            `;
+        }).join('');
+        return `
+            <div style="background:#FAFBFC; border-bottom:1px solid #F1F5F9; padding:4px 0 4px;">
+                <div style="font-size:0.46rem; font-weight:800; color:#94A3B8; text-transform:uppercase; letter-spacing:0.06em; padding:0 9px 2px;">Booked by Type</div>
+                ${rows}
+            </div>
+        `;
+    };
+
     const qKpiCol = (q) => {
         const data = quarters[q];
         const qi = qIdx(q);
@@ -1102,6 +1145,7 @@ export function getQuarterlyForecastHTML(stats) {
                 </div>
                 ${miniKpiRow('Booked TCV', data.booked.tcv, '#0ea5e9')}
                 ${miniKpiRow('Booked ARR', data.booked.arr, '#10b981')}
+                ${renderBookedByTypeBlock(data.booked.byType)}
                 ${miniKpiRow('wPipeline TCV', data.forecast.wTcv, '#f59e0b')}
                 ${miniKpiRow('wPipeline ARR', data.forecast.wArr, '#f59e0b')}
                 ${miniKpiRow('Renewal ARR', data.renewal.arr, '#a855f7')}
@@ -1123,9 +1167,9 @@ export function getQuarterlyForecastHTML(stats) {
     `;
 
     return `
-        <div style="display:block; width:100%; padding:20px 22px; background:#fff; border-radius:14px; border:1px solid #E5E7EB; box-shadow:0 4px 16px rgba(0,0,0,0.04); box-sizing:border-box;">
-            <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #F3F4F6; flex-wrap:wrap; row-gap:8px;">
-                <div style="background:rgba(99,102,241,0.1); color:#6366f1; width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-chart-line" style="font-size:1.05rem;"></i></div>
+        <div style="display:block; width:100%; padding:20px 22px; background:linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%); border-radius:14px; border:1px solid #C7D2FE; box-shadow:0 4px 16px rgba(99,102,241,0.10), inset 0 1px 0 rgba(255,255,255,0.6); box-sizing:border-box;">
+            <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid rgba(99,102,241,0.18); flex-wrap:wrap; row-gap:8px;">
+                <div style="background:rgba(99,102,241,0.18); color:#6366f1; width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i class="fa-solid fa-chart-line" style="font-size:1.05rem;"></i></div>
                 <div style="flex-shrink:0;">
                     <h3 style="margin:0; font-size:0.7rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; line-height:1.2;">QUARTERLY FORECAST · ${currentYear}</h3>
                     <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827; line-height:1.3;">${country} — Q1 to Q4 (New + Renewal)</h2>
