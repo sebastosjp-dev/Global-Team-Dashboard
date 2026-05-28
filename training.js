@@ -146,32 +146,50 @@ function renderKPIAchievement(stats, staffNames, year) {
     const currentMonth = new Date().getMonth(); // 0-11
     const currentQ = Math.floor(currentMonth / 3);
 
+    const annualClamped = Math.min(annualRate, 100);
+    const annualBarColor = annualRate >= 100 ? '#10b981' : annualRate >= 60 ? '#f59e0b' : '#fb923c';
+    const annualTextColor = annualRate >= 100 ? '#10b981' : '#ef4444';
+
     return `
-        <div class="stat-card" style="grid-column: 1 / -1; padding: 0; background: white; border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); overflow: hidden;">
-            <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 18px 28px; display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="color: white; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em;">LEARNING &amp; GROWTH</span>
-                    <span style="background: rgba(255,255,255,0.25); color: white; font-size: 0.7rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;">Online Training</span>
+        <div class="stat-card" style="grid-column: 1 / -1; display: block; padding: 0; background: white; border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 22px 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="color: white; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em;">LEARNING &amp; GROWTH</span>
+                            <span style="background: rgba(255,255,255,0.25); color: white; font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;">Online Training</span>
+                        </div>
+                        <h3 style="color: white; font-size: 1.25rem; font-weight: 800; line-height: 1.2;">Online Training KPI vs Achievement</h3>
+                        <span style="color: rgba(255,255,255,0.85); font-size: 0.78rem;">${year} · Goal 500 hrs/year (125 hrs/quarter) · 10 hrs/month × ${staffNames.length} ppl</span>
+                    </div>
+                    <div style="display: flex; gap: 28px; align-items: center;">
+                        <div style="text-align: right;">
+                            <div style="color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">Annual Target</div>
+                            <div style="color: white; font-size: 1.5rem; font-weight: 800; line-height: 1.1;">${ANNUAL_TARGET}<span style="font-size: 0.8rem; font-weight: 600; margin-left: 4px;">hrs</span></div>
+                        </div>
+                        <div style="width: 1px; height: 40px; background: rgba(255,255,255,0.3);"></div>
+                        <div style="text-align: right;">
+                            <div style="color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">Achievement</div>
+                            <div style="color: white; font-size: 1.5rem; font-weight: 800; line-height: 1.1;">${annualRate.toFixed(1)}<span style="font-size: 0.8rem; font-weight: 600; margin-left: 2px;">%</span></div>
+                        </div>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 24px;">
-                    <div style="text-align: right;">
-                        <div style="color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Annual Target</div>
-                        <div style="color: white; font-size: 1rem; font-weight: 800;">${ANNUAL_TARGET} hrs</div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">Achievement</div>
-                        <div style="color: white; font-size: 1rem; font-weight: 800;">${annualRate.toFixed(1)}%</div>
-                    </div>
+                <div style="margin-top: 16px; height: 8px; background: rgba(255,255,255,0.25); border-radius: 999px; overflow: hidden;">
+                    <div style="height: 100%; width: ${annualClamped}%; background: white; border-radius: 999px; transition: width 0.4s;"></div>
+                </div>
+                <div style="margin-top: 6px; display: flex; justify-content: space-between; color: rgba(255,255,255,0.85); font-size: 0.7rem; font-weight: 600;">
+                    <span>${fmt(totalAchieved)} hrs achieved</span>
+                    <span>${fmt(ANNUAL_TARGET - totalAchieved > 0 ? ANNUAL_TARGET - totalAchieved : 0)} hrs remaining</span>
                 </div>
             </div>
-            <div style="padding: 24px 28px;">
-                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
-                    <h3 style="font-size: 1.05rem; font-weight: 800; color: #1e293b;">Online Training KPI vs Achievement</h3>
-                    <span style="font-size: 0.75rem; color: #64748b;">${year} · 10 hrs/month per person × ${staffNames.length} ppl</span>
+            <div style="padding: 24px 32px;">
+                <div style="display: grid; grid-template-columns: 70px 1fr 80px 70px; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;">
+                    <div>Quarter</div>
+                    <div>Progress (target ${QUARTER_TARGET} hrs)</div>
+                    <div style="text-align: right;">Achieved</div>
+                    <div style="text-align: right;">Rate</div>
                 </div>
-                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 18px;">Goal: 500 hrs/year (125 hrs per quarter for the whole team)</p>
-
-                <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; flex-direction: column;">
                     ${quarters.map((q, qi) => {
                         const achieved = quarterHours[qi];
                         const rate = (achieved / QUARTER_TARGET) * 100;
@@ -180,25 +198,27 @@ function renderKPIAchievement(stats, staffNames, year) {
                         const barColor = rate >= 100 ? '#10b981' : rate >= 60 ? '#f59e0b' : '#fb923c';
                         const rateColor = rate >= 100 ? '#10b981' : rate >= 60 ? '#f59e0b' : '#ef4444';
                         return `
-                            <div style="display: grid; grid-template-columns: 50px 60px 1fr 70px 60px; align-items: center; gap: 16px;">
-                                <div style="font-size: 0.85rem; font-weight: 700; color: ${isCurrent ? '#16a34a' : '#475569'};">${q}${isCurrent ? ' •' : ''}</div>
-                                <div style="font-size: 0.85rem; color: #64748b;">${QUARTER_TARGET}</div>
-                                <div style="position: relative; height: 14px; background: #e0e7ff; border-radius: 999px; overflow: hidden;">
+                            <div style="display: grid; grid-template-columns: 70px 1fr 80px 70px; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid #f8fafc;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 0.95rem; font-weight: 800; color: ${isCurrent ? '#16a34a' : '#1e293b'};">${q}</span>
+                                    ${isCurrent ? '<span style="font-size: 0.6rem; font-weight: 700; color: white; background: #16a34a; padding: 2px 6px; border-radius: 999px;">NOW</span>' : ''}
+                                </div>
+                                <div style="position: relative; height: 16px; background: #f1f5f9; border-radius: 999px; overflow: hidden;">
                                     <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${clampedRate}%; background: ${barColor}; border-radius: 999px; transition: width 0.4s;"></div>
                                 </div>
-                                <div style="font-size: 0.9rem; font-weight: 700; color: #1e293b; text-align: right;">${fmt(achieved)}</div>
-                                <div style="font-size: 0.9rem; font-weight: 700; color: ${rateColor}; text-align: right;">${rate.toFixed(0)}%</div>
+                                <div style="font-size: 0.95rem; font-weight: 700; color: #1e293b; text-align: right;">${fmt(achieved)}</div>
+                                <div style="font-size: 0.95rem; font-weight: 800; color: ${rateColor}; text-align: right;">${rate.toFixed(0)}%</div>
                             </div>
                         `;
                     }).join('')}
                 </div>
 
-                <div style="margin-top: 18px; padding: 14px 18px; background: #fef2f2; border-left: 4px solid ${annualRate >= 100 ? '#10b981' : '#ef4444'}; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="margin-top: 18px; padding: 14px 18px; background: ${annualRate >= 100 ? '#f0fdf4' : '#fef2f2'}; border-left: 4px solid ${annualTextColor}; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                     <div style="font-size: 0.85rem; color: #334155;">
-                        Annual: <strong>${ANNUAL_TARGET} target</strong> · <strong style="color: ${annualRate >= 100 ? '#10b981' : '#ef4444'};">${fmt(totalAchieved)} achieved</strong>
+                        Annual: <strong>${ANNUAL_TARGET} target</strong> · <strong style="color: ${annualTextColor};">${fmt(totalAchieved)} achieved</strong>
                     </div>
                     <div style="font-size: 0.85rem; color: #334155;">
-                        Weighted contribution: <strong style="color: ${annualRate >= 100 ? '#10b981' : '#ef4444'};">${weightedContribution.toFixed(1)}%</strong>
+                        Weighted contribution: <strong style="color: ${annualTextColor};">${weightedContribution.toFixed(1)}%</strong>
                     </div>
                 </div>
             </div>
