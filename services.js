@@ -1099,7 +1099,9 @@ export function getPocStats(data, filters, workbookData) {
                 days: runningDays,
                 status: statusLabel,
                 statusColor,
-                notes: r._s9 && r._s9[findKey(s9Keys, k => k.toLowerCase().includes('notes'))] || '',
+                // Prefer the POC sheet's own "POC Notes" column so the dashboard stays in
+                // sync with the POC tab; fall back to Sheet9's NOTES only when it's blank.
+                notes: (pnKey && String(r[pnKey] || '').trim()) || (r._s9 && r._s9[findKey(s9Keys, k => k.toLowerCase().includes('notes'))]) || '',
                 techComm: r[findKey(allKeys, k => k.toLowerCase().includes('technical comment'), k => k.toLowerCase().includes('report'))] || '',
                 isStalled: runningDays >= 100,
                 startDate: startDateDisplay,
