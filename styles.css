@@ -293,6 +293,126 @@ p {
     margin-bottom: 20px;
 }
 
+/* ---------- Spinning Globe Loader ---------- */
+.globe-loader {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    margin: 0 auto 28px;
+    display: grid;
+    place-items: center;
+}
+
+.globe {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    transform-style: preserve-3d;
+}
+
+/* The earth sphere with continents-like gradient */
+.globe-sphere {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 45%),
+        radial-gradient(circle at 70% 75%, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0) 50%),
+        linear-gradient(135deg, #2f9bff 0%, #007AFF 45%, #0050b3 100%);
+    box-shadow:
+        inset -8px -10px 22px rgba(0, 0, 0, 0.35),
+        inset 6px 6px 14px rgba(255, 255, 255, 0.35),
+        0 0 26px rgba(0, 122, 255, 0.45);
+    overflow: hidden;
+}
+
+/* Moving land masses / texture sweeping across the globe */
+.globe-sphere::before {
+    content: "";
+    position: absolute;
+    top: -10%;
+    left: -50%;
+    width: 200%;
+    height: 120%;
+    background:
+        radial-gradient(ellipse 22% 14% at 20% 35%, rgba(46, 204, 113, 0.85), transparent 60%),
+        radial-gradient(ellipse 16% 20% at 45% 60%, rgba(46, 204, 113, 0.7), transparent 60%),
+        radial-gradient(ellipse 14% 10% at 70% 30%, rgba(39, 174, 96, 0.8), transparent 60%),
+        radial-gradient(ellipse 20% 16% at 85% 70%, rgba(46, 204, 113, 0.65), transparent 60%);
+    animation: globeSpin 6s linear infinite;
+}
+
+@keyframes globeSpin {
+    from { transform: translateX(0); }
+    to   { transform: translateX(50%); }
+}
+
+/* Meridians and equator give a wireframe-globe feel */
+.globe-meridian,
+.globe-equator {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+}
+
+.globe-meridian {
+    border-radius: 50%;
+    width: 36%;
+    left: 32%;
+    border-color: rgba(255, 255, 255, 0.3);
+    animation: meridianSpin 6s linear infinite;
+}
+
+.globe-meridian-2 {
+    width: 70%;
+    left: 15%;
+    animation-delay: -3s;
+    opacity: 0.6;
+}
+
+@keyframes meridianSpin {
+    0%   { transform: scaleX(1); }
+    50%  { transform: scaleX(0.1); }
+    100% { transform: scaleX(1); }
+}
+
+.globe-equator {
+    top: 50%;
+    height: 0;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    border-width: 1.5px 0 0 0;
+}
+
+/* Orbiting dot circling the planet */
+.globe-orbit {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    animation: orbitSpin 2.8s linear infinite;
+}
+
+.globe-orbit::after {
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    margin-left: -4px;
+    border-radius: 50%;
+    background: var(--accent-primary, #007AFF);
+    box-shadow: 0 0 10px 2px rgba(0, 122, 255, 0.7);
+}
+
+@keyframes orbitSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
 #drop-zone input[type="file"] {
     display: none;
 }
