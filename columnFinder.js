@@ -193,6 +193,21 @@ export function findRevenueTypeKey(keys) {
 }
 
 /**
+ * Find a deal Type column key (e.g. "POC (BANT)" / "Trial Only").
+ * Distinct from Revenue Type and Deal Stage — matches a bare "Type" header.
+ * @param {string[]} keys
+ * @returns {string|undefined}
+ */
+export function findDealTypeKey(keys) {
+    return findKey(keys,
+        k => _norm(k) === 'TYPE',
+        k => k.toUpperCase().includes('TYPE')
+            && !k.toUpperCase().includes('REVENUE')
+            && !k.toUpperCase().includes('STAGE')
+    );
+}
+
+/**
  * Parse any Excel cell value into a Date safely.
  * Handles Date objects, serial numbers (>30000), numeric strings, and date strings.
  * @param {*} val

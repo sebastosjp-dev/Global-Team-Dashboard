@@ -10,8 +10,29 @@ import {
     findContractStartKey, findContractEndKey, findStatusKey,
     findDealNameKey, findPocNameKey, findPocStartKey,
     findEstimatedValueKey, findWeightedValueKey, findRevenueTypeKey,
-    findKey, parseExcelDateSafe
+    findDealTypeKey, findKey, parseExcelDateSafe
 } from './columnFinder.js';
+
+/**
+ * Canonical deal-Type buckets for the pipeline "reachable basket" breakdown.
+ */
+export const PIPELINE_DEAL_TYPES = ['POC (BANT)', 'Trial Only', 'Untagged'];
+
+/**
+ * Normalize a raw pipeline "Type" cell into one of PIPELINE_DEAL_TYPES.
+ * POC (BANT) deals are BANT-qualified (Budget/Authority/Need/Timeline) and
+ * treated as the reachable target; Trial Only deals are earlier-stage.
+ * @param {*} raw
+ * @returns {string}
+ */
+function _normalizeDealType(raw) {
+    if (raw === null || raw === undefined) return 'Untagged';
+    const u = String(raw).trim().toLowerCase();
+    if (!u) return 'Untagged';
+    if (u.includes('poc') || u.includes('bant')) return 'POC (BANT)';
+    if (u.includes('trial')) return 'Trial Only';
+    return 'Untagged';
+}
 
 /**
  * Normalize a raw Revenue Type cell into one of: 'New', 'Upsell', 'Recurring', or 'Unspecified'.
@@ -202,6 +223,9 @@ export function getPipelineStats(pData, orderData = []) {
         Q4: { countries: {}, deals: [] }
     };
     let pipelineByStage = {};
+    // Reachable-basket breakdown by deal Type (POC (BANT) vs Trial Only).
+    let pipelineByType = {};
+    PIPELINE_DEAL_TYPES.forEach(t => { pipelineByType[t] = { amount: 0, weighted: 0, arr: 0, count: 0 }; });
 
     // --- TCV FROM ORDER SHEET ---
     const orderTcvByQuarterCountry = { Q1: {}, Q2: {}, Q3: {}, Q4: {} };
@@ -266,6 +290,8 @@ export function getPipelineStats(pData, orderData = []) {
             k => k.toLowerCase().includes('stage'));
         const stage = stageKey && r[stageKey] ? String(r[stageKey]).trim() : 'Unknown';
 
+        const dealType = _normalizeDealType(r[findDealTypeKey(keys)]);
+
         // Resolve contract years for ARR = TCV / years.
         // 1) explicit "Contract Yr" column (Perpetual → 1, matching collection logic)
         // 2) pattern parsed from Deal Name
@@ -309,6 +335,12 @@ export function getPipelineStats(pData, orderData = []) {
             pipelineByStage[stage].weighted += wAmt;
             pipelineByStage[stage].arr += arr;
             pipelineByStage[stage].count++;
+
+            const tb = pipelineByType[dealType];
+            tb.amount += amt;
+            tb.weighted += wAmt;
+            tb.arr += arr;
+            tb.count++;
         }
 
         if (year === currentYearStr && d) {
@@ -331,6 +363,7 @@ export function getPipelineStats(pData, orderData = []) {
         pipelineByCountry,
         pipelineByQuarter,
         pipelineByStage,
+        pipelineByType,
         pipelineInfluxData,
         pipelineByYearCountry,
         sortedPipeline: Object.entries(pipelineByCountry).sort((a, b) => b[1].amount - a[1].amount),

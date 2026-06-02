@@ -2162,6 +2162,61 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
         </tr>
     `;
 
+    // ── Reachable basket: split the total pipeline by deal Type ──
+    // POC (BANT) = BANT-qualified, the realistically reachable target.
+    // Trial Only = earlier-stage interest. Untagged shown only if present.
+    const byType = stats.pipelineByType || {};
+    const TYPE_CARD_THEME = {
+        'POC (BANT)': { accent: '#10b981', fg: '#047857', chipBg: '#d1fae5', icon: 'fa-circle-check', tag: 'REACHABLE TARGET' },
+        'Trial Only': { accent: '#f59e0b', fg: '#b45309', chipBg: '#fef3c7', icon: 'fa-flask', tag: 'EARLY STAGE' },
+        'Untagged':   { accent: '#94a3b8', fg: '#64748b', chipBg: '#f1f5f9', icon: 'fa-circle-question', tag: 'NO TYPE' }
+    };
+    const renderTypeCard = (label) => {
+        const v = byType[label] || { amount: 0, weighted: 0, arr: 0, count: 0 };
+        const t = TYPE_CARD_THEME[label];
+        const totalAmt = stats.globalTotalAmount || 0;
+        const share = totalAmt > 0 ? Math.round((v.amount / totalAmt) * 100) : 0;
+        return `
+            <div style="flex:1; min-width:240px; background:#FFFFFF; border:1px solid ${t.accent}33; border-left:4px solid ${t.accent}; border-radius:12px; padding:12px 16px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <i class="fa-solid ${t.icon}" style="color:${t.accent};"></i>
+                        <span style="font-size:0.85rem; font-weight:800; color:${t.fg};">${label}</span>
+                        <span style="font-size:0.6rem; font-weight:800; color:${t.fg}; background:${t.chipBg}; padding:2px 8px; border-radius:999px; letter-spacing:0.04em;">${t.tag}</span>
+                    </div>
+                    <span style="font-size:0.7rem; color:#6b7280; font-weight:700; white-space:nowrap;">${v.count} deal${v.count === 1 ? '' : 's'} · ${share}%</span>
+                </div>
+                <div style="display:flex; gap:24px;">
+                    <div>
+                        <span style="font-size:0.62rem; color:#34C759; text-transform:uppercase; font-weight:700;">PIPELINE${infoIcon('pipeline')}</span>
+                        <h3 style="font-size:1.1rem; font-weight:800; color:#111827; margin:2px 0 0;">US$ ${formatCurrency(v.amount)}</h3>
+                    </div>
+                    <div>
+                        <span style="font-size:0.62rem; color:#007AFF; text-transform:uppercase; font-weight:700;">WEIGHTED${infoIcon('weighted')}</span>
+                        <h3 style="font-size:1.1rem; font-weight:800; color:#111827; margin:2px 0 0;">US$ ${formatCurrency(v.weighted)}</h3>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+    const dealTypeCards = ['POC (BANT)', 'Trial Only']
+        .concat((byType['Untagged']?.count || 0) > 0 ? ['Untagged'] : [])
+        .map(renderTypeCard).join('');
+    const dealTypeBreakdownHtml = `
+        <div>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                <div class="stat-icon" style="width:32px; height:32px; font-size:0.9rem; background:rgba(16,185,129,0.15); color:#34C759;"><i class="fa-solid fa-bullseye"></i></div>
+                <div>
+                    <h2 style="font-size:0.95rem; font-weight:700; color:#111827; margin:0;">Reachable Basket by Type</h2>
+                    <p style="font-size:0.7rem; color:var(--text-secondary); margin:2px 0 0;">POC (BANT) deals are BANT-qualified — the realistically reachable target within the total pipeline.</p>
+                </div>
+            </div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                ${dealTypeCards}
+            </div>
+        </div>
+    `;
+
     return `
         <div style="padding: 16px; background: #EDFAF1; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.15); display: flex; flex-direction: column; gap: 16px;">
             ${tabName === 'PIPELINE' ? `
@@ -2199,6 +2254,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     </div>
                 </div>
             </div>
+
+            ${dealTypeBreakdownHtml}
 
             ${!filterCountry ? `
             <div>
