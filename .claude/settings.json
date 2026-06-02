@@ -46,7 +46,11 @@
       "Bash(grep -i \"node.exe\\\\|node$\")",
       "Bash(node -e ' *)",
       "PowerShell($node = \\(Get-Command node -ErrorAction SilentlyContinue\\).Source; if \\(-not $node\\) { if \\(Test-Path \".\\\\node_portable\\\\node.exe\"\\) { $node = \".\\\\node_portable\\\\node.exe\" } }; Write-Output \"NODE=$node\")",
-      "Bash(node --check services.js)"
+      "Bash(node --check services.js)",
+      "PowerShell($node = \\(Get-ChildItem -Path \"c:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\" -Filter node.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1\\).FullName; if \\(-not $node\\) { $node = \\(Get-Command node -ErrorAction SilentlyContinue\\).Source }; $node)",
+      "PowerShell($node = \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; & $node --check \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\services.js\"; if \\($?\\) { & $node --check \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\ui.js\" }; if \\($?\\) { \"OK\" })",
+      "PowerShell($node = \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; Get-Content \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\ui.js\" -Raw | & $node --check --input-type=module; if \\($?\\) { Get-Content \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\services.js\" -Raw | & $node --check --input-type=module }; if \\($?\\) { \"OK\" })",
+      "PowerShell($node = \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\node_portable\\\\node-v20.11.1-win-x64\\\\node.exe\"; Copy-Item \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\ui.js\" \"C:\\\\tmp\\\\_ui_check.mjs\" -Force; Copy-Item \"C:\\\\Users\\\\LG\\\\Downloads\\\\global dashboard making\\\\services.js\" \"C:\\\\tmp\\\\_svc_check.mjs\" -Force; & $node --check \"C:\\\\tmp\\\\_ui_check.mjs\"; if \\($?\\) { & $node --check \"C:\\\\tmp\\\\_svc_check.mjs\" }; if \\($?\\) { \"OK\" })"
     ],
     "additionalDirectories": [
       "C:\\Users\\LG\\Downloads\\global dashboard making",
