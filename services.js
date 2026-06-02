@@ -328,7 +328,7 @@ export function getPipelineStats(pData, orderData = []) {
             pipelineByQuarter[qMatch].countries[c].weighted += wAmt;
             pipelineByQuarter[qMatch].countries[c].arr = (pipelineByQuarter[qMatch].countries[c].arr || 0) + arr;
             pipelineByQuarter[qMatch].countries[c].count++;
-            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year, stage, month: d ? d.getMonth() + 1 : null });
+            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year, stage, dealType, month: d ? d.getMonth() + 1 : null });
 
             if (!pipelineByStage[stage]) pipelineByStage[stage] = { amount: 0, weighted: 0, arr: 0, count: 0 };
             pipelineByStage[stage].amount += amt;

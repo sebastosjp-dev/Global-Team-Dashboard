@@ -1924,31 +1924,75 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         </div>
                     </div>
                 </div>
-                ${filterCountry ? `
+                ${filterCountry ? (() => {
+                    // Split each quarter's deal list into POC (BANT) vs Trial Only
+                    // (mirrors the "Reachable Basket by Type" hero), each with its own
+                    // subtotal, plus a combined total across both groups.
+                    const dealRow = (d, idx) => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid #EEF2F6; font-size: 0.7rem;">
+                            <span style="color: #94A3B8; font-family: monospace; font-weight: 700; flex-shrink: 0; width: 18px;">${String(idx + 1).padStart(2, '0')}</span>
+                            <span style="color: #1F2937; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
+                            ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.55rem', padding: '1px 6px' })}
+                            <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex-shrink:0; line-height:1;">
+                                <span style="color: #10B981; font-weight: 800; font-size:0.7rem;" title="Weighted">W $${formatCurrency(d.weighted)}</span>
+                                <span style="color: #a855f7; font-weight: 700; font-size:0.6rem;" title="ARR">ARR $${formatCurrency(d.arr || 0)}</span>
+                            </span>
+                        </div>`;
+
+                    const TYPE_GROUPS = [
+                        { key: 'POC (BANT)', label: 'POC (BANT)', tag: 'REACHABLE', accent: '#10b981', fg: '#047857', bg: '#d1fae5' },
+                        { key: 'Trial Only', label: 'Trial Only', tag: 'EARLY STAGE', accent: '#f59e0b', fg: '#b45309', bg: '#fef3c7' },
+                        { key: 'Untagged', label: 'Untagged', tag: '', accent: '#9ca3af', fg: '#6b7280', bg: '#f3f4f6' }
+                    ];
+                    const grouped = {};
+                    qData.deals.forEach(d => {
+                        const t = d.dealType || 'Untagged';
+                        (grouped[t] = grouped[t] || []).push(d);
+                    });
+                    const sumW = arr => arr.reduce((s, d) => s + (d.weighted || 0), 0);
+                    const sumA = arr => arr.reduce((s, d) => s + (d.arr || 0), 0);
+                    const totalW = sumW(qData.deals);
+                    const totalA = sumA(qData.deals);
+
+                    const groupHtml = TYPE_GROUPS
+                        .filter(g => (grouped[g.key] || []).length > 0)
+                        .map(g => {
+                            const list = grouped[g.key];
+                            return `
+                                <div style="margin-bottom: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 4px 6px; background: ${g.bg}; border-radius: 6px; border-left: 3px solid ${g.accent}; margin-bottom: 2px;">
+                                        <span style="display:flex; align-items:center; gap:5px; min-width:0;">
+                                            <span style="font-size: 0.62rem; font-weight: 800; color: ${g.fg}; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;">${g.label}</span>
+                                            <span style="font-size: 0.55rem; font-weight: 800; color: ${g.fg}; background: rgba(255,255,255,0.6); padding: 1px 6px; border-radius: 8px;">${list.length}</span>
+                                        </span>
+                                        <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; line-height:1; flex-shrink:0;">
+                                            <span style="font-size: 0.66rem; font-weight: 800; color: ${g.fg};" title="Weighted subtotal">W $${formatCurrency(sumW(list))}</span>
+                                            <span style="font-size: 0.56rem; font-weight: 700; color: #a855f7;" title="ARR subtotal">ARR $${formatCurrency(sumA(list))}</span>
+                                        </span>
+                                    </div>
+                                    ${list.map((d, idx) => dealRow(d, idx)).join('')}
+                                </div>`;
+                        }).join('');
+
+                    return `
                 <div style="background: rgba(0,0,0,0.04); border-radius: 8px; padding: 8px 10px; margin-top: 8px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">All Deals</span>
-                        <span style="font-size: 0.6rem; color: #6b7280; font-weight: 700; background: rgba(99,102,241,0.1); padding: 1px 6px; border-radius: 8px;">${qData.deals.length}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #E5E7EB;">
+                        <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">All Deals · Total</span>
+                        <span style="display:flex; align-items:center; gap:6px;">
+                            <span style="font-size: 0.6rem; color: #6b7280; font-weight: 700; background: rgba(99,102,241,0.1); padding: 1px 6px; border-radius: 8px;">${qData.deals.length} deals</span>
+                            <span style="font-size: 0.66rem; color: #10B981; font-weight: 800;" title="Total weighted">W $${formatCurrency(totalW)}</span>
+                            <span style="font-size: 0.6rem; color: #a855f7; font-weight: 700;" title="Total ARR">ARR $${formatCurrency(totalA)}</span>
+                        </span>
                     </div>
                     ${qData.deals.length === 0 ? `
                         <div style="text-align: center; padding: 16px 8px; color: #9CA3AF; font-size: 0.7rem; font-style: italic;">No active deals</div>
                     ` : `
                         <div style="overflow-y: auto; flex: 1; max-height: 360px; padding-right: 2px;">
-                            ${qData.deals.map((d, idx) => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid #EEF2F6; font-size: 0.7rem;">
-                                    <span style="color: #94A3B8; font-family: monospace; font-weight: 700; flex-shrink: 0; width: 18px;">${String(idx + 1).padStart(2, '0')}</span>
-                                    <span style="color: #1F2937; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
-                                    ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.55rem', padding: '1px 6px' })}
-                                    <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex-shrink:0; line-height:1;">
-                                        <span style="color: #10B981; font-weight: 800; font-size:0.7rem;" title="Weighted">W $${formatCurrency(d.weighted)}</span>
-                                        <span style="color: #a855f7; font-weight: 700; font-size:0.6rem;" title="ARR">ARR $${formatCurrency(d.arr || 0)}</span>
-                                    </span>
-                                </div>
-                            `).join('')}
+                            ${groupHtml}
                         </div>
                     `}
-                </div>
-                ` : `
+                </div>`;
+                })() : `
                 <div style="background: rgba(0,0,0,0.05); border-radius: 8px; padding: 10px; margin-top: 8px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
                     <div style="flex: 1; overflow-y: auto; min-height: 0;">
                         ${countryBreakdown}
