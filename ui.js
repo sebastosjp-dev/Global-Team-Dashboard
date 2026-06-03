@@ -1954,6 +1954,11 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     const totalW = sumW(qData.deals);
                     const totalA = sumA(qData.deals);
 
+                    // Combined POC (BANT) + Trial Only — the two tagged buckets summed.
+                    const comboList = [...(grouped['POC (BANT)'] || []), ...(grouped['Trial Only'] || [])];
+                    const comboW = sumW(comboList);
+                    const comboA = sumA(comboList);
+
                     const groupHtml = TYPE_GROUPS
                         .filter(g => (grouped[g.key] || []).length > 0)
                         .map(g => {
@@ -1984,6 +1989,18 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             <span style="font-size: 0.6rem; color: #a855f7; font-weight: 700;" title="Total ARR">ARR $${formatCurrency(totalA)}</span>
                         </span>
                     </div>
+                    ${comboList.length > 0 ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 4px 6px; margin-bottom: 6px; background: linear-gradient(90deg, rgba(16,185,129,0.10), rgba(245,158,11,0.10)); border: 1px dashed #cbd5e1; border-radius: 6px;">
+                        <span style="display:flex; align-items:center; gap:5px;">
+                            <span style="font-size: 0.6rem; font-weight: 800; color: #0f766e; text-transform: uppercase; letter-spacing: 0.03em;">POC (BANT) + Trial Only</span>
+                            <span style="font-size: 0.55rem; font-weight: 800; color: #475569; background: rgba(255,255,255,0.7); padding: 1px 6px; border-radius: 8px;">${comboList.length}</span>
+                        </span>
+                        <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; line-height:1; flex-shrink:0;">
+                            <span style="font-size: 0.66rem; font-weight: 800; color: #0f766e;" title="POC + Trial weighted">W $${formatCurrency(comboW)}</span>
+                            <span style="font-size: 0.56rem; font-weight: 700; color: #a855f7;" title="POC + Trial ARR">ARR $${formatCurrency(comboA)}</span>
+                        </span>
+                    </div>
+                    ` : ''}
                     ${qData.deals.length === 0 ? `
                         <div style="text-align: center; padding: 16px 8px; color: #9CA3AF; font-size: 0.7rem; font-style: italic;">No active deals</div>
                     ` : `
