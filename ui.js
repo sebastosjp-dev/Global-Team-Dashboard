@@ -1056,6 +1056,13 @@ export function getQuarterlyForecastHTML(stats) {
         </div>
     `;
 
+    const quarterlyTcvChart = `
+        <div style="background:#fff; border-radius:12px; padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,0.04); border-left:4px solid #f59e0b; margin-bottom:18px;">
+            <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#f59e0b; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; margin:0;">Quarterly TCV (${currentYear})</h3><span class="metric-info" data-tooltip="Total Contract Value broken down by quarter for the current year, showing seasonal revenue distribution.">i</span></div>
+            <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
+        </div>
+    `;
+
     const annualKpiStrip = `
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
             <span style="font-size:0.62rem; font-weight:800; color:#6366f1; text-transform:uppercase; letter-spacing:0.1em; background:rgba(99,102,241,0.1); padding:3px 10px; border-radius:6px;">Annual Total · ${currentYear}</span>
@@ -1176,6 +1183,7 @@ export function getQuarterlyForecastHTML(stats) {
                 </div>
                 <div style="margin-left:auto; font-size:0.65rem; color:#6b7280; font-weight:600;">w = stage-weighted (확도 반영) · prev = existing ARR · <span style="color:#6366f1; font-weight:700;">Click any quarter to view deal details</span></div>
             </div>
+            ${quarterlyTcvChart}
             ${annualKpiStrip}
             ${quarterKpiRow}
         </div>
@@ -1512,10 +1520,6 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
                 <div style="flex: 1; height: 80px; margin-top: auto; position: relative;">
                     <canvas id="mrr-growth-bar"></canvas>
                 </div>
-            </div>
-            <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #f59e0b; display: flex; flex-direction: column; align-items: stretch;">
-                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#f59e0b; font-size:0.75rem; font-weight:700; margin:0;">QUARTERLY TCV (${currentYear})</h3><span class="metric-info" data-tooltip="Total Contract Value broken down by quarter for the current year, showing seasonal revenue distribution.">i</span></div>
-                <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
             </div>
             ${_getRevenueTypeBreakdownHTML(stats)}
             <div class="stat-card" style="grid-column: span 2; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #0ea5e9; display: flex; flex-direction: column; align-items: stretch;">
