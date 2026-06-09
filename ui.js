@@ -1964,9 +1964,12 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     const comboA = sumA(comboList);
 
                     const groupHtml = TYPE_GROUPS
-                        .filter(g => (grouped[g.key] || []).length > 0)
+                        // Always show POC (BANT) — even at 0 — so the absence of
+                        // BANT-qualified deals is explicit rather than hidden.
+                        // Other buckets render only when they have deals.
+                        .filter(g => g.key === 'POC (BANT)' || (grouped[g.key] || []).length > 0)
                         .map(g => {
-                            const list = grouped[g.key];
+                            const list = grouped[g.key] || [];
                             return `
                                 <div style="margin-bottom: 8px;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 4px 6px; background: ${g.bg}; border-radius: 6px; border-left: 3px solid ${g.accent}; margin-bottom: 2px;">
