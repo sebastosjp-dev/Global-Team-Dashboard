@@ -364,6 +364,106 @@ function renderQuarterPanelHtml() {
     `;
 }
 
+// ── Pipeline matrix drill-down modal ──────────────────────────────────────
+// Clicking any deal-stage row in the "New Pipeline Volume by Country" matrix
+// opens a centered modal listing every individual deal behind that aggregate.
+window.closePipelineStageModal = function () {
+    const overlay = document.getElementById('pipeline-stage-modal');
+    if (overlay) overlay.remove();
+    document.removeEventListener('keydown', window.__pipelineStageModalEsc);
+};
+
+window.showPipelineStageDeals = function (element) {
+    const country = element.getAttribute('data-country') || '';
+    const stage = element.getAttribute('data-stage') || 'Unknown';
+    let deals = [];
+    try { deals = JSON.parse(element.getAttribute('data-deals')) || []; }
+    catch (e) { deals = []; }
+
+    deals = deals.slice().sort((a, b) => (Number(b.a) || 0) - (Number(a.a) || 0));
+
+    const fmt = (typeof formatCurrency === 'function')
+        ? formatCurrency
+        : (v) => Number(v || 0).toLocaleString();
+
+    const totalTcv = deals.reduce((s, d) => s + (Number(d.a) || 0), 0);
+    const totalWeighted = deals.reduce((s, d) => s + (Number(d.w) || 0), 0);
+    const totalArr = deals.reduce((s, d) => s + (Number(d.r) || 0), 0);
+
+    const qColor = { Q1: '#1e40af', Q2: '#047857', Q3: '#b45309', Q4: '#6d28d9' };
+    const qBadge = (q) => {
+        const c = qColor[q] || '#6b7280';
+        return `<span style="background:${c}1a; color:${c}; border:1px solid ${c}40; font-size:0.62rem; font-weight:800; padding:2px 7px; border-radius:6px; letter-spacing:0.04em;">${q || '—'}</span>`;
+    };
+
+    const rowsHtml = deals.length === 0
+        ? `<tr><td colspan="7" style="padding:24px; text-align:center; color:#9ca3af; font-size:0.8rem;">No deals found for this stage.</td></tr>`
+        : deals.map((d, i) => `
+            <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:9px 12px; font-size:0.72rem; color:#9ca3af; text-align:right;">${i + 1}</td>
+                <td style="padding:9px 12px; font-size:0.78rem; color:#111827; font-weight:600;">${d.n || '<span style=\"color:#9ca3af;\">—</span>'}</td>
+                <td style="padding:9px 12px; text-align:center;">${qBadge(d.q)}</td>
+                <td style="padding:9px 12px; font-size:0.72rem; color:#6b7280; text-align:center;">${d.t || '—'}</td>
+                <td style="padding:9px 12px; font-size:0.78rem; text-align:right; color:#b91c1c; font-weight:700; white-space:nowrap;">$${fmt(d.a || 0)}</td>
+                <td style="padding:9px 12px; font-size:0.78rem; text-align:right; color:#0369a1; font-weight:700; white-space:nowrap;">$${fmt(d.w || 0)}</td>
+                <td style="padding:9px 12px; font-size:0.78rem; text-align:right; color:#4338ca; font-weight:700; white-space:nowrap;">$${fmt(d.r || 0)}</td>
+            </tr>`).join('');
+
+    window.closePipelineStageModal();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pipeline-stage-modal';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(2px);';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closePipelineStageModal(); });
+
+    const stageBadge = (typeof renderStageBadge === 'function')
+        ? renderStageBadge(stage, { fontSize: '0.7rem', padding: '3px 10px' })
+        : `<span style="font-weight:800;">${stage}</span>`;
+
+    overlay.innerHTML = `
+        <div style="background:#ffffff; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.28); width:min(900px,100%); max-height:85vh; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid #eef2f7; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <div style="width:34px; height:34px; border-radius:10px; background:rgba(99,102,241,0.15); color:#6366f1; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-list-ul"></i></div>
+                    <div>
+                        <div style="font-size:0.62rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">${country} · Pipeline Deals</div>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:3px;">${stageBadge}<span style="font-size:0.85rem; font-weight:800; color:#111827;">${deals.length} deal${deals.length === 1 ? '' : 's'}</span></div>
+                    </div>
+                </div>
+                <button onclick="closePipelineStageModal()" style="border:none; background:#eef2f7; color:#475569; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem;" title="Close (Esc)"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="display:flex; gap:18px; padding:12px 20px; border-bottom:1px solid #f1f5f9; flex-wrap:wrap; font-size:0.72rem; color:#374151;">
+                <span>Pipeline TCV <strong style="color:#b91c1c; font-size:0.95rem;">$${fmt(totalTcv)}</strong></span>
+                <span>Weighted <strong style="color:#0369a1; font-size:0.95rem;">$${fmt(totalWeighted)}</strong></span>
+                <span>ARR <strong style="color:#4338ca; font-size:0.95rem;">$${fmt(totalArr)}</strong></span>
+            </div>
+            <div style="overflow:auto;">
+                <table style="width:100%; border-collapse:collapse; min-width:720px;">
+                    <thead style="background:#f9fafb; position:sticky; top:0; z-index:1;">
+                        <tr>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">#</th>
+                            <th style="padding:9px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Deal</th>
+                            <th style="padding:9px 12px; text-align:center; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Q</th>
+                            <th style="padding:9px 12px; text-align:center; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Type</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#b91c1c; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Pipeline TCV</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#0369a1; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Weighted</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">ARR</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    window.__pipelineStageModalEsc = function (e) {
+        if (e.key === 'Escape') window.closePipelineStageModal();
+    };
+    document.addEventListener('keydown', window.__pipelineStageModalEsc);
+};
+
 window.selectQuarter = function (element) {
     const quarter = element.getAttribute('data-q');
     const deals = JSON.parse(element.getAttribute('data-deals'))
@@ -2047,13 +2147,15 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     Q1: { tcv: 0, weighted: 0, arr: 0, count: 0 },
                     Q2: { tcv: 0, weighted: 0, arr: 0, count: 0 },
                     Q3: { tcv: 0, weighted: 0, arr: 0, count: 0 },
-                    Q4: { tcv: 0, weighted: 0, arr: 0, count: 0 }
+                    Q4: { tcv: 0, weighted: 0, arr: 0, count: 0 },
+                    deals: []
                 };
             }
             stageMatrix[country][stage][q].tcv += d.amount || 0;
             stageMatrix[country][stage][q].weighted += d.weighted || 0;
             stageMatrix[country][stage][q].arr += d.arr || 0;
             stageMatrix[country][stage][q].count += 1;
+            stageMatrix[country][stage].deals.push({ ...d, quarter: q });
         });
     });
 
@@ -2090,7 +2192,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 sArr += sd[q].arr;
                 sCount += sd[q].count;
             });
-            return { stage, byQ: sd, totalTcv: sTcv, totalWeighted: sWeighted, totalArr: sArr, totalCount: sCount };
+            return { stage, byQ: sd, deals: sd.deals || [], totalTcv: sTcv, totalWeighted: sWeighted, totalArr: sArr, totalCount: sCount };
         });
 
         return { country, byQ, totalTcv, totalWeighted, totalArr, totalCount, stageRows };
@@ -2177,10 +2279,22 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
             const countryCell = isFirst ? `
                 <td rowspan="${groupRowSpan}" style="padding: 10px 12px; font-size: 0.82rem; font-weight: 800; color: #111827; white-space: nowrap; border-right: 2px solid #e5e7eb; vertical-align: top; background: #f8fafc;">${r.country}</td>
             ` : '';
+            // Each stage row is clickable: it carries its own deal list as an
+            // escaped JSON attribute so the drill-down modal can list every deal
+            // behind the aggregate without re-querying the source data.
+            const stageDealsJson = JSON.stringify((s.deals || []).map(d => ({
+                n: d.name, q: d.quarter, c: d.country || '', s: d.stage || 'Unknown',
+                t: d.dealType || '', a: d.amount || 0, w: d.weighted || 0, r: d.arr || 0, y: d.years || 0
+            })));
+            const stageDealsAttr = stageDealsJson
+                .replace(/&/g, '&amp;')
+                .replace(/'/g, '&apos;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
             return `
-                <tr style="border-bottom: 1px solid #f1f5f9; background: #ffffff;">
+                <tr class="pipeline-stage-row" data-country="${r.country}" data-stage="${s.stage}" data-deals='${stageDealsAttr}' onclick="showPipelineStageDeals(this)" style="border-bottom: 1px solid #f1f5f9; background: #ffffff; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='#ffffff'" title="Click to view the ${s.totalCount} deal${s.totalCount === 1 ? '' : 's'} in ${r.country} · ${s.stage}">
                     ${countryCell}
-                    <td style="padding: 8px 10px; font-size: 0.72rem; white-space: nowrap;">${renderStageBadge(s.stage, { fontSize: '0.62rem', padding: '2px 8px' })}</td>
+                    <td style="padding: 8px 10px; font-size: 0.72rem; white-space: nowrap;">${renderStageBadge(s.stage, { fontSize: '0.62rem', padding: '2px 8px' })} <i class="fa-solid fa-up-right-from-square" style="font-size:0.55rem; color:#a5b4fc; margin-left:4px;"></i></td>
                     <td style="padding: 8px 10px; font-size: 0.72rem; color: #6b7280; text-align: center; border-right: ${Q_DIVIDER} #cbd5e1;">${s.totalCount}</td>
                     ${renderQuarterCells(s.byQ)}
                     <td style="padding: 8px 12px; font-size: 0.78rem; text-align: right; color: #b91c1c; font-weight: 700; background: #fff5f5; border-left: ${TOTAL_DIVIDER}; overflow: hidden; text-overflow: ellipsis;">${fmtCell(s.totalTcv)}</td>
