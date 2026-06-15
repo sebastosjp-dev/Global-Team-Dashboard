@@ -422,6 +422,7 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
         const oStartKey = findContractStartKey(oKeys);
         const oNameKey = findDealNameKey(oKeys);
         const oRevTypeKey = findRevenueTypeKey(oKeys);
+        const oCountryKey = findCountryKey(oKeys);
         hasRevenueType = !!oRevTypeKey;
 
         orderData.forEach(row => {
@@ -431,10 +432,11 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
             const arrVal = oArrKey ? parseCurrency(row[oArrKey]) : 0;
             const tcvVal = oTcvKey ? parseCurrency(row[oTcvKey]) : 0;
             const name = oNameKey ? String(row[oNameKey] || 'N/A').trim() : 'N/A';
+            const country = oCountryKey ? (normalizeCountry(row[oCountryKey]) || '') : '';
             const rType = _normalizeRevenueType(oRevTypeKey ? row[oRevTypeKey] : null);
             quarters[qId].booked.arr += arrVal;
             quarters[qId].booked.tcv += tcvVal;
-            quarters[qId].booked.deals.push({ name, arr: arrVal, tcv: tcvVal, revenueType: rType });
+            quarters[qId].booked.deals.push({ name, country, arr: arrVal, tcv: tcvVal, revenueType: rType });
             const bucket = quarters[qId].booked.byType[rType]
                 || (quarters[qId].booked.byType[rType] = { tcv: 0, arr: 0, deals: 0 });
             bucket.tcv += tcvVal;
@@ -462,6 +464,7 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
                 quarters[q].forecast.arr += arr;
                 quarters[q].forecast.deals.push({
                     name: d.name,
+                    country: d.country || '',
                     weighted: wTcv,
                     wArr,
                     tcv,
@@ -474,18 +477,21 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
 
     /* ── RENEWAL (END USER (CSM), license end date in current year) ── */
     const csmData = (workbookData['END USER (CSM)'] || []).filter(r => isCountryMatch(r, filterCountry));
+    const csmCountryKey = csmData.length > 0 ? findCountryKey(Object.keys(csmData[0])) : null;
     csmData.forEach(row => {
         const endDate = parseExcelDateSafe(row['End License Date']);
         if (!endDate || endDate.getFullYear() !== currentYear) return;
         const qId = `Q${Math.floor(endDate.getMonth() / 3) + 1}`;
         const arrVal = parseCurrency(row['ARR Amount']);
         const name = String(row['End User'] || 'Unknown').trim();
+        const country = csmCountryKey ? (normalizeCountry(row[csmCountryKey]) || '') : '';
         const status = row['Status'] || '';
         const diffDays = Math.ceil((endDate - today) / 86400000);
         const dDay = diffDays === 0 ? 'D-Day' : (diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`);
         quarters[qId].renewal.arr += arrVal;
         quarters[qId].renewal.deals.push({
             name,
+            country,
             currentArr: arrVal,
             targetArr: arrVal,
             endDate: endDate.toISOString().split('T')[0],

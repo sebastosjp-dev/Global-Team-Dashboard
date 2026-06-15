@@ -1327,12 +1327,19 @@ window.openQuarterlyForecastModal = function (qId) {
         return `<span style="display:inline-block; font-size:0.62rem; font-weight:800; color:${c.fg}; background:${c.bg}; border:1px solid ${c.br}; padding:2px 8px; border-radius:8px; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;">${label}</span>`;
     };
 
+    // In the global (all-countries) view, prefix each deal name with a country tag so deals are distinguishable.
+    const isGlobalView = /global/i.test(stats.country || '');
+    const renderCountryTag = (country) => {
+        if (!isGlobalView || !country) return '';
+        return `<span style="display:inline-block; font-size:0.6rem; font-weight:800; color:#475569; background:#F1F5F9; border:1px solid #E2E8F0; padding:2px 7px; border-radius:6px; letter-spacing:0.03em; white-space:nowrap; margin-right:8px; vertical-align:middle;">${country}</span>`;
+    };
+
     const fullBookedRows = q.booked.deals.length === 0
         ? `<tr><td colspan="4" style="padding:18px; text-align:center; color:#9ca3af; font-style:italic;">No booked deals</td></tr>`
         : q.booked.deals.map((d, i) => `
             <tr style="border-bottom:1px solid #F3F4F6;">
                 <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
-                <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
+                <td style="padding:9px 12px; color:#111827; font-weight:600;">${renderCountryTag(d.country)}${d.name}</td>
                 <td style="padding:9px 12px;">${renderRevTypeBadge(d.revenueType)}</td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
                     <span style="color:#0EA5E9; font-weight:800;">TCV $${fmt(d.tcv)}</span>
@@ -1372,7 +1379,7 @@ window.openQuarterlyForecastModal = function (qId) {
         : q.forecast.deals.map((d, i) => `
             <tr style="border-bottom:1px solid #F3F4F6;">
                 <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
-                <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
+                <td style="padding:9px 12px; color:#111827; font-weight:600;">${renderCountryTag(d.country)}${d.name}</td>
                 <td style="padding:9px 12px;">${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.62rem', padding: '2px 8px' })}</td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
                     <div>
@@ -1392,7 +1399,7 @@ window.openQuarterlyForecastModal = function (qId) {
         : q.renewal.deals.map((d, i) => `
             <tr style="border-bottom:1px solid #F3F4F6;">
                 <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
-                <td style="padding:9px 12px; color:#111827; font-weight:600;">${d.name}</td>
+                <td style="padding:9px 12px; color:#111827; font-weight:600;">${renderCountryTag(d.country)}${d.name}</td>
                 <td style="padding:9px 12px; color:#6B7280; font-size:0.78rem;">${d.endDate}</td>
                 <td style="padding:9px 12px;"><span style="background:rgba(168,85,247,0.12); color:#7e22ce; font-size:0.65rem; font-weight:800; padding:2px 8px; border-radius:8px;">${d.dDay}</span></td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
