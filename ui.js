@@ -1169,8 +1169,8 @@ export function getQuarterlyForecastHTML(stats) {
             <span style="height:1px; flex:1; background:#E5E7EB;"></span>
         </div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px;">
-            ${kpiCard('Booked TCV (Annual)', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4')}
-            ${kpiCard('Booked ARR (Annual)', kpiTotals.bookedArr, '#10b981', 'Closed-won, Q1–Q4')}
+            ${kpiCard('Booked TCV', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4')}
+            ${kpiCard('Booked ARR', kpiTotals.bookedArr, '#10b981', 'Closed-won, Q1–Q4')}
             ${kpiCard('Weighted Pipeline ARR', kpiTotals.weightedArr, '#f59e0b', 'Stage-prob × ARR/yr')}
             ${kpiCard('Renewal Target ARR', kpiTotals.renewalArr, '#a855f7', 'Contracts ending in ' + currentYear)}
         </div>
