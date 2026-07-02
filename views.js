@@ -238,7 +238,7 @@ async function _renderPipeline(workbookData, filterCountry, tabName, metricsGrid
                 }));
             });
         }
-        initPipelineCharts(stats);
+        initPipelineCharts(stats, kpiTargets);
     }, 100);
 }
 

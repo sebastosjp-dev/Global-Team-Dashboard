@@ -2,6 +2,7 @@
  * charts.js — Chart registry and all chart initialization functions
  */
 import { formatCurrency } from './utils.js';
+import { computeQuarterlyRollover } from './ui.js';
 
 /** Chart instance registry — ensures proper cleanup on re-render */
 export const chartRegistry = {
@@ -952,7 +953,7 @@ export function initOrderSheetCharts(stats) {
 }
 
 /* ═══ PIPELINE Charts ═══ */
-export function initPipelineCharts(stats) {
+export function initPipelineCharts(stats, kpiTargets = null) {
     chartRegistry.destroyTag('pipeline');
     const ctx = document.getElementById('pipeline-influx-chart');
     if (ctx) {
@@ -1148,6 +1149,152 @@ export function initPipelineCharts(stats) {
             }]
         });
         chartRegistry.register('pipeline-quarter-pie', pieChart);
+    }
+
+    // Target vs Achievement · Roll-Over Flow — combo chart above the quarter cards.
+    // Grouped bars (Set KPI Target vs WON TCV) show goal-vs-achieved per quarter;
+    // the amber line traces the Roll-Over Balance (running amount still owed, dipping
+    // below zero when ahead) so the eye follows how a shortfall/surplus carries to
+    // the next quarter; the dashed green line is cumulative WON TCV (performance to
+    // date). Everything is in USD (TCV) on a single axis — no dual scale.
+    const targetCtx = document.getElementById('pipeline-target-chart');
+    if (targetCtx && kpiTargets) {
+        chartRegistry.destroyTag('pipeline-target');
+        const rollover = computeQuarterlyRollover(stats, kpiTargets);
+        const tLabels = stats.sortedQuarterly.map(([q]) => q);
+        const baseTargets = tLabels.map(q => rollover[q]?.baseTarget || 0);
+        const wonVals = tLabels.map(q => rollover[q]?.won || 0);
+        const rollBalance = tLabels.map(q => rollover[q]?.rollOverTarget || 0);
+        const cumulativeWon = tLabels.map(q => rollover[q]?.cumulativeWon || 0);
+        // Achievement % vs the effective (rolled) goal — drawn above the WON bars.
+        const achievementPct = tLabels.map(q => {
+            const r = rollover[q] || {};
+            if ((r.targetToHit || 0) > 0) return Math.round((r.won / r.targetToHit) * 100);
+            return (r.won || 0) > 0 ? 100 : 0;
+        });
+
+        const targetChart = new Chart(targetCtx, {
+            type: 'bar',
+            data: {
+                labels: tLabels,
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Set KPI Target',
+                        data: baseTargets,
+                        backgroundColor: 'rgba(99,102,241,0.85)',
+                        borderRadius: 4,
+                        borderSkipped: false,
+                        order: 3
+                    },
+                    {
+                        type: 'bar',
+                        label: 'WON TCV',
+                        data: wonVals,
+                        backgroundColor: '#10B981',
+                        borderRadius: 4,
+                        borderSkipped: false,
+                        order: 3
+                    },
+                    {
+                        type: 'line',
+                        label: 'Roll-Over Balance',
+                        data: rollBalance,
+                        borderColor: '#F59E0B',
+                        backgroundColor: '#F59E0B',
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.25,
+                        order: 1
+                    },
+                    {
+                        type: 'line',
+                        label: 'Cumulative WON TCV',
+                        data: cumulativeWon,
+                        borderColor: '#047857',
+                        backgroundColor: '#047857',
+                        borderWidth: 2,
+                        borderDash: [5, 4],
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        tension: 0.25,
+                        order: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 20 } },
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F3F4F6', drawBorder: false },
+                        ticks: {
+                            color: '#6B7280',
+                            font: { size: 10, family: "'Inter', sans-serif" },
+                            callback: (v) => '$' + formatCurrency(v)
+                        }
+                    },
+                    x: {
+                        grid: { display: false, drawBorder: false },
+                        ticks: {
+                            color: '#374151',
+                            font: { size: 12, family: "'Inter', sans-serif", weight: '700' }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#374151', font: { size: 11 }, usePointStyle: true, boxWidth: 8, padding: 14 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#FFFFFF',
+                        titleColor: '#111827',
+                        bodyColor: '#374151',
+                        borderColor: '#E5E7EB',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        usePointStyle: true,
+                        callbacks: {
+                            label: function (context) {
+                                const v = context.parsed.y;
+                                const sign = v < 0 ? '−' : '';
+                                return ` ${context.dataset.label}: ${sign}US$ ${formatCurrency(Math.abs(v))}`;
+                            },
+                            afterBody: function (context) {
+                                const i = context[0].dataIndex;
+                                return `Achievement: ${achievementPct[i]}%`;
+                            }
+                        }
+                    }
+                },
+                animation: { duration: 700 }
+            },
+            plugins: [{
+                id: 'targetAchievementLabels',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    const wonMeta = chart.getDatasetMeta(1); // WON TCV bars
+                    ctx.save();
+                    ctx.font = "800 11px 'Inter', sans-serif";
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    wonMeta.data.forEach((bar, i) => {
+                        const pct = achievementPct[i];
+                        if (pct == null) return;
+                        ctx.fillStyle = pct >= 100 ? '#10B981' : (pct >= 70 ? '#D97706' : '#EF4444');
+                        ctx.fillText(`${pct}%`, bar.x, bar.y - 6);
+                    });
+                    ctx.restore();
+                }
+            }]
+        });
+        chartRegistry.register('pipeline-target', targetChart);
     }
 }
 

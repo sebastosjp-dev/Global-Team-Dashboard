@@ -1889,6 +1889,35 @@ function getCountryFlagHTML(country, defaultIcon = 'fa-globe') {
 }
 
 
+/**
+ * Compute the rolling-over quarterly targets. Walking quarters in order (Q1→Q4),
+ * we track a running "balance" = the cumulative amount still owed against target:
+ *   Roll Over Target(Q) = (balance carried from previous quarter) + (Set KPI Target − WON TCV)
+ * A positive balance = behind (still owe that much); negative = ahead (surplus),
+ * carried forward. Also returns cumulative WON TCV (performance to date).
+ *
+ * Returns an object keyed by quarter: { baseTarget, prevBalance, targetToHit,
+ * rollOverTarget, won, cumulativeWon }. Empty object when kpiTargets is null.
+ * Shared by getPipelineHTML (card header) and initPipelineCharts (target chart)
+ * so both draw from an identical calculation.
+ */
+export function computeQuarterlyRollover(stats, kpiTargets) {
+    const rolloverByQ = {};
+    if (!kpiTargets || !stats || !Array.isArray(stats.sortedQuarterly)) return rolloverByQ;
+    let prevBalance = 0;   // + = behind (owed), − = ahead (surplus), carried from prior quarters
+    let cumulativeWon = 0; // running sum of WON TCV across quarters
+    stats.sortedQuarterly.forEach(([q, qData]) => {
+        const baseTarget = Number(kpiTargets[q]) || 0;
+        const won = Object.values(qData.countries).reduce((acc, v) => acc + (v.tcv || 0), 0);
+        const targetToHit = baseTarget + prevBalance;   // effective goal this quarter
+        const rollOverTarget = targetToHit - won;        // running balance still owed (+) / ahead (−)
+        cumulativeWon += won;
+        rolloverByQ[q] = { baseTarget, prevBalance, targetToHit, rollOverTarget, won, cumulativeWon };
+        prevBalance = rollOverTarget;
+    });
+    return rolloverByQ;
+}
+
 export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null) {
     const currentYear = new Date().getFullYear();
 
@@ -1932,25 +1961,10 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
         </div>
     `).join('');
 
-    // Compute rolling-over targets. Walking quarters in order (Q1→Q4), we track a
-    // running "balance" = the cumulative amount still owed against target:
-    //   Roll Over Target(Q) = (balance carried from previous quarter) + (Set KPI Target − WON TCV)
-    // A positive balance means we're behind (still owe that much); a negative
-    // balance means we're ahead (over-achieved by that much), and it carries forward.
-    // Example: Q1 beats a $100k target by $70,806 → carries −$70,806 into Q2, so
-    //          Q2 = −$70,806 + ($400k − $126,482) = $202,712 still owed.
-    const rolloverByQ = {};
-    if (kpiTargets) {
-        let prevBalance = 0; // + = behind (owed), − = ahead (surplus), carried from prior quarters
-        stats.sortedQuarterly.forEach(([q, qData]) => {
-            const baseTarget = Number(kpiTargets[q]) || 0;
-            const won = Object.values(qData.countries).reduce((acc, v) => acc + (v.tcv || 0), 0);
-            const targetToHit = baseTarget + prevBalance;   // effective goal this quarter (for Achievement / Coverage)
-            const rollOverTarget = targetToHit - won;        // running balance still owed (+) / ahead (−)
-            rolloverByQ[q] = { baseTarget, prevBalance, targetToHit, rollOverTarget };
-            prevBalance = rollOverTarget;
-        });
-    }
+    // Rolling-over targets — see computeQuarterlyRollover for the running-balance
+    // model. Example: Q1 beats a $100k target by $70,806 → carries −$70,806 into
+    // Q2, so Q2 = −$70,806 + ($400k − $126,482) = $202,712 still owed.
+    const rolloverByQ = computeQuarterlyRollover(stats, kpiTargets);
 
     const quarterlyItemsHtml = stats.sortedQuarterly.map(([q, qData]) => {
         const countryEntries = Object.entries(qData.countries);
@@ -2513,6 +2527,45 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(20, 184, 166, 0.15); color: #14b8a6;"><i class="fa-solid fa-globe"></i></div>
                     <h2 style="font-size: 0.95rem; font-weight: 600; color: #111827;">${new Date().getFullYear()} Pipeline Quarter</h2>
                 </div>
+
+                <!-- Target vs Achievement chart — at-a-glance overview above the quarter cards -->
+                ${kpiTargets ? (() => {
+                    const qs = stats.sortedQuarterly.map(([q]) => q);
+                    const last = qs[qs.length - 1];
+                    // Full-year rollup: total base target, cumulative WON to date,
+                    // overall achievement, and the balance still carried at year-end.
+                    const totalTarget = qs.reduce((a, q) => a + (rolloverByQ[q]?.baseTarget || 0), 0);
+                    const wonToDate = rolloverByQ[last]?.cumulativeWon || 0;
+                    const outstanding = rolloverByQ[last]?.rollOverTarget || 0; // + = still owed, − = surplus
+                    const overallPct = totalTarget > 0 ? Math.round((wonToDate / totalTarget) * 100) : (wonToDate > 0 ? 100 : 0);
+                    const pctColor = overallPct >= 100 ? '#10B981' : (overallPct >= 70 ? '#F59E0B' : '#EF4444');
+                    const outColor = outstanding > 0 ? '#B91C1C' : (outstanding < 0 ? '#047857' : '#4338CA');
+                    const outLabel = outstanding > 0 ? 'Still to close' : (outstanding < 0 ? 'Surplus ahead' : 'On target');
+                    const outValue = outstanding < 0 ? `−$${formatCurrency(-outstanding)}` : `$${formatCurrency(outstanding)}`;
+                    const kpi = (label, value, color, sub) => `
+                        <div style="flex: 1 1 130px; min-width: 120px; padding: 8px 12px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid ${color};">
+                            <div style="font-size: 0.58rem; color: #6B7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">${label}</div>
+                            <div style="font-size: 1.05rem; color: ${color}; font-weight: 900; line-height: 1.2;">${value}</div>
+                            ${sub ? `<div style="font-size: 0.56rem; color: #9CA3AF; font-weight: 600;">${sub}</div>` : ''}
+                        </div>`;
+                    return `
+                <div class="stat-card" style="background: #FFFFFF; padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Target vs Achievement <span style="color:#9CA3AF; font-weight:600;">·</span> Roll-Over Flow</h3>
+                        <span style="font-size: 0.62rem; color: #6B7280; background: #F3F4F6; padding: 3px 9px; border-radius: 10px; font-weight: 700;">FY ${currentYear} · USD (TCV)</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                        ${kpi('Set KPI Target', `$${formatCurrency(totalTarget)}`, '#6366f1', 'Full-year goal')}
+                        ${kpi(`WON TCV to date`, `$${formatCurrency(wonToDate)}`, '#10B981', 'Cumulative closed')}
+                        ${kpi('Achievement', `${overallPct}%`, pctColor, 'WON ÷ target')}
+                        ${kpi('Roll-Over Balance', outValue, outColor, outLabel)}
+                    </div>
+                    <div style="position: relative; height: 260px;">
+                        <canvas id="pipeline-target-chart"></canvas>
+                    </div>
+                </div>
+                    `;
+                })() : ''}
 
                 <!-- Quarter Cards (full width) -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
