@@ -1202,9 +1202,9 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         data: rollBalance,
                         borderColor: '#F59E0B',
                         backgroundColor: '#F59E0B',
-                        borderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
+                        borderWidth: 3,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
                         tension: 0.25,
                         order: 1
                     },
@@ -1214,10 +1214,10 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         data: cumulativeWon,
                         borderColor: '#047857',
                         backgroundColor: '#047857',
-                        borderWidth: 2,
-                        borderDash: [5, 4],
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
+                        borderWidth: 3,
+                        borderDash: [6, 5],
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
                         tension: 0.25,
                         order: 2
                     }
@@ -1226,7 +1226,7 @@ export function initPipelineCharts(stats, kpiTargets = null) {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { top: 20 } },
+                layout: { padding: { top: 28 } },
                 interaction: { mode: 'index', intersect: false },
                 scales: {
                     y: {
@@ -1234,7 +1234,7 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         grid: { color: '#F3F4F6', drawBorder: false },
                         ticks: {
                             color: '#6B7280',
-                            font: { size: 10, family: "'Inter', sans-serif" },
+                            font: { size: 12, family: "'Inter', sans-serif" },
                             callback: (v) => '$' + formatCurrency(v)
                         }
                     },
@@ -1242,14 +1242,14 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         grid: { display: false, drawBorder: false },
                         ticks: {
                             color: '#374151',
-                            font: { size: 12, family: "'Inter', sans-serif", weight: '700' }
+                            font: { size: 15, family: "'Inter', sans-serif", weight: '700' }
                         }
                     }
                 },
                 plugins: {
                     legend: {
                         position: 'top',
-                        labels: { color: '#374151', font: { size: 11 }, usePointStyle: true, boxWidth: 8, padding: 14 }
+                        labels: { color: '#374151', font: { size: 13 }, usePointStyle: true, boxWidth: 10, padding: 18 }
                     },
                     tooltip: {
                         backgroundColor: '#FFFFFF',
@@ -1281,14 +1281,14 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                     const { ctx } = chart;
                     const wonMeta = chart.getDatasetMeta(1); // WON TCV bars
                     ctx.save();
-                    ctx.font = "800 11px 'Inter', sans-serif";
+                    ctx.font = "800 14px 'Inter', sans-serif";
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'bottom';
                     wonMeta.data.forEach((bar, i) => {
                         const pct = achievementPct[i];
                         if (pct == null) return;
                         ctx.fillStyle = pct >= 100 ? '#10B981' : (pct >= 70 ? '#D97706' : '#EF4444');
-                        ctx.fillText(`${pct}%`, bar.x, bar.y - 6);
+                        ctx.fillText(`${pct}%`, bar.x, bar.y - 8);
                     });
                     ctx.restore();
                 }

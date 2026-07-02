@@ -2529,43 +2529,17 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 </div>
 
                 <!-- Target vs Achievement chart — at-a-glance overview above the quarter cards -->
-                ${kpiTargets ? (() => {
-                    const qs = stats.sortedQuarterly.map(([q]) => q);
-                    const last = qs[qs.length - 1];
-                    // Full-year rollup: total base target, cumulative WON to date,
-                    // overall achievement, and the balance still carried at year-end.
-                    const totalTarget = qs.reduce((a, q) => a + (rolloverByQ[q]?.baseTarget || 0), 0);
-                    const wonToDate = rolloverByQ[last]?.cumulativeWon || 0;
-                    const outstanding = rolloverByQ[last]?.rollOverTarget || 0; // + = still owed, − = surplus
-                    const overallPct = totalTarget > 0 ? Math.round((wonToDate / totalTarget) * 100) : (wonToDate > 0 ? 100 : 0);
-                    const pctColor = overallPct >= 100 ? '#10B981' : (overallPct >= 70 ? '#F59E0B' : '#EF4444');
-                    const outColor = outstanding > 0 ? '#B91C1C' : (outstanding < 0 ? '#047857' : '#4338CA');
-                    const outLabel = outstanding > 0 ? 'Still to close' : (outstanding < 0 ? 'Surplus ahead' : 'On target');
-                    const outValue = outstanding < 0 ? `−$${formatCurrency(-outstanding)}` : `$${formatCurrency(outstanding)}`;
-                    const kpi = (label, value, color, sub) => `
-                        <div style="flex: 1 1 130px; min-width: 120px; padding: 8px 12px; background: #F9FAFB; border-radius: 8px; border-left: 3px solid ${color};">
-                            <div style="font-size: 0.58rem; color: #6B7280; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">${label}</div>
-                            <div style="font-size: 1.05rem; color: ${color}; font-weight: 900; line-height: 1.2;">${value}</div>
-                            ${sub ? `<div style="font-size: 0.56rem; color: #9CA3AF; font-weight: 600;">${sub}</div>` : ''}
-                        </div>`;
-                    return `
-                <div class="stat-card" style="background: #FFFFFF; padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 14px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                ${kpiTargets ? `
+                <div style="background: #FFFFFF; padding: 16px 20px 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                         <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Target vs Achievement <span style="color:#9CA3AF; font-weight:600;">·</span> Roll-Over Flow</h3>
                         <span style="font-size: 0.62rem; color: #6B7280; background: #F3F4F6; padding: 3px 9px; border-radius: 10px; font-weight: 700;">FY ${currentYear} · USD (TCV)</span>
                     </div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
-                        ${kpi('Set KPI Target', `$${formatCurrency(totalTarget)}`, '#6366f1', 'Full-year goal')}
-                        ${kpi(`WON TCV to date`, `$${formatCurrency(wonToDate)}`, '#10B981', 'Cumulative closed')}
-                        ${kpi('Achievement', `${overallPct}%`, pctColor, 'WON ÷ target')}
-                        ${kpi('Roll-Over Balance', outValue, outColor, outLabel)}
-                    </div>
-                    <div style="position: relative; height: 260px;">
+                    <div style="position: relative; width: 100%; height: 440px;">
                         <canvas id="pipeline-target-chart"></canvas>
                     </div>
                 </div>
-                    `;
-                })() : ''}
+                ` : ''}
 
                 <!-- Quarter Cards (full width) -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
