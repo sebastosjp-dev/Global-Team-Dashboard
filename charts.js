@@ -1152,26 +1152,23 @@ export function initPipelineCharts(stats, kpiTargets = null) {
     }
 
     // Target vs Achievement · Roll-Over Flow — combo chart above the quarter cards.
-    // Bullet-style bars: each quarter's OBJECTIVE = Roll-Over carried in + Set KPI
-    // Target (the running "targetToHit"), drawn as a wide light-indigo track. WON
-    // TCV is overlaid as a narrower solid-green bar INSIDE the same track (grouped:
-    // false), so achievement reads directly against that quarter's objective. Two
-    // dashed lines trace the cumulative story: Cumulative Target (indigo) vs
-    // Cumulative WON TCV / achieved (green). Everything is USD (TCV) on one axis.
+    // One stacked bar per quarter = that quarter's OBJECTIVE (Set KPI Target +
+    // roll-over carried in). The bar splits into two semantic colors so the story
+    // reads in one glance: GREEN = Achieved (WON TCV), AMBER = Rolled Over (the
+    // shortfall that carries to the next quarter). A dashed indigo tick marks the
+    // objective line on each bar (visible even when WON exceeds it). Achievement %
+    // sits above each bar. Everything is USD (TCV) on a single axis.
     const targetCtx = document.getElementById('pipeline-target-chart');
     if (targetCtx && kpiTargets) {
         chartRegistry.destroyTag('pipeline-target');
         const rollover = computeQuarterlyRollover(stats, kpiTargets);
         const tLabels = stats.sortedQuarterly.map(([q]) => q);
         const baseTargets = tLabels.map(q => rollover[q]?.baseTarget || 0);
-        const prevBalances = tLabels.map(q => rollover[q]?.prevBalance || 0); // roll-over carried in
-        const objectiveVals = tLabels.map(q => rollover[q]?.targetToHit || 0);  // roll-over + KPI target
-        const wonVals = tLabels.map(q => rollover[q]?.won || 0);
-        const cumulativeWon = tLabels.map(q => rollover[q]?.cumulativeWon || 0);
-        // Cumulative Set KPI Target — running full-year goal.
-        let runningTarget = 0;
-        const cumulativeTarget = baseTargets.map(t => (runningTarget += t));
-        // Achievement % vs this quarter's objective (roll-over + KPI target).
+        const prevBalances = tLabels.map(q => rollover[q]?.prevBalance || 0);      // roll-over carried in
+        const objectiveVals = tLabels.map(q => rollover[q]?.targetToHit || 0);      // KPI target + roll-over
+        const wonVals = tLabels.map(q => rollover[q]?.won || 0);                    // achieved
+        const rolledOverVals = tLabels.map(q => Math.max(0, rollover[q]?.rollOverTarget || 0)); // shortfall → next Q
+        const totals = tLabels.map((q, i) => wonVals[i] + rolledOverVals[i]);       // = objective (or WON if exceeded)
         const achievementPct = tLabels.map(q => {
             const r = rollover[q] || {};
             if ((r.targetToHit || 0) > 0) return Math.round((r.won / r.targetToHit) * 100);
@@ -1184,66 +1181,36 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                 labels: tLabels,
                 datasets: [
                     {
-                        type: 'bar',
-                        label: 'Objective (Roll-Over + KPI Target)',
-                        data: objectiveVals,
-                        backgroundColor: 'rgba(99,102,241,0.28)',
-                        borderColor: 'rgba(99,102,241,0.65)',
-                        borderWidth: 1.5,
-                        borderRadius: 5,
-                        borderSkipped: false,
-                        barPercentage: 0.78,
-                        categoryPercentage: 0.9,
-                        grouped: false,
-                        order: 4
-                    },
-                    {
-                        type: 'bar',
-                        label: 'WON TCV',
+                        label: 'Achieved (WON TCV)',
                         data: wonVals,
                         backgroundColor: '#10B981',
-                        borderRadius: 4,
+                        stack: 'q',
+                        borderRadius: 3,
                         borderSkipped: false,
-                        barPercentage: 0.42,
-                        categoryPercentage: 0.9,
-                        grouped: false,
-                        order: 3
+                        barPercentage: 0.62,
+                        categoryPercentage: 0.8
                     },
                     {
-                        type: 'line',
-                        label: 'Cumulative Target',
-                        data: cumulativeTarget,
-                        borderColor: '#6366f1',
-                        backgroundColor: '#6366f1',
-                        borderWidth: 3,
-                        borderDash: [6, 5],
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        tension: 0.25,
-                        order: 2
-                    },
-                    {
-                        type: 'line',
-                        label: 'Cumulative WON TCV',
-                        data: cumulativeWon,
-                        borderColor: '#047857',
-                        backgroundColor: '#047857',
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        tension: 0.25,
-                        order: 1
+                        label: 'Rolled Over → next Q',
+                        data: rolledOverVals,
+                        backgroundColor: 'rgba(245,158,11,0.55)',
+                        stack: 'q',
+                        borderRadius: 3,
+                        borderSkipped: false,
+                        barPercentage: 0.62,
+                        categoryPercentage: 0.8
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { top: 28 } },
+                layout: { padding: { top: 30 } },
                 interaction: { mode: 'index', intersect: false },
                 scales: {
                     y: {
                         beginAtZero: true,
+                        stacked: true,
                         grid: { color: '#F3F4F6', drawBorder: false },
                         ticks: {
                             color: '#6B7280',
@@ -1252,6 +1219,7 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         }
                     },
                     x: {
+                        stacked: true,
                         grid: { display: false, drawBorder: false },
                         ticks: {
                             color: '#374151',
@@ -1275,18 +1243,17 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         usePointStyle: true,
                         callbacks: {
                             label: function (context) {
-                                const v = context.parsed.y;
-                                const sign = v < 0 ? '−' : '';
-                                return ` ${context.dataset.label}: ${sign}US$ ${formatCurrency(Math.abs(v))}`;
+                                return ` ${context.dataset.label}: US$ ${formatCurrency(context.parsed.y)}`;
                             },
                             afterBody: function (context) {
                                 const i = context[0].dataIndex;
                                 const prev = prevBalances[i];
                                 const prevStr = prev < 0
-                                    ? `−$${formatCurrency(-prev)} roll-over`
-                                    : `+$${formatCurrency(prev)} roll-over`;
+                                    ? `−$${formatCurrency(-prev)} carried surplus`
+                                    : `+$${formatCurrency(prev)} carried shortfall`;
                                 return [
-                                    `Objective = $${formatCurrency(baseTargets[i])} KPI ${prevStr}`,
+                                    `Objective: US$ ${formatCurrency(objectiveVals[i])}`,
+                                    `  = $${formatCurrency(baseTargets[i])} KPI  ${prevStr}`,
                                     `Achievement: ${achievementPct[i]}%`
                                 ];
                             }
@@ -1298,20 +1265,33 @@ export function initPipelineCharts(stats, kpiTargets = null) {
             plugins: [{
                 id: 'targetAchievementLabels',
                 afterDatasetsDraw(chart) {
-                    const { ctx } = chart;
-                    const objMeta = chart.getDatasetMeta(0); // Objective track
-                    const wonMeta = chart.getDatasetMeta(1); // WON TCV bar
+                    const { ctx, scales: { y } } = chart;
+                    const meta = chart.getDatasetMeta(0); // achieved (bottom) — carries bar geometry
                     ctx.save();
-                    ctx.font = "800 14px 'Inter', sans-serif";
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'bottom';
-                    wonMeta.data.forEach((bar, i) => {
+                    meta.data.forEach((bar, i) => {
+                        const half = bar.width / 2;
+                        // Objective reference tick — dashed indigo line across the bar.
+                        if (objectiveVals[i] > 0) {
+                            const yObj = y.getPixelForValue(objectiveVals[i]);
+                            ctx.beginPath();
+                            ctx.setLineDash([5, 4]);
+                            ctx.lineWidth = 2;
+                            ctx.strokeStyle = '#4338ca';
+                            ctx.moveTo(bar.x - half, yObj);
+                            ctx.lineTo(bar.x + half, yObj);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+                        // Achievement % above the full stack.
                         const pct = achievementPct[i];
-                        if (pct == null) return;
-                        // Sit the label above whichever mark is taller (smaller y).
-                        const yTop = Math.min(bar.y, objMeta.data[i] ? objMeta.data[i].y : bar.y);
-                        ctx.fillStyle = pct >= 100 ? '#10B981' : (pct >= 70 ? '#D97706' : '#EF4444');
-                        ctx.fillText(`${pct}%`, bar.x, yTop - 8);
+                        if (pct != null) {
+                            const yTop = y.getPixelForValue(totals[i]);
+                            ctx.font = "800 15px 'Inter', sans-serif";
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            ctx.fillStyle = pct >= 100 ? '#059669' : (pct >= 70 ? '#D97706' : '#DC2626');
+                            ctx.fillText(`${pct}%`, bar.x, yTop - 8);
+                        }
                     });
                     ctx.restore();
                 }

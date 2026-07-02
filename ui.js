@@ -2531,10 +2531,11 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 <!-- Target vs Achievement chart — at-a-glance overview above the quarter cards -->
                 ${kpiTargets ? `
                 <div style="background: #FFFFFF; padding: 16px 20px 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 14px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                        <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Target vs Achievement <span style="color:#9CA3AF; font-weight:600;">·</span> Roll-Over Flow</h3>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 8px;">
+                        <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Quarterly Objective <span style="color:#9CA3AF; font-weight:600;">·</span> Achieved vs Rolled-Over</h3>
                         <span style="font-size: 0.62rem; color: #6B7280; background: #F3F4F6; padding: 3px 9px; border-radius: 10px; font-weight: 700;">FY ${currentYear} · USD (TCV)</span>
                     </div>
+                    <p style="font-size: 0.68rem; color: #6B7280; margin: 0 0 12px;">Each bar = that quarter's objective (Set KPI Target + carried roll-over). <span style="color:#059669; font-weight:700;">Green</span> = achieved, <span style="color:#B45309; font-weight:700;">amber</span> = rolled over to the next quarter. Dashed line marks the objective.</p>
                     <div style="position: relative; width: 100%; height: 440px;">
                         <canvas id="pipeline-target-chart"></canvas>
                     </div>
