@@ -1152,21 +1152,26 @@ export function initPipelineCharts(stats, kpiTargets = null) {
     }
 
     // Target vs Achievement · Roll-Over Flow — combo chart above the quarter cards.
-    // Grouped bars (Set KPI Target vs WON TCV) show goal-vs-achieved per quarter;
-    // the amber line traces the Roll-Over Balance (running amount still owed, dipping
-    // below zero when ahead) so the eye follows how a shortfall/surplus carries to
-    // the next quarter; the dashed green line is cumulative WON TCV (performance to
-    // date). Everything is in USD (TCV) on a single axis — no dual scale.
+    // Bullet-style bars: each quarter's OBJECTIVE = Roll-Over carried in + Set KPI
+    // Target (the running "targetToHit"), drawn as a wide light-indigo track. WON
+    // TCV is overlaid as a narrower solid-green bar INSIDE the same track (grouped:
+    // false), so achievement reads directly against that quarter's objective. Two
+    // dashed lines trace the cumulative story: Cumulative Target (indigo) vs
+    // Cumulative WON TCV / achieved (green). Everything is USD (TCV) on one axis.
     const targetCtx = document.getElementById('pipeline-target-chart');
     if (targetCtx && kpiTargets) {
         chartRegistry.destroyTag('pipeline-target');
         const rollover = computeQuarterlyRollover(stats, kpiTargets);
         const tLabels = stats.sortedQuarterly.map(([q]) => q);
         const baseTargets = tLabels.map(q => rollover[q]?.baseTarget || 0);
+        const prevBalances = tLabels.map(q => rollover[q]?.prevBalance || 0); // roll-over carried in
+        const objectiveVals = tLabels.map(q => rollover[q]?.targetToHit || 0);  // roll-over + KPI target
         const wonVals = tLabels.map(q => rollover[q]?.won || 0);
-        const rollBalance = tLabels.map(q => rollover[q]?.rollOverTarget || 0);
         const cumulativeWon = tLabels.map(q => rollover[q]?.cumulativeWon || 0);
-        // Achievement % vs the effective (rolled) goal — drawn above the WON bars.
+        // Cumulative Set KPI Target — running full-year goal.
+        let runningTarget = 0;
+        const cumulativeTarget = baseTargets.map(t => (runningTarget += t));
+        // Achievement % vs this quarter's objective (roll-over + KPI target).
         const achievementPct = tLabels.map(q => {
             const r = rollover[q] || {};
             if ((r.targetToHit || 0) > 0) return Math.round((r.won / r.targetToHit) * 100);
@@ -1180,12 +1185,17 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                 datasets: [
                     {
                         type: 'bar',
-                        label: 'Set KPI Target',
-                        data: baseTargets,
-                        backgroundColor: 'rgba(99,102,241,0.85)',
-                        borderRadius: 4,
+                        label: 'Objective (Roll-Over + KPI Target)',
+                        data: objectiveVals,
+                        backgroundColor: 'rgba(99,102,241,0.28)',
+                        borderColor: 'rgba(99,102,241,0.65)',
+                        borderWidth: 1.5,
+                        borderRadius: 5,
                         borderSkipped: false,
-                        order: 3
+                        barPercentage: 0.78,
+                        categoryPercentage: 0.9,
+                        grouped: false,
+                        order: 4
                     },
                     {
                         type: 'bar',
@@ -1194,19 +1204,23 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         backgroundColor: '#10B981',
                         borderRadius: 4,
                         borderSkipped: false,
+                        barPercentage: 0.42,
+                        categoryPercentage: 0.9,
+                        grouped: false,
                         order: 3
                     },
                     {
                         type: 'line',
-                        label: 'Roll-Over Balance',
-                        data: rollBalance,
-                        borderColor: '#F59E0B',
-                        backgroundColor: '#F59E0B',
+                        label: 'Cumulative Target',
+                        data: cumulativeTarget,
+                        borderColor: '#6366f1',
+                        backgroundColor: '#6366f1',
                         borderWidth: 3,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
+                        borderDash: [6, 5],
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
                         tension: 0.25,
-                        order: 1
+                        order: 2
                     },
                     {
                         type: 'line',
@@ -1215,11 +1229,10 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                         borderColor: '#047857',
                         backgroundColor: '#047857',
                         borderWidth: 3,
-                        borderDash: [6, 5],
                         pointRadius: 4,
                         pointHoverRadius: 6,
                         tension: 0.25,
-                        order: 2
+                        order: 1
                     }
                 ]
             },
@@ -1268,7 +1281,14 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                             },
                             afterBody: function (context) {
                                 const i = context[0].dataIndex;
-                                return `Achievement: ${achievementPct[i]}%`;
+                                const prev = prevBalances[i];
+                                const prevStr = prev < 0
+                                    ? `−$${formatCurrency(-prev)} roll-over`
+                                    : `+$${formatCurrency(prev)} roll-over`;
+                                return [
+                                    `Objective = $${formatCurrency(baseTargets[i])} KPI ${prevStr}`,
+                                    `Achievement: ${achievementPct[i]}%`
+                                ];
                             }
                         }
                     }
@@ -1279,7 +1299,8 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                 id: 'targetAchievementLabels',
                 afterDatasetsDraw(chart) {
                     const { ctx } = chart;
-                    const wonMeta = chart.getDatasetMeta(1); // WON TCV bars
+                    const objMeta = chart.getDatasetMeta(0); // Objective track
+                    const wonMeta = chart.getDatasetMeta(1); // WON TCV bar
                     ctx.save();
                     ctx.font = "800 14px 'Inter', sans-serif";
                     ctx.textAlign = 'center';
@@ -1287,8 +1308,10 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                     wonMeta.data.forEach((bar, i) => {
                         const pct = achievementPct[i];
                         if (pct == null) return;
+                        // Sit the label above whichever mark is taller (smaller y).
+                        const yTop = Math.min(bar.y, objMeta.data[i] ? objMeta.data[i].y : bar.y);
                         ctx.fillStyle = pct >= 100 ? '#10B981' : (pct >= 70 ? '#D97706' : '#EF4444');
-                        ctx.fillText(`${pct}%`, bar.x, bar.y - 8);
+                        ctx.fillText(`${pct}%`, bar.x, yTop - 8);
                     });
                     ctx.restore();
                 }
