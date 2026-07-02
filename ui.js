@@ -1899,8 +1899,10 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
         pipelineArr: 'Annual Recurring Revenue portion of the current pipeline.',
         arr: 'Annual Recurring Revenue portion of the current pipeline for this quarter.',
         deals: 'Number of open deals counted in this group.',
-        target: 'Quarterly revenue target configured on the KPI tab.',
-        achievement: 'WON TCV ÷ Target — percent of the quarterly goal achieved.',
+        target: 'Set KPI Target — the quarterly revenue target originally configured on the KPI tab.',
+        rollover: 'Roll Over Target — this quarter’s Set KPI Target plus any missed shortfall carried over from the previous quarter. Example: Q3 = Q3 Set KPI Target + Q2 shortfall.',
+        achievement: 'WON TCV ÷ Roll Over Target — percent of the (rolled-over) quarterly goal achieved.',
+        coverage: 'Pipeline Coverage — open Pipeline ÷ Roll Over Target. How many times the current pipeline covers the goal (3x+ is healthy).',
         stage: 'Sales stage of the deal (Discovery, PoC, Quotation, Negotiation, Won, Lost).'
     };
     const infoIcon = (key) => `<span class="metric-info" data-tooltip="${PIPELINE_TOOLTIPS[key]}" style="margin-left:4px;">i</span>`;
@@ -1929,6 +1931,23 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
             </div>
         </div>
     `).join('');
+
+    // Compute rolling-over targets. Walking quarters in order (Q1→Q4), each
+    // quarter's effective "Roll Over Target" = its own Set KPI Target plus any
+    // shortfall (unmet target) carried over from the previous quarter. The
+    // shortfall then cascades forward: e.g. Q3 = Q3 Set KPI Target + Q2 shortfall.
+    const rolloverByQ = {};
+    if (kpiTargets) {
+        let carryIn = 0;
+        stats.sortedQuarterly.forEach(([q, qData]) => {
+            const baseTarget = Number(kpiTargets[q]) || 0;
+            const rollOverTarget = baseTarget + carryIn;
+            const achieved = Object.values(qData.countries).reduce((acc, v) => acc + (v.tcv || 0), 0);
+            const shortfall = rollOverTarget > 0 ? Math.max(0, rollOverTarget - achieved) : 0;
+            rolloverByQ[q] = { baseTarget, carryIn, rollOverTarget, shortfall };
+            carryIn = shortfall;
+        });
+    }
 
     const quarterlyItemsHtml = stats.sortedQuarterly.map(([q, qData]) => {
         const countryEntries = Object.entries(qData.countries);
@@ -1990,30 +2009,43 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
                         ${(() => {
                             if (!kpiTargets) return '';
-                            const qTarget = Number(kpiTargets[q]) || 0;
+                            const ro = rolloverByQ[q] || { baseTarget: 0, carryIn: 0, rollOverTarget: 0 };
+                            const baseTarget = ro.baseTarget;
+                            const effectiveTarget = ro.rollOverTarget;
                             const achieved = qTotalTcv;
-                            if (qTarget <= 0) {
+                            if (baseTarget <= 0 && effectiveTarget <= 0) {
                                 return `
                                     <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                                        <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target${infoIcon('target')}</span>
+                                        <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Set KPI Target${infoIcon('target')}</span>
                                         <span style="font-size: 0.72rem; color: #94a3b8; font-style: italic;" title="Set ${q} target on the KPI tab (Financial &gt; ${kpiTargets.objectiveName || 'Revenue'})">— not set</span>
                                     </div>
                                 `;
                             }
-                            const pct = Math.round((achieved / qTarget) * 100);
+                            const pct = effectiveTarget > 0 ? Math.round((achieved / effectiveTarget) * 100) : 0;
                             const pctColor = pct >= 100 ? '#10B981' : (pct >= 70 ? '#F59E0B' : '#EF4444');
                             const barPct = Math.min(100, Math.max(0, pct));
+                            const rolledUp = ro.carryIn > 0;
+                            const coverage = effectiveTarget > 0 ? (qTotalAmount / effectiveTarget) : 0;
+                            const covColor = coverage >= 3 ? '#10B981' : (coverage >= 1 ? '#F59E0B' : '#EF4444');
                             return `
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Target${infoIcon('target')}</span>
-                                    <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(qTarget)}</span>
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Set KPI Target${infoIcon('target')}</span>
+                                    <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(baseTarget)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${rolledUp ? '#DC2626' : '#6366f1'}; text-transform: uppercase; font-weight: 700;">Roll Over Target${infoIcon('rollover')}</span>
+                                    <span style="font-size: 0.8rem; color: ${rolledUp ? '#B91C1C' : '#4338CA'}; font-weight: 800;">$${formatCurrency(effectiveTarget)}${rolledUp ? ` <span style="font-size:0.58rem; font-weight:700; color:#DC2626;" title="Shortfall carried over from the previous quarter">(+$${formatCurrency(ro.carryIn)})</span>` : ''}</span>
                                 </div>
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                                     <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${pctColor}; text-transform: uppercase; font-weight: 700;">Achievement${infoIcon('achievement')}</span>
                                     <span style="font-size: 0.85rem; color: ${pctColor}; font-weight: 900;">${pct}%</span>
                                 </div>
-                                <div style="width: 110px; height: 4px; background: #E5E7EB; border-radius: 2px; margin-left: auto; margin-bottom: 3px; overflow: hidden;" title="Achievement vs Target">
+                                <div style="width: 110px; height: 4px; background: #E5E7EB; border-radius: 2px; margin-left: auto; margin-bottom: 3px; overflow: hidden;" title="Achievement vs Roll Over Target">
                                     <div style="width: ${barPct}%; height: 100%; background: ${pctColor}; transition: width 0.3s;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${covColor}; text-transform: uppercase; font-weight: 700;">Pipeline Coverage${infoIcon('coverage')}</span>
+                                    <span style="font-size: 0.85rem; color: ${covColor}; font-weight: 900;">${coverage.toFixed(1)}x</span>
                                 </div>
                             `;
                         })()}
