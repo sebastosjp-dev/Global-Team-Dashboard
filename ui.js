@@ -1997,6 +1997,13 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
 
+        // WON TCV row — placed between Set KPI Target and Roll Over Target in the header.
+        const wonTcvRow = `
+                                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
+                                    <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
+                                </div>`;
+
         return `
             <div class="quarter-card"
                  data-q="${q}"
@@ -2013,7 +2020,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     </div>
                     <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
                         ${(() => {
-                            if (!kpiTargets) return '';
+                            if (!kpiTargets) return wonTcvRow;
                             const ro = rolloverByQ[q] || { baseTarget: 0, delta: 0, rollOverTarget: 0 };
                             const baseTarget = ro.baseTarget;
                             const effectiveTarget = ro.rollOverTarget;
@@ -2025,6 +2032,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                         <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Set KPI Target${infoIcon('target')}</span>
                                         <span style="font-size: 0.72rem; color: #94a3b8; font-style: italic;" title="Set ${q} target on the KPI tab (Financial &gt; ${kpiTargets.objectiveName || 'Revenue'})">— not set</span>
                                     </div>
+                                    ${wonTcvRow}
                                 `;
                             }
                             const pct = effectiveTarget > 0 ? Math.round((achieved / effectiveTarget) * 100) : 0;
@@ -2046,6 +2054,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                     <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Set KPI Target${infoIcon('target')}</span>
                                     <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(baseTarget)}</span>
                                 </div>
+                                ${wonTcvRow}
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                                     <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${roLabelColor}; text-transform: uppercase; font-weight: 700;">Roll Over Target${infoIcon('rollover')}</span>
                                     <span style="font-size: 0.8rem; color: ${roColor}; font-weight: 800;">$${formatCurrency(effectiveTarget)}${adjHtml}</span>
@@ -2063,10 +2072,6 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                 </div>
                             `;
                         })()}
-                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                            <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
-                            <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
-                        </div>
                         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                             <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase;">PIPELINE${infoIcon('pipeline')}</span>
                             <span style="font-size: 0.85rem; color: #34C759; font-weight: 800;">$${formatCurrency(qTotalAmount)}</span>
