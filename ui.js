@@ -1900,7 +1900,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
         arr: 'Annual Recurring Revenue portion of the current pipeline for this quarter.',
         deals: 'Number of open deals counted in this group.',
         target: 'Set KPI Target — the quarterly revenue target originally configured on the KPI tab.',
-        rollover: 'Roll Over Target — this quarter’s Set KPI Target plus any missed shortfall carried over from the previous quarter. Example: Q3 = Q3 Set KPI Target + Q2 shortfall.',
+        rollover: 'Roll Over Target — this quarter’s Set KPI Target adjusted by the prior quarter(s): over-achievement is credited forward and LOWERS the target, under-achievement is carried forward and RAISES it. Example: Q1 beats a $100k target by $70,806 → Q2 = $400k − $70,806.',
         achievement: 'WON TCV ÷ Roll Over Target — percent of the (rolled-over) quarterly goal achieved.',
         coverage: 'Pipeline Coverage — open Pipeline ÷ Roll Over Target. How many times the current pipeline covers the goal (3x+ is healthy).',
         stage: 'Sales stage of the deal (Discovery, PoC, Quotation, Negotiation, Won, Lost).'
@@ -1933,19 +1933,24 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
     `).join('');
 
     // Compute rolling-over targets. Walking quarters in order (Q1→Q4), each
-    // quarter's effective "Roll Over Target" = its own Set KPI Target plus any
-    // shortfall (unmet target) carried over from the previous quarter. The
-    // shortfall then cascades forward: e.g. Q3 = Q3 Set KPI Target + Q2 shortfall.
+    // quarter's effective "Roll Over Target" = its own Set KPI Target adjusted
+    // by the SIGNED carry-over from prior quarters:
+    //   • over-achievement (surplus) is credited forward, LOWERING the target
+    //   • under-achievement (deficit) is carried forward, RAISING the target
+    // Example: Q1 beats a $100k target by $70,806 → Q2 = $400k − $70,806.
+    //          Q2 then misses → the shortfall raises Q3, and so on.
     const rolloverByQ = {};
     if (kpiTargets) {
-        let carryIn = 0;
+        let carry = 0; // signed: + surplus (credit), − deficit (owed), from prior quarters
         stats.sortedQuarterly.forEach(([q, qData]) => {
             const baseTarget = Number(kpiTargets[q]) || 0;
-            const rollOverTarget = baseTarget + carryIn;
+            const rollOverTargetRaw = baseTarget - carry;
+            const rollOverTarget = Math.max(0, rollOverTargetRaw);
             const achieved = Object.values(qData.countries).reduce((acc, v) => acc + (v.tcv || 0), 0);
-            const shortfall = rollOverTarget > 0 ? Math.max(0, rollOverTarget - achieved) : 0;
-            rolloverByQ[q] = { baseTarget, carryIn, rollOverTarget, shortfall };
-            carryIn = shortfall;
+            const delta = rollOverTarget - baseTarget; // + raised by prior deficit, − lowered by prior surplus
+            rolloverByQ[q] = { baseTarget, rollOverTarget, delta };
+            // Use the raw (unfloored) target so any leftover surplus keeps flowing forward.
+            carry = achieved - rollOverTargetRaw;
         });
     }
 
@@ -2009,9 +2014,10 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     <div style="text-align: right; display: flex; flex-direction: column; gap: 2px;">
                         ${(() => {
                             if (!kpiTargets) return '';
-                            const ro = rolloverByQ[q] || { baseTarget: 0, carryIn: 0, rollOverTarget: 0 };
+                            const ro = rolloverByQ[q] || { baseTarget: 0, delta: 0, rollOverTarget: 0 };
                             const baseTarget = ro.baseTarget;
                             const effectiveTarget = ro.rollOverTarget;
+                            const delta = ro.delta || 0;
                             const achieved = qTotalTcv;
                             if (baseTarget <= 0 && effectiveTarget <= 0) {
                                 return `
@@ -2024,17 +2030,25 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             const pct = effectiveTarget > 0 ? Math.round((achieved / effectiveTarget) * 100) : 0;
                             const pctColor = pct >= 100 ? '#10B981' : (pct >= 70 ? '#F59E0B' : '#EF4444');
                             const barPct = Math.min(100, Math.max(0, pct));
-                            const rolledUp = ro.carryIn > 0;
                             const coverage = effectiveTarget > 0 ? (qTotalAmount / effectiveTarget) : 0;
                             const covColor = coverage >= 3 ? '#10B981' : (coverage >= 1 ? '#F59E0B' : '#EF4444');
+                            // delta > 0 → target raised by a prior shortfall (red, +$)
+                            // delta < 0 → target lowered by a prior surplus (green, −$)
+                            const adjHtml = delta > 0
+                                ? ` <span style="font-size:0.58rem; font-weight:700; color:#DC2626;" title="Shortfall carried over from the previous quarter">(+$${formatCurrency(delta)})</span>`
+                                : (delta < 0
+                                    ? ` <span style="font-size:0.58rem; font-weight:700; color:#059669;" title="Surplus credited from the previous quarter">(−$${formatCurrency(-delta)})</span>`
+                                    : '');
+                            const roColor = delta > 0 ? '#B91C1C' : (delta < 0 ? '#047857' : '#4338CA');
+                            const roLabelColor = delta > 0 ? '#DC2626' : (delta < 0 ? '#059669' : '#6366f1');
                             return `
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                                     <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #6366f1; text-transform: uppercase; font-weight: 700;">Set KPI Target${infoIcon('target')}</span>
                                     <span style="font-size: 0.8rem; color: #4338CA; font-weight: 800;">$${formatCurrency(baseTarget)}</span>
                                 </div>
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${rolledUp ? '#DC2626' : '#6366f1'}; text-transform: uppercase; font-weight: 700;">Roll Over Target${infoIcon('rollover')}</span>
-                                    <span style="font-size: 0.8rem; color: ${rolledUp ? '#B91C1C' : '#4338CA'}; font-weight: 800;">$${formatCurrency(effectiveTarget)}${rolledUp ? ` <span style="font-size:0.58rem; font-weight:700; color:#DC2626;" title="Shortfall carried over from the previous quarter">(+$${formatCurrency(ro.carryIn)})</span>` : ''}</span>
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${roLabelColor}; text-transform: uppercase; font-weight: 700;">Roll Over Target${infoIcon('rollover')}</span>
+                                    <span style="font-size: 0.8rem; color: ${roColor}; font-weight: 800;">$${formatCurrency(effectiveTarget)}${adjHtml}</span>
                                 </div>
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
                                     <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: ${pctColor}; text-transform: uppercase; font-weight: 700;">Achievement${infoIcon('achievement')}</span>
