@@ -2532,10 +2532,10 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 ${kpiTargets ? `
                 <div style="background: #FFFFFF; padding: 16px 20px 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 14px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 8px;">
-                        <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Quarterly Objective <span style="color:#9CA3AF; font-weight:600;">·</span> Achieved vs Rolled-Over</h3>
+                        <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Quarterly Objective <span style="color:#9CA3AF; font-weight:600;">·</span> Target Composition vs Achieved</h3>
                         <span style="font-size: 0.62rem; color: #6B7280; background: #F3F4F6; padding: 3px 9px; border-radius: 10px; font-weight: 700;">FY ${currentYear} · USD (TCV)</span>
                     </div>
-                    <p style="font-size: 0.68rem; color: #6B7280; margin: 0 0 12px;">Each bar = that quarter's objective (Set KPI Target + carried roll-over). <span style="color:#059669; font-weight:700;">Green</span> = achieved, <span style="color:#B45309; font-weight:700;">amber</span> = rolled over to the next quarter. Dashed line marks the objective.</p>
+                    <p style="font-size: 0.68rem; color: #6B7280; margin: 0 0 12px;">Each bar = that quarter's <b>total objective</b>, stacked as <span style="color:#4F46E5; font-weight:700;">Original KPI Target</span> + <span style="color:#B45309; font-weight:700;">Rolled-over carried in</span>. The <span style="color:#059669; font-weight:700;">solid green</span> bar inside shows Achieved (WON TCV); the % is how much of the total objective was reached.</p>
                     <div style="position: relative; width: 100%; height: 440px;">
                         <canvas id="pipeline-target-chart"></canvas>
                     </div>

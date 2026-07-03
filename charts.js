@@ -1166,14 +1166,22 @@ export function initPipelineCharts(stats, kpiTargets = null) {
         const baseTargets = tLabels.map(q => rollover[q]?.baseTarget || 0);
         const prevBalances = tLabels.map(q => rollover[q]?.prevBalance || 0);      // roll-over carried in
         const objectiveVals = tLabels.map(q => rollover[q]?.targetToHit || 0);      // KPI target + roll-over
-        const wonVals = tLabels.map(q => rollover[q]?.won || 0);                    // achieved
-        const rolledOverVals = tLabels.map(q => Math.max(0, rollover[q]?.rollOverTarget || 0)); // shortfall → next Q
-        const totals = tLabels.map((q, i) => wonVals[i] + rolledOverVals[i]);       // = objective (or WON if exceeded)
+        const wonVals = tLabels.map(q => rollover[q]?.won || 0);                    // achieved (WON TCV)
+        // Objective composition — the bar background splits into two bands that stack
+        // to the total objective (targetToHit): the ORIGINAL KPI target at the bottom
+        // and the ROLLED-OVER shortfall carried in from prior quarters on top. When a
+        // surplus was carried in (prevBalance < 0) the objective is below the base
+        // target, so there is no roll-over band and the original band = the objective.
+        const rolledInVals = tLabels.map((q, i) => Math.max(0, prevBalances[i]));    // carried-in shortfall
+        const originalVals = tLabels.map((q, i) => Math.max(0, objectiveVals[i] - rolledInVals[i])); // original portion of objective
         const achievementPct = tLabels.map(q => {
             const r = rollover[q] || {};
             if ((r.targetToHit || 0) > 0) return Math.round((r.won / r.targetToHit) * 100);
             return (r.won || 0) > 0 ? 100 : 0;
         });
+        // Axis must fit both the objective bar and the achieved bar (which can exceed
+        // the objective, e.g. 171%).
+        const yMax = Math.max(...objectiveVals, ...wonVals, 1) * 1.15;
 
         const targetChart = new Chart(targetCtx, {
             type: 'bar',
@@ -1181,23 +1189,25 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                 labels: tLabels,
                 datasets: [
                     {
-                        label: 'Achieved (WON TCV)',
-                        data: wonVals,
-                        backgroundColor: '#10B981',
-                        stack: 'q',
-                        borderRadius: 3,
-                        borderSkipped: false,
-                        barPercentage: 0.62,
+                        label: 'Original KPI Target',
+                        data: originalVals,
+                        backgroundColor: 'rgba(99,102,241,0.20)',
+                        borderColor: 'rgba(99,102,241,0.55)',
+                        borderWidth: { top: 0, right: 1, bottom: 0, left: 1 },
+                        stack: 'obj',
+                        barPercentage: 0.7,
                         categoryPercentage: 0.8
                     },
                     {
-                        label: 'Rolled Over → next Q',
-                        data: rolledOverVals,
-                        backgroundColor: 'rgba(245,158,11,0.55)',
-                        stack: 'q',
-                        borderRadius: 3,
+                        label: 'Rolled-over (carried in)',
+                        data: rolledInVals,
+                        backgroundColor: 'rgba(245,158,11,0.28)',
+                        borderColor: 'rgba(217,119,6,0.55)',
+                        borderWidth: { top: 1, right: 1, bottom: 0, left: 1 },
+                        stack: 'obj',
+                        borderRadius: { topLeft: 4, topRight: 4 },
                         borderSkipped: false,
-                        barPercentage: 0.62,
+                        barPercentage: 0.7,
                         categoryPercentage: 0.8
                     }
                 ]
@@ -1211,6 +1221,7 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                     y: {
                         beginAtZero: true,
                         stacked: true,
+                        suggestedMax: yMax,
                         grid: { color: '#F3F4F6', drawBorder: false },
                         ticks: {
                             color: '#6B7280',
@@ -1230,7 +1241,33 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                 plugins: {
                     legend: {
                         position: 'top',
-                        labels: { color: '#374151', font: { size: 13 }, usePointStyle: true, boxWidth: 10, padding: 18 }
+                        // Ignore clicks on the manual "Achieved" swatch (datasetIndex -1);
+                        // it maps to a plugin-drawn bar, not a real dataset.
+                        onClick: function (e, legendItem, legend) {
+                            if (legendItem.datasetIndex == null || legendItem.datasetIndex < 0) return;
+                            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                        },
+                        labels: {
+                            color: '#374151',
+                            font: { size: 13 },
+                            usePointStyle: true,
+                            boxWidth: 10,
+                            padding: 18,
+                            // Append a manual swatch for the plugin-drawn "Achieved" bar.
+                            generateLabels: function (chart) {
+                                const base = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                base.push({
+                                    text: 'Achieved (WON TCV)',
+                                    fillStyle: '#10B981',
+                                    strokeStyle: '#10B981',
+                                    lineWidth: 0,
+                                    pointStyle: 'circle',
+                                    hidden: false,
+                                    datasetIndex: -1
+                                });
+                                return base;
+                            }
+                        }
                     },
                     tooltip: {
                         backgroundColor: '#FFFFFF',
@@ -1252,9 +1289,11 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                                     ? `−$${formatCurrency(-prev)} carried surplus`
                                     : `+$${formatCurrency(prev)} carried shortfall`;
                                 return [
-                                    `Objective: US$ ${formatCurrency(objectiveVals[i])}`,
+                                    '',
+                                    `Total objective: US$ ${formatCurrency(objectiveVals[i])}`,
                                     `  = $${formatCurrency(baseTargets[i])} KPI  ${prevStr}`,
-                                    `Achievement: ${achievementPct[i]}%`
+                                    `Achieved (WON): US$ ${formatCurrency(wonVals[i])}`,
+                                    `Achievement: ${achievementPct[i]}% of objective`
                                 ];
                             }
                         }
@@ -1266,26 +1305,43 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                 id: 'targetAchievementLabels',
                 afterDatasetsDraw(chart) {
                     const { ctx, scales: { y } } = chart;
-                    const meta = chart.getDatasetMeta(0); // achieved (bottom) — carries bar geometry
+                    const meta = chart.getDatasetMeta(0); // original-target band — carries bar geometry
+                    const y0 = y.getPixelForValue(0);
                     ctx.save();
                     meta.data.forEach((bar, i) => {
+                        // Achieved (WON) — solid green measure bar drawn inside the wider
+                        // objective bar (bullet-chart style), so you read "how much of the
+                        // total objective" at a glance.
+                        const innerW = Math.min(bar.width * 0.5, 46);
+                        const yWon = y.getPixelForValue(wonVals[i]);
+                        if (wonVals[i] > 0) {
+                            ctx.fillStyle = '#10B981';
+                            const h = y0 - yWon;
+                            if (typeof ctx.roundRect === 'function') {
+                                const r = Math.min(4, innerW / 2, Math.abs(h));
+                                ctx.beginPath();
+                                ctx.roundRect(bar.x - innerW / 2, yWon, innerW, h, [r, r, 0, 0]);
+                                ctx.fill();
+                            } else {
+                                ctx.fillRect(bar.x - innerW / 2, yWon, innerW, h);
+                            }
+                        }
+                        // Objective top — solid indigo cap line across the full bar, so the
+                        // total-objective level is unmistakable even when WON exceeds it.
                         const half = bar.width / 2;
-                        // Objective reference tick — dashed indigo line across the bar.
                         if (objectiveVals[i] > 0) {
                             const yObj = y.getPixelForValue(objectiveVals[i]);
                             ctx.beginPath();
-                            ctx.setLineDash([5, 4]);
                             ctx.lineWidth = 2;
                             ctx.strokeStyle = '#4338ca';
                             ctx.moveTo(bar.x - half, yObj);
                             ctx.lineTo(bar.x + half, yObj);
                             ctx.stroke();
-                            ctx.setLineDash([]);
                         }
-                        // Achievement % above the full stack.
+                        // Achievement % above the taller of {objective, achieved}.
                         const pct = achievementPct[i];
                         if (pct != null) {
-                            const yTop = y.getPixelForValue(totals[i]);
+                            const yTop = Math.min(y.getPixelForValue(objectiveVals[i]), yWon);
                             ctx.font = "800 15px 'Inter', sans-serif";
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'bottom';
