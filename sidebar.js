@@ -3,7 +3,13 @@
  * Extracted from app.js for single-responsibility.
  * @module sidebar
  */
-import { CONFIG } from './config.js';
+import { CONFIG, APPROVED_SHEETS } from './config.js';
+
+// Normalize a sheet name for comparison: case-insensitive, extra spaces ignored.
+const _normalizeSheetName = (name) =>
+    String(name).trim().toUpperCase().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ');
+
+const _APPROVED_SET = new Set(APPROVED_SHEETS.map(_normalizeSheetName));
 
 /**
  * Build the sidebar navigation from sheet names.
@@ -21,8 +27,9 @@ export function buildSidebar(sheetNames, callbacks) {
     sidebarNav.innerHTML = '';
 
     sheetNames.forEach(name => {
-        // Updated exclusion list to include "Staff Training" sheet while keeping the dashboard menu
-        if (name.includes('Global(Contract Date)') || ['Sheet9', 'Sheet10', 'Sheet12', 'Sheet13', 'Sheet16', '2026 Q1 Review', 'Staff Training', 'TRAINING', 'FEEDBACK', 'Weekly draft', 'CRM CONTACTS DB', 'Partner Competency'].includes(name)) return;
+        // Allowlist policy: only approved sheets (config.js APPROVED_SHEETS) get a
+        // menu entry. New spreadsheet tabs stay hidden until explicitly approved.
+        if (!_APPROVED_SET.has(_normalizeSheetName(name))) return;
 
         if (name === 'ORDER SHEET') {
             _buildExpandableNav(sidebarNav, name, callbacks.onSelectTab);

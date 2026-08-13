@@ -12,6 +12,23 @@ export const DATA_SOURCES = {
     MRR_SHEET_ID:  '1CJpEY65WBfQoSCwfBVfC4KT7Q2IQaJyXXjcsoxGZFlM',  // Global MRR ARR
 };
 
+// Sidebar menu policy: ONLY sheets listed here appear in the menu.
+// New spreadsheet tabs are ignored until they are approved and added to this list.
+// Matching is case-insensitive and ignores extra spaces (incl. around commas).
+export const APPROVED_SHEETS = [
+    'KPI',
+    'ORDER SHEET',
+    'COLLECTION',
+    'PIPELINE',
+    'POC',
+    'PARTNER',
+    'EVENT',
+    'END USER (CSM)',
+    'TASK',
+    'TECH,SALES PARTNER COMPETENCY',
+    'DEAL LOST',
+];
+
 export const CONFIG = {
     COUNTRIES: ['Indonesia', 'Thailand', 'Malaysia', 'USA', 'Philippines', 'Vietnam', 'Singapore', 'Turkey'],
     COLORS: [
