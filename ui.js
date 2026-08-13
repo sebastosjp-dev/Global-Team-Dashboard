@@ -4624,6 +4624,24 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
         });
     });
 
+    // TCV totals — sum of currency (FINANCIAL) objectives, per quarter and annual
+    const tcvAch = [0, 0, 0, 0];
+    const tcvTgt = [0, 0, 0, 0];
+    kpiData.categories.forEach(cat => {
+        if (!isCurrencyCat(cat.name)) return;
+        (cat.objectives || []).forEach(obj => {
+            const s = objectiveStats(obj);
+            for (let q = 0; q < 4; q++) {
+                tcvAch[q] += s.ach[q];
+                tcvTgt[q] += s.targets[q];
+            }
+        });
+    });
+    const tcvTotalAch = tcvAch.reduce((a, b) => a + b, 0);
+    const tcvTotalTgt = tcvTgt.reduce((a, b) => a + b, 0);
+    const tcvTotalRate = tcvTotalTgt > 0 ? Math.round((tcvTotalAch / tcvTotalTgt) * 100) : (tcvTotalAch > 0 ? 100 : 0);
+    const hasTcv = tcvTotalTgt > 0 || tcvTotalAch > 0;
+
     const overallRate = Math.round(totalWeightedRate);
     const overallColor = overallRate >= 100 ? '#10B981' : (overallRate >= 70 ? '#F59E0B' : (overallRate >= 40 ? '#F97316' : '#EF4444'));
 
@@ -4694,6 +4712,10 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                                 <div style="background:rgba(255,255,255,0.05); padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.10);">
                                     <div style="font-size:0.66rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe;">Q${qi+1}</div>
                                     <div style="font-size:1.45rem; font-weight:800; color:${c}; margin-top:2px; line-height:1;">${qr}%</div>
+                                    ${hasTcv ? `
+                                        <div style="font-size:0.82rem; font-weight:800; color:#ffffff; margin-top:6px; line-height:1.2;">${formatVal(tcvAch[qi], true)}</div>
+                                        <div style="font-size:0.64rem; font-weight:600; color:#a5b4fc;">of ${formatVal(tcvTgt[qi], true)} TCV</div>
+                                    ` : ''}
                                     <div style="height:5px; background:rgba(255,255,255,0.10); border-radius:5px; margin-top:8px; overflow:hidden;">
                                         <div style="height:100%; width:${Math.min(100, qr)}%; background:${c};"></div>
                                     </div>
@@ -4703,6 +4725,29 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                     </div>
                 </div>
             </div>
+
+            ${hasTcv ? `
+                <div style="margin-top:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); border-radius:12px; padding:14px 20px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative;">
+                    <div style="flex-shrink:0;">
+                        <div style="font-size:0.66rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe; text-transform:uppercase;">Total TCV Achieved</div>
+                        <div style="font-size:1.6rem; font-weight:800; color:#ffffff; line-height:1.2;">${formatVal(tcvTotalAch, true)}
+                            <span style="font-size:0.85rem; font-weight:600; color:#a5b4fc;">/ ${formatVal(tcvTotalTgt, true)} target</span>
+                        </div>
+                    </div>
+                    <div style="flex:1; min-width:220px;">
+                        <div style="height:10px; background:rgba(255,255,255,0.12); border-radius:6px; overflow:hidden;">
+                            <div style="height:100%; width:${Math.min(100, tcvTotalRate)}%; background:linear-gradient(90deg, #818cf8, #6ee7b7);"></div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#c7d2fe; margin-top:5px; font-weight:600;">
+                            ${[0,1,2,3].map(qi => `<span>Q${qi+1} ${formatVal(tcvAch[qi], true)}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div style="flex-shrink:0; text-align:right;">
+                        <div style="font-size:1.45rem; font-weight:800; color:${tcvTotalRate >= 100 ? '#6ee7b7' : (tcvTotalRate >= 70 ? '#fcd34d' : (tcvTotalRate >= 40 ? '#fdba74' : '#fca5a5'))};">${tcvTotalRate}%</div>
+                        <div style="font-size:0.64rem; color:#a5b4fc; font-weight:600;">of annual TCV</div>
+                    </div>
+                </div>
+            ` : ''}
         </div>
     `;
 
