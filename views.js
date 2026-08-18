@@ -4,7 +4,7 @@
  * @module views
  */
 import { CONFIG } from './config.js';
-import { parseCurrency, formatCurrency, isCountryMatch, findKey } from './utils.js';
+import { parseCurrency, formatCurrency, isCountryMatch, findKey, parseQuarterTag } from './utils.js';
 import {
     chartRegistry, initOrderSheetCharts, initPipelineCharts,
     initPartnerCharts, initPartnerPerformanceCharts,
@@ -362,13 +362,16 @@ function _extractPipelineDeals(pData) {
         const customer = customerKey ? String(row[customerKey] || '').trim() : '';
         const amount = Math.round(parseCurrency(row[amtKey]));
         const weighted = Math.round(parseCurrency(row[wAmtKey]));
+        // Keep the year suffix for non-current years ("Q1-2027") so a deal
+        // pushed to next year surfaces as a quarter change in the weekly diff.
         let quarter = '';
         if (qKey && row[qKey]) {
-            const qRaw = String(row[qKey]).toUpperCase().trim();
-            if (qRaw.includes('Q1')) quarter = 'Q1';
-            else if (qRaw.includes('Q2')) quarter = 'Q2';
-            else if (qRaw.includes('Q3')) quarter = 'Q3';
-            else if (qRaw.includes('Q4')) quarter = 'Q4';
+            const tag = parseQuarterTag(row[qKey]);
+            if (tag) {
+                quarter = (tag.year !== null && tag.year !== new Date().getFullYear())
+                    ? `${tag.q}-${tag.year}`
+                    : tag.q;
+            }
         }
         // Build a stable-ish key. Disambiguate duplicates by appending #N.
         const baseKey = (customer && name) ? `${customer}::${name}`

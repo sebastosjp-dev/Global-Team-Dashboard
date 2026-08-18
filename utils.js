@@ -64,6 +64,37 @@ export function findKey(keys, ...patterns) {
 }
 
 /**
+ * Parse a pipeline Quarter tag into { q, year }.
+ * Supports both the legacy manual format ("Q1".."Q4", no year) and the
+ * formula-based format introduced in the sheet ("Q1-2026", "Q3-2027", ...).
+ * @param {*} raw - raw Quarter cell value
+ * @returns {{ q: string, year: number|null }|null} q is 'Q1'..'Q4'; year is null for legacy tags
+ */
+export function parseQuarterTag(raw) {
+    if (raw === null || raw === undefined) return null;
+    const s = String(raw).toUpperCase().trim();
+    const qm = s.match(/Q\s*([1-4])/);
+    if (!qm) return null;
+    const ym = s.match(/(20\d{2})/);
+    return { q: `Q${qm[1]}`, year: ym ? parseInt(ym[1], 10) : null };
+}
+
+/**
+ * Resolve a Quarter tag to 'Q1'..'Q4' only if it belongs to the given year.
+ * Year-less legacy tags ("Q2") are treated as the current year.
+ * Tags for other years (e.g. "Q1-2027" while in 2026) return ''.
+ * @param {*} raw - raw Quarter cell value
+ * @param {number} [year] - target year, defaults to the current year
+ * @returns {string} 'Q1'..'Q4' or ''
+ */
+export function matchQuarterForYear(raw, year = new Date().getFullYear()) {
+    const tag = parseQuarterTag(raw);
+    if (!tag) return '';
+    if (tag.year !== null && tag.year !== year) return '';
+    return tag.q;
+}
+
+/**
  * Check if a status string matches any of the given terms.
  * @param {string} status
  * @param {...string} terms

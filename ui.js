@@ -2455,6 +2455,25 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
     const dealTypeCards = ['POC (BANT)', 'Trial Only']
         .concat((byType['Untagged']?.count || 0) > 0 ? ['Untagged'] : [])
         .map(renderTypeCard).join('');
+
+    // Deals whose Quarter tag points at a future year (e.g. "Q1-2027") are
+    // excluded from the hero totals above — surface them so they stay visible.
+    const futureYearEntries = Object.entries(stats.pipelineFutureYears || {})
+        .filter(([, v]) => (v.count || 0) > 0)
+        .sort((a, b) => Number(a[0]) - Number(b[0]));
+    const futurePipelineNote = futureYearEntries.length === 0 ? '' : `
+        <div style="background: #FFFFFF; border: 1px dashed rgba(16,185,129,0.4); border-radius: 10px; padding: 8px 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <span style="font-size: 0.72rem; font-weight: 800; color: #059669; text-transform: uppercase;"><i class="fa-solid fa-forward" style="margin-right: 6px;"></i>Future-Year Pipeline (not in totals above)</span>
+            ${futureYearEntries.map(([yr, v]) => `
+                <span style="font-size: 0.78rem; color: #374151;">
+                    <strong style="color:#111827;">${yr}:</strong>
+                    ${v.count} deal${v.count === 1 ? '' : 's'} ·
+                    US$ ${formatCurrency(v.amount)} pipeline ·
+                    US$ ${formatCurrency(v.weighted)} weighted
+                </span>
+            `).join('')}
+        </div>
+    `;
     const dealTypeBreakdownHtml = `
         <div>
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
@@ -2507,6 +2526,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     </div>
                 </div>
             </div>
+
+            ${futurePipelineNote}
 
             ${dealTypeBreakdownHtml}
 

@@ -2,7 +2,7 @@
  * weeklyReport.js — Weekly Report generation, PDF download, and notes management.
  * Auto-finalizes on Friday 18:00 KST. PDF via html2pdf.js.
  */
-import { parseCurrency, normalizeCountry } from './utils.js';
+import { parseCurrency, normalizeCountry, parseQuarterTag } from './utils.js';
 import {
     findCountryKey, findKorTcvKey, findArrKey,
     findContractStartKey, findStatusKey, findDealNameKey,
@@ -268,7 +268,13 @@ function aggregateWeeklyStats(workbookData) {
             const weighted = parseCurrency(row[wKey]) || 0;
             const total    = parseCurrency(row[vKey]) || 0;
 
-            const quarter = String(row[qKey] || '').trim() || 'Unknown';
+            // Normalize the tag: current-year → "Q1".."Q4", other years keep
+            // the year suffix ("Q1-2027") so they stay distinguishable.
+            const qTag = parseQuarterTag(row[qKey]);
+            const thisYear = new Date().getFullYear();
+            const quarter = qTag
+                ? ((qTag.year === null || qTag.year === thisYear) ? qTag.q : `${qTag.q}-${qTag.year}`)
+                : 'Unknown';
 
             stats.pipelineTotalWeighted += weighted;
             if (!stats.pipelineByCountry[country]) stats.pipelineByCountry[country] = { count: 0, weighted: 0, total: 0, hasNewThisWeek: false };
@@ -718,9 +724,15 @@ function buildReportHTML(stats, savedNotes, savedRefs) {
     ${(() => {
       const cbq = stats.pipelineByCountryByQuarter;
       if (!cbq || Object.keys(cbq).length === 0) return '';
+      // Sort: current-year "Q1".."Q4" first, then year-suffixed tags by
+      // year+quarter ("Q1-2027", ...), "Unknown" last.
+      const qColSortKey = q => {
+        const m = String(q).match(/^Q([1-4])(?:-(\d{4}))?$/);
+        return m ? `${m[2] || '0000'}-${m[1]}` : '9999';
+      };
       const allQuarters = [...new Set(
         Object.values(cbq).flatMap(q => Object.keys(q))
-      )].sort();
+      )].sort((a, b) => qColSortKey(a).localeCompare(qColSortKey(b)));
       const countries = Object.keys(cbq).sort((a, b) => {
         const wa = Object.values(cbq[a]).reduce((s,d)=>s+d.weighted,0);
         const wb = Object.values(cbq[b]).reduce((s,d)=>s+d.weighted,0);

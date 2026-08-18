@@ -4,7 +4,7 @@
  * @module services
  */
 import { CONFIG } from './config.js';
-import { parseCurrency, formatCurrency, normalizeCountry, isCountryMatch, sortCountriesByCount } from './utils.js';
+import { parseCurrency, formatCurrency, normalizeCountry, isCountryMatch, sortCountriesByCount, parseQuarterTag, matchQuarterForYear } from './utils.js';
 import {
     findCountryKey, findKorTcvKey, findArrKey, findMrrKey,
     findContractStartKey, findContractEndKey, findStatusKey,
@@ -257,7 +257,10 @@ export function getPipelineStats(pData, orderData = []) {
 
     let pipelineByYearCountry = {};
     const pipelineInfluxData = Array(12).fill(0).map(() => ({ count: 0, amount: 0, weighted: 0, value: 0, accounts: [] }));
-    const currentYearStr = new Date().getFullYear().toString();
+    const currentYearStr = currentYear.toString();
+    // Deals whose Quarter tag points at a future year ("Q1-2027"): excluded
+    // from the hero totals but surfaced so they don't silently disappear.
+    const pipelineFutureYears = {};
 
     pData.forEach(r => {
         const keys = Object.keys(r);
@@ -275,15 +278,12 @@ export function getPipelineStats(pData, orderData = []) {
         const d = dKey ? parseExcelDateSafe(r[dKey]) : null;
         const year = d ? d.getFullYear().toString() : 'Unknown';
 
+        // Quarter tags may carry a year suffix from the sheet's Close-Date formula
+        // ("Q1-2027"). Only current-year tags (or legacy year-less "Q1".."Q4")
+        // count toward the hero totals; future-year tags are tracked separately.
         const qKey = findKey(keys, k => k.toLowerCase() === 'quarter', k => k.toLowerCase().includes('qtr'), k => k.toLowerCase() === 'q');
-        let qMatch = '';
-        if (qKey && r[qKey]) {
-            const qRaw = String(r[qKey]).toUpperCase().trim();
-            if (qRaw.includes('Q1')) qMatch = 'Q1';
-            else if (qRaw.includes('Q2')) qMatch = 'Q2';
-            else if (qRaw.includes('Q3')) qMatch = 'Q3';
-            else if (qRaw.includes('Q4')) qMatch = 'Q4';
-        }
+        const qTag = qKey ? parseQuarterTag(r[qKey]) : null;
+        const qMatch = qTag && (qTag.year === null || qTag.year === currentYear) ? qTag.q : '';
 
         const stageKey = findKey(keys,
             k => k.toLowerCase().replace(/\s/g, '') === 'dealstage',
@@ -341,6 +341,13 @@ export function getPipelineStats(pData, orderData = []) {
             tb.weighted += wAmt;
             tb.arr += arr;
             tb.count++;
+        } else if (qTag && qTag.year !== null && qTag.year > currentYear) {
+            const fy = qTag.year;
+            if (!pipelineFutureYears[fy]) pipelineFutureYears[fy] = { amount: 0, weighted: 0, arr: 0, count: 0 };
+            pipelineFutureYears[fy].amount += amt;
+            pipelineFutureYears[fy].weighted += wAmt;
+            pipelineFutureYears[fy].arr += arr;
+            pipelineFutureYears[fy].count++;
         }
 
         if (year === currentYearStr && d) {
@@ -366,6 +373,7 @@ export function getPipelineStats(pData, orderData = []) {
         pipelineByType,
         pipelineInfluxData,
         pipelineByYearCountry,
+        pipelineFutureYears,
         sortedPipeline: Object.entries(pipelineByCountry).sort((a, b) => b[1].amount - a[1].amount),
         sortedQuarterly: Object.entries(pipelineByQuarter).sort((a, b) => a[0].localeCompare(b[0])),
         sortedStage: Object.entries(pipelineByStage).sort((a, b) => b[1].weighted - a[1].weighted),
@@ -984,8 +992,8 @@ export function getPipelineCoverageStats(pData, orderData) {
         const wAmtKey = findKey(keys, k => (k.toUpperCase().includes('WEIGHTED') && k.toUpperCase().includes('KOR TCV')) || k === 'Weighted Amount');
         const amtKey  = findKey(keys, k => (k.toUpperCase().includes('KOR TCV') && k.toUpperCase().includes('USD')) || k === 'Amount');
         if (!qKey || !r[qKey]) return;
-        const qRaw = String(r[qKey]).toUpperCase().trim();
-        const qId  = qRaw.includes('Q1') ? 'Q1' : qRaw.includes('Q2') ? 'Q2' : qRaw.includes('Q3') ? 'Q3' : qRaw.includes('Q4') ? 'Q4' : null;
+        // Year-aware: "Q1-2027" must not count toward this year's coverage.
+        const qId = matchQuarterForYear(r[qKey], currentYear) || null;
         if (!qId) return;
         weightedByQ[qId] += parseCurrency(wAmtKey && r[wAmtKey]) || 0;
         rawByQ[qId]      += parseCurrency(amtKey  && r[amtKey])  || 0;
