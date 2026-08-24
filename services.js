@@ -1954,201 +1954,384 @@ export function getCsmViewStats(taskData, filters = {}) {
    COLLECTION
    ═══════════════════════════════════════════════════════════════ */
 
-const COLLECTION_STATUSES = ['Completed', 'Upcoming', 'On Track', 'Overdue'];
+const _COLL_MS_DAY = 86400000;
+
+/** Midnight-local copy of a date, for whole-day arithmetic. */
+function _collDayStart(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Format a Date as YYYY-MM-DD (local); '' when null. */
+function _collFmtDay(d) {
+    if (!d) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export const COLLECTION_AGING_BUCKETS = [
+    { key: 'notdue', label: 'Not yet due' },
+    { key: 'd1_30',  label: '1–30 days overdue' },
+    { key: 'd31_60', label: '31–60 days overdue' },
+    { key: 'd61_90', label: '61–90 days overdue' },
+    { key: 'd90p',   label: '90+ days overdue' }
+];
+
+/** Bucket key for a days-overdue count (null = no due date set). */
+function _collAgingBucketKey(daysOverdue) {
+    if (daysOverdue === null || daysOverdue <= 0) return 'notdue';
+    if (daysOverdue <= 30) return 'd1_30';
+    if (daysOverdue <= 60) return 'd31_60';
+    if (daysOverdue <= 90) return 'd61_90';
+    return 'd90p';
+}
 
 function _normalizeCollectionStatus(raw) {
     const s = String(raw || '').trim().toLowerCase();
-    if (!s) return null;
-    if (s === 'completed' || s === 'complete' || s === 'paid') return 'Completed';
-    if (s === 'upcoming' || s === 'pending') return 'Upcoming';
-    if (s === 'on track' || s === 'ontrack' || s === 'on-track') return 'On Track';
-    if (s === 'overdue' || s === 'late' || s === 'past due') return 'Overdue';
-    return null;
-}
-
-function _formatCollectionDate(val) {
-    if (val === null || val === undefined || val === '') return '';
-    if (val instanceof Date && !isNaN(val.getTime())) {
-        return val.toISOString().split('T')[0];
-    }
-    const parsed = parseExcelDateSafe(val);
-    if (parsed && !isNaN(parsed.getTime())) {
-        return parsed.toISOString().split('T')[0];
-    }
-    return String(val).trim();
+    if (s === 'paid') return 'Paid';
+    if (s === 'partial') return 'Partial';
+    if (s === 'unpaid') return 'Unpaid';
+    if (s === 'pending') return 'Pending';
+    return String(raw || '').trim();
 }
 
 /**
- * Compute stats for the COLLECTION dashboard from the new column layout:
- * KOR TCV, KOR TCV (After TAX), Total Collected, Outstanding,
- * Last Payment Date, Next Due Date, Payment Status, Notes.
+ * Extract the Files-column hyperlinks from the raw COLLECTION worksheet.
+ * XLSX cell objects carry links in cell.l.Target; sheet_to_json drops them,
+ * so this walks the raw sheet (window.__rawSheets['COLLECTION']) instead.
+ * When one contract has several installment rows, the first link wins.
  *
- * @param {Object[]} data
+ * @param {Object|null|undefined} rawSheet
+ * @returns {Object<string,string>} CRM Deal Name → URL
+ */
+export function getCollectionFileLinks(rawSheet) {
+    const links = {};
+    if (!rawSheet) return links;
+    const cellRe = /^([A-Z]+)(\d+)$/;
+    let dealCol = null, filesCol = null, headerRow = null;
+    Object.keys(rawSheet).forEach(addr => {
+        const m = cellRe.exec(addr);
+        if (!m) return;
+        const v = String(rawSheet[addr] && rawSheet[addr].v != null ? rawSheet[addr].v : '').trim().toLowerCase();
+        if (v === 'crm deal name') { dealCol = m[1]; headerRow = parseInt(m[2], 10); }
+        if (v === 'files' && filesCol === null) filesCol = m[1];
+    });
+    if (!dealCol || !filesCol || headerRow === null) return links;
+    Object.keys(rawSheet).forEach(addr => {
+        const m = cellRe.exec(addr);
+        if (!m || m[1] !== filesCol) return;
+        const rowNum = parseInt(m[2], 10);
+        if (rowNum <= headerRow) return;
+        const cell = rawSheet[addr];
+        const target = cell && cell.l && cell.l.Target;
+        if (!target) return;
+        const dealCell = rawSheet[`${dealCol}${rowNum}`];
+        const deal = String(dealCell && dealCell.v != null ? dealCell.v : '').trim();
+        if (deal && !links[deal]) links[deal] = target;
+    });
+    return links;
+}
+
+/**
+ * Compute stats for the COLLECTION dashboard (installment-level layout).
+ *
+ * Each sheet row is one scheduled payment; CRM Deal Name (col B) groups the
+ * rows of one contract. Amount Due (P), Balance (S), and Status (V) are
+ * formula results in the sheet and are read as-is — only day-based aging and
+ * the drill-down groupings are computed here, against today's date.
+ * Status "Pending" rows are split into their own view and never mixed into
+ * the Active numbers.
+ *
+ * @param {Object[]} data - COLLECTION rows (already country/search filtered)
  * @returns {Object}
  */
 export function getCollectionStats(data) {
+    const today = _collDayStart(new Date());
+    const currentYear = today.getFullYear();
+
     const empty = {
-        globalTotalKtcvGross: 0,
-        globalTotalKtcvNet: 0,
-        globalTotalCollected: 0,
-        globalTotalOutstanding: 0,
-        byStatusAmount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 },
-        byStatusCount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 },
-        currentPeriodDue: 0,
-        futureProjected: 0,
-        distributorSummary: [],
-        rows: []
+        rows: [],
+        deals: {},
+        byStatusAmount: { Paid: 0, Partial: 0, Unpaid: 0, Pending: 0 },
+        byStatusCount:  { Paid: 0, Partial: 0, Unpaid: 0, Pending: 0 },
+        active: {
+            rowCount: 0, contractCount: 0,
+            totalDue: 0, totalPaid: 0, totalBalance: 0, collectionRate: 0,
+            overdue61Amount: 0, overdue61Accounts: 0,
+            agingBuckets: COLLECTION_AGING_BUCKETS.map(b => ({ ...b, amount: 0, dealCount: 0, byYear: [] })),
+            distributors: [],
+            topAccounts: []
+        },
+        pending: { recordCount: 0, totalValue: 0, table: [] },
+        trend: [],
+        timeliness: [],
+        avgDaysByYear: []
     };
     if (!data || data.length === 0) return empty;
 
     const keys = Object.keys(data[0]);
-    const ktcvGrossKey = findKey(keys,
-        k => k.toUpperCase().replace(/\s/g, '') === 'KORTCV',
-        k => k.toUpperCase().includes('KOR TCV') && !k.toUpperCase().includes('AFTER')
-    );
-    const ktcvNetKey = findKey(keys,
-        k => k.toUpperCase().includes('KOR TCV') && k.toUpperCase().includes('AFTER'),
-        k => k.toUpperCase().includes('AFTER TAX'),
-        k => k.toUpperCase().replace(/\s/g, '').includes('AFTERTAX')
-    );
-    const collectedKey = findKey(keys,
-        k => k.toLowerCase().includes('total collected'),
-        k => k.toLowerCase() === 'collected'
-    );
-    const outstandingKey = findKey(keys,
-        k => k.toLowerCase() === 'due amount',
-        k => k.toLowerCase().includes('due amount'),
-        k => k.toLowerCase() === 'outstanding',
-        k => k.toLowerCase().includes('outstanding')
-    );
-    const statusKey = findKey(keys,
-        k => k.toLowerCase().replace(/\s/g, '') === 'paymentstatus',
-        k => k.toLowerCase().includes('payment status'),
-        k => k.toLowerCase() === 'status'
-    );
-    const lastPmtKey = findKey(keys,
-        k => k.toLowerCase().includes('last payment'),
-        k => k.toLowerCase().includes('last paid')
-    );
-    const nextDueKey = findKey(keys,
-        k => k.toLowerCase().includes('next due'),
-        k => k.toLowerCase().includes('due date')
-    );
-    const notesKey = findKey(keys,
-        k => k.toLowerCase() === 'notes',
-        k => k.toLowerCase().includes('note')
-    );
+    const kDeal     = findKey(keys, k => k.toLowerCase().includes('crm deal'), k => k.toLowerCase().includes('deal name'));
+    const kCountry  = findKey(keys, k => k.toLowerCase().trim() === 'country');
+    const kDist     = findKey(keys, k => k.toLowerCase().trim() === 'distributor');
+    const kPartner  = findKey(keys, k => k.toLowerCase().trim() === 'partner');
+    const kEndUser  = findKey(keys, k => k.toLowerCase().includes('end user'));
+    const kTerms    = findKey(keys, k => k.toLowerCase().trim() === 'terms');
+    const kInstall  = findKey(keys, k => k.toLowerCase().includes('installment'));
+    const kTrigger  = findKey(keys, k => k.toLowerCase().includes('trigger'));
+    const kStart    = findKey(keys, k => k.toLowerCase().includes('contract start'));
+    const kDue      = findKey(keys, k => k.toLowerCase().trim() === 'due date', k => k.toLowerCase().includes('due date'));
+    const kAmtDue   = findKey(keys, k => k.toLowerCase().includes('amount due'));
+    const kDatePaid = findKey(keys, k => k.toLowerCase().includes('date paid'));
+    const kAmtPaid  = findKey(keys, k => k.toLowerCase().includes('amount paid'));
+    const kBalance  = findKey(keys, k => k.toLowerCase().trim() === 'balance');
+    const kPayDays  = findKey(keys, k => k.toLowerCase().includes('payment days'));
+    const kOnTime   = findKey(keys, k => k.toLowerCase().replace(/[^a-z]/g, '') === 'ontime', k => k.toLowerCase().includes('on-time'));
+    const kStatus   = findKey(keys, k => k.toLowerCase().trim() === 'status');
+    const kInvoice  = findKey(keys, k => k.toLowerCase().includes('invoice'));
+    const kNotes    = findKey(keys, k => k.toLowerCase().trim() === 'notes');
+    if (!kDeal || !kStatus) return empty;
 
-    const stats = {
-        ...empty,
-        byStatusAmount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 },
-        byStatusCount: { Completed: 0, Upcoming: 0, 'On Track': 0, Overdue: 0 }
-    };
-    const distributorAgg = {};
-    const resultRows = [];
-
-    data.forEach(row => {
-        const distributor = String(row['Distributor'] || row['Partner'] || 'Unknown').trim() || 'Unknown';
-        const partner = String(row['Partner'] || '').trim();
-        const endUser = String(row['End User'] || 'N/A').trim() || 'N/A';
-
-        const ktcvGross = ktcvGrossKey ? parseCurrency(row[ktcvGrossKey]) : 0;
-        const ktcvNet = ktcvNetKey
-            ? parseCurrency(row[ktcvNetKey])
-            : Math.round(ktcvGross * 0.85 * 100) / 100;
-        const collected = collectedKey ? parseCurrency(row[collectedKey]) : 0;
-        const outstanding = outstandingKey
-            ? parseCurrency(row[outstandingKey])
-            : Math.max(0, ktcvNet - collected);
-        const statusRaw = statusKey ? row[statusKey] : '';
-        const status = _normalizeCollectionStatus(statusRaw);
-        const notes = notesKey ? String(row[notesKey] || '').trim() : '';
-        const lastPaymentDateStr = lastPmtKey ? _formatCollectionDate(row[lastPmtKey]) : '';
-        const nextDueDateStr = nextDueKey ? _formatCollectionDate(row[nextDueKey]) : '';
-
-        // Skip rows with no contract value AND no activity at all (sheet padding).
-        if (ktcvGross <= 0 && ktcvNet <= 0 && collected <= 0 && outstanding <= 0) return;
-
-        stats.globalTotalKtcvGross += ktcvGross;
-        stats.globalTotalKtcvNet += ktcvNet;
-        stats.globalTotalCollected += collected;
-        stats.globalTotalOutstanding += outstanding;
-
-        if (status) {
-            // Upcoming and Overdue are reported off the Due Amount column (formerly
-            // "Outstanding"); Completed and On Track stay on Total Collected.
-            const statusAmount = (status === 'Upcoming' || status === 'Overdue')
-                ? outstanding
-                : collected;
-            stats.byStatusAmount[status] += statusAmount;
-            stats.byStatusCount[status] += 1;
-        }
-
-        if (!distributorAgg[distributor]) {
-            distributorAgg[distributor] = {
-                totalCollected: 0,
-                outstanding: 0,
-                ktcvNet: 0,
-                currentPeriodDue: 0,
-                futureProjected: 0,
-                completed: 0,
-                overdueAmount: 0,
-                count: 0
-            };
-        }
-        const agg = distributorAgg[distributor];
-        agg.totalCollected += collected;
-        agg.outstanding += outstanding;
-        agg.ktcvNet += ktcvNet;
-        agg.count += 1;
-        if (status === 'Completed') agg.completed += collected;
-        if (status === 'Upcoming') agg.currentPeriodDue += outstanding;
-        if (status === 'On Track') agg.futureProjected += collected;
-        if (status === 'Overdue') agg.overdueAmount += outstanding;
-
-        resultRows.push({
-            distributor,
-            partner,
-            endUser,
-            ktcvGross,
-            ktcvNet,
-            collected,
-            outstanding,
-            status: status || (String(statusRaw || '').trim() || '—'),
-            statusKnown: !!status,
-            lastPaymentDateStr,
-            nextDueDateStr,
-            notes
+    /* ── Normalize rows (skip sheet padding: rows with no deal name) ── */
+    const rows = [];
+    data.forEach(raw => {
+        const deal = String(raw[kDeal] || '').trim();
+        if (!deal) return;
+        const dueDate = kDue ? parseExcelDateSafe(raw[kDue]) : null;
+        const paidDate = kDatePaid ? parseExcelDateSafe(raw[kDatePaid]) : null;
+        const status = _normalizeCollectionStatus(raw[kStatus]);
+        const amountDue = kAmtDue ? parseCurrency(raw[kAmtDue]) : 0;
+        const amountPaid = kAmtPaid ? parseCurrency(raw[kAmtPaid]) : 0;
+        const balance = (kBalance && raw[kBalance] !== '' && raw[kBalance] !== null)
+            ? parseCurrency(raw[kBalance])
+            : amountDue - amountPaid;
+        const due = dueDate ? _collDayStart(dueDate) : null;
+        const daysOverdue = due ? Math.round((today - due) / _COLL_MS_DAY) : null;
+        rows.push({
+            deal,
+            country: kCountry ? String(raw[kCountry] || '').trim() : '',
+            distributor: (kDist ? String(raw[kDist] || '').trim() : '') || 'Unknown',
+            partner: kPartner ? String(raw[kPartner] || '').trim() : '',
+            endUser: (kEndUser ? String(raw[kEndUser] || '').trim() : '') || 'N/A',
+            terms: kTerms ? String(raw[kTerms] || '').trim() : '',
+            installmentNo: kInstall ? String(raw[kInstall] ?? '').trim() : '',
+            triggerEvent: kTrigger ? String(raw[kTrigger] || '').trim() : '',
+            invoiceNo: kInvoice ? String(raw[kInvoice] || '').trim() : '',
+            contractStart: kStart ? parseExcelDateSafe(raw[kStart]) : null,
+            due,
+            dueStr: _collFmtDay(due),
+            daysOverdue,
+            paidDate: paidDate ? _collDayStart(paidDate) : null,
+            paidDateStr: _collFmtDay(paidDate ? _collDayStart(paidDate) : null),
+            amountDue,
+            amountPaid,
+            balance,
+            paymentDays: (kPayDays && raw[kPayDays] !== '' && raw[kPayDays] !== null) ? parseCurrency(raw[kPayDays]) : null,
+            onTime: kOnTime ? String(raw[kOnTime] || '').trim().toLowerCase() === 'yes' : false,
+            status,
+            notes: kNotes ? String(raw[kNotes] || '').trim() : '',
+            // "Still expects money": positive balance on a not-fully-paid row.
+            // Status "Paid" tolerates a sub-$1 residual, so it never counts.
+            isOutstanding: balance > 0 && status !== 'Paid' && status !== 'Pending'
         });
     });
 
-    const round2 = (n) => Math.round(n * 100) / 100;
+    const stats = {
+        ...empty,
+        rows,
+        deals: {},
+        byStatusAmount: { Paid: 0, Partial: 0, Unpaid: 0, Pending: 0 },
+        byStatusCount:  { Paid: 0, Partial: 0, Unpaid: 0, Pending: 0 }
+    };
 
-    stats.currentPeriodDue = stats.byStatusAmount['Upcoming'];
-    stats.futureProjected = stats.byStatusAmount['On Track'];
-
-    stats.distributorSummary = Object.entries(distributorAgg)
-        .map(([name, agg]) => ({
-            name,
-            count: agg.count,
-            ktcvNet: round2(agg.ktcvNet),
-            totalCollected: round2(agg.totalCollected),
-            outstanding: round2(agg.outstanding),
-            currentPeriodDue: round2(agg.currentPeriodDue),
-            futureProjected: round2(agg.futureProjected),
-            completed: round2(agg.completed),
-            overdueAmount: round2(agg.overdueAmount)
-        }))
-        .sort((a, b) => b.totalCollected - a.totalCollected);
-
-    // Surface overdue first, then largest outstanding.
-    const statusRank = { 'Overdue': 0, 'Upcoming': 1, 'On Track': 2, 'Completed': 3 };
-    stats.rows = resultRows.sort((a, b) => {
-        const ra = statusRank[a.status] ?? 4;
-        const rb = statusRank[b.status] ?? 4;
-        if (ra !== rb) return ra - rb;
-        return b.outstanding - a.outstanding;
+    /* ── Per-status row aggregation (feeds the change log) ── */
+    rows.forEach(r => {
+        if (stats.byStatusCount[r.status] === undefined) return;
+        stats.byStatusCount[r.status] += 1;
+        stats.byStatusAmount[r.status] += (r.status === 'Paid' || r.status === 'Partial') ? r.amountPaid
+            : (r.status === 'Unpaid') ? r.balance
+            : r.amountDue;
     });
+
+    /* ── Per-contract map (detail views, change log) ── */
+    rows.forEach(r => {
+        if (!stats.deals[r.deal]) {
+            stats.deals[r.deal] = {
+                deal: r.deal, country: r.country, distributor: r.distributor,
+                partner: r.partner, endUser: r.endUser, terms: r.terms,
+                contractStartStr: _collFmtDay(r.contractStart ? _collDayStart(r.contractStart) : null),
+                notes: '', installments: [],
+                totalDue: 0, totalPaid: 0, totalBalance: 0
+            };
+        }
+        const d = stats.deals[r.deal];
+        if (!d.notes && r.notes) d.notes = r.notes;
+        if (!d.terms && r.terms) d.terms = r.terms;
+        if (!d.contractStartStr && r.contractStart) d.contractStartStr = _collFmtDay(_collDayStart(r.contractStart));
+        d.installments.push(r);
+        d.totalDue += r.amountDue;
+        d.totalPaid += r.amountPaid;
+        d.totalBalance += r.balance;
+    });
+
+    Object.values(stats.deals).forEach(d => {
+        const st = d.installments.map(i => i.status);
+        d.aggStatus = st.every(s => s === 'Pending') ? 'Pending'
+            : st.some(s => s === 'Partial') ? 'Partial'
+            : st.some(s => s === 'Unpaid') ? 'Unpaid'
+            : 'Paid';
+        // Earliest Due Date among this contract's rows that still carry a balance.
+        const unpaidDues = d.installments.filter(i => i.isOutstanding && i.due).map(i => i.due.getTime());
+        d.nextDue = unpaidDues.length ? new Date(Math.min(...unpaidDues)) : null;
+        d.nextDueStr = _collFmtDay(d.nextDue);
+    });
+
+    /* ── VIEW 1: Active Collections (Status ≠ Pending) ── */
+    const activeRows = rows.filter(r => r.status !== 'Pending');
+    const act = stats.active;
+    act.rowCount = activeRows.length;
+    act.contractCount = new Set(activeRows.map(r => r.deal)).size;
+    activeRows.forEach(r => {
+        act.totalDue += r.amountDue;
+        act.totalPaid += r.amountPaid;
+        act.totalBalance += r.balance;
+    });
+    act.collectionRate = act.totalDue > 0 ? Math.round((act.totalPaid / act.totalDue) * 100) : 0;
+
+    const outRows = activeRows.filter(r => r.isOutstanding);
+
+    const overdue61Rows = outRows.filter(r => r.daysOverdue !== null && r.daysOverdue > 60);
+    act.overdue61Amount = overdue61Rows.reduce((s, r) => s + r.balance, 0);
+    act.overdue61Accounts = new Set(overdue61Rows.map(r => r.deal)).size;
+
+    // Year-of-Due-Date breakdown used by the click-to-expand drill-downs.
+    const yearBreakdown = (rowsIn) => {
+        const map = new Map();
+        rowsIn.forEach(r => {
+            const label = r.due ? String(r.due.getFullYear()) : 'No due date set';
+            if (!map.has(label)) map.set(label, { label, amount: 0, deals: new Set() });
+            const e = map.get(label);
+            e.amount += r.balance;
+            e.deals.add(r.deal);
+        });
+        return [...map.values()]
+            .sort((a, b) => {
+                const aBlank = a.label === 'No due date set', bBlank = b.label === 'No due date set';
+                if (aBlank !== bBlank) return aBlank ? 1 : -1;
+                return a.label.localeCompare(b.label);
+            })
+            .map(e => ({ label: e.label, amount: e.amount, dealCount: e.deals.size }));
+    };
+
+    act.agingBuckets = COLLECTION_AGING_BUCKETS.map(b => {
+        const bRows = outRows.filter(r => _collAgingBucketKey(r.daysOverdue) === b.key);
+        return {
+            ...b,
+            amount: bRows.reduce((s, r) => s + r.balance, 0),
+            dealCount: new Set(bRows.map(r => r.deal)).size,
+            byYear: yearBreakdown(bRows)
+        };
+    });
+
+    const distMap = new Map();
+    outRows.forEach(r => {
+        if (!distMap.has(r.distributor)) distMap.set(r.distributor, []);
+        distMap.get(r.distributor).push(r);
+    });
+    act.distributors = [...distMap.entries()]
+        .map(([name, rws]) => ({
+            name,
+            amount: rws.reduce((s, r) => s + r.balance, 0),
+            dealCount: new Set(rws.map(r => r.deal)).size,
+            byYear: yearBreakdown(rws)
+        }))
+        .filter(d => d.amount > 0)
+        .sort((a, b) => b.amount - a.amount);
+
+    const dealOutstanding = new Map();
+    activeRows.forEach(r => {
+        if (!dealOutstanding.has(r.deal)) {
+            dealOutstanding.set(r.deal, { deal: r.deal, distributor: r.distributor, endUser: r.endUser, outstanding: 0 });
+        }
+        dealOutstanding.get(r.deal).outstanding += r.balance;
+    });
+    act.topAccounts = [...dealOutstanding.values()]
+        .filter(a => a.outstanding > 0.5)
+        .sort((a, b) => b.outstanding - a.outstanding)
+        .slice(0, 10)
+        .map(a => {
+            const d = stats.deals[a.deal];
+            const nextDue = d ? d.nextDue : null;
+            let statusLabel = 'No due date', statusKind = 'neutral', agingLabel = '';
+            if (nextDue) {
+                const days = Math.round((today - nextDue) / _COLL_MS_DAY);
+                if (days > 0) {
+                    statusLabel = 'Overdue';
+                    statusKind = 'overdue';
+                    const bucket = COLLECTION_AGING_BUCKETS.find(b => b.key === _collAgingBucketKey(days));
+                    agingLabel = bucket ? bucket.label : '';
+                } else if (nextDue.getFullYear() > currentYear) {
+                    statusLabel = 'On track';
+                    statusKind = 'ontrack';
+                } else {
+                    statusLabel = 'Upcoming';
+                    statusKind = 'upcoming';
+                }
+            }
+            return { ...a, nextDueStr: d ? d.nextDueStr : '', statusLabel, statusKind, agingLabel };
+        });
+
+    /* ── VIEW 2: Pending Records (Status = Pending) ── */
+    const pendingRows = rows.filter(r => r.status === 'Pending');
+    const pendMap = new Map();
+    pendingRows.forEach(r => {
+        if (!pendMap.has(r.deal)) {
+            pendMap.set(r.deal, { deal: r.deal, distributor: r.distributor, endUser: r.endUser, value: 0 });
+        }
+        pendMap.get(r.deal).value += r.amountDue;
+    });
+    stats.pending = {
+        recordCount: pendMap.size,
+        totalValue: pendingRows.reduce((s, r) => s + r.amountDue, 0),
+        table: [...pendMap.values()].sort((a, b) => b.value - a.value)
+    };
+
+    /* ── Collection trend: Amount Paid by calendar month of Date Paid ── */
+    const trendMap = new Map();
+    rows.forEach(r => {
+        if (!r.paidDate) return;
+        const k = `${r.paidDate.getFullYear()}-${String(r.paidDate.getMonth() + 1).padStart(2, '0')}`;
+        trendMap.set(k, (trendMap.get(k) || 0) + r.amountPaid);
+    });
+    stats.trend = [...trendMap.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([k, amount]) => {
+            const [y, m] = k.split('-').map(Number);
+            return { key: k, label: new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' }), amount };
+        });
+
+    /* ── Payment timeliness + avg payment days, by year of Date Paid ── */
+    const tlMap = new Map();
+    rows.forEach(r => {
+        if (!r.paidDate) return;
+        const y = r.paidDate.getFullYear();
+        if (!tlMap.has(y)) tlMap.set(y, { year: y, paid: 0, onTime: 0, daysSum: 0, daysCount: 0 });
+        const e = tlMap.get(y);
+        e.paid += 1;
+        if (r.onTime) e.onTime += 1;
+        if (r.paymentDays !== null) { e.daysSum += r.paymentDays; e.daysCount += 1; }
+    });
+    const tlYears = [...tlMap.values()].sort((a, b) => a.year - b.year);
+    stats.timeliness = tlYears.map(e => ({
+        year: e.year,
+        label: `FY${e.year}${e.year === currentYear ? ' (YTD)' : ''}`,
+        pct: e.paid > 0 ? Math.round((e.onTime / e.paid) * 100) : 0,
+        onTime: e.onTime,
+        paid: e.paid
+    }));
+    stats.avgDaysByYear = tlYears.filter(e => e.daysCount > 0).map(e => ({
+        year: e.year,
+        label: `FY${e.year}${e.year === currentYear ? ' (YTD)' : ''}`,
+        avg: Math.round((e.daysSum / e.daysCount) * 10) / 10,
+        count: e.daysCount
+    }));
 
     return stats;
 }

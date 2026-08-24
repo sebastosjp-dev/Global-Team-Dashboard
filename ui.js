@@ -2660,158 +2660,332 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
  * @param {Object} stats - Stats from getCollectionStats
  * @param {boolean} showOnlyUnpaid - Filter table to outstanding > 0
  */
-export function getCollectionHTML(stats, showOnlyUnpaid = false) {
-    const collectionRate = stats.globalTotalKtcvNet > 0
-        ? Math.round((stats.globalTotalCollected / stats.globalTotalKtcvNet) * 100)
-        : 0;
+const COLLECTION_STATUS_STYLE = {
+    'Paid':    { bg: '#ecfdf5', border: '#a7f3d0', fg: '#047857' },
+    'Partial': { bg: '#fffbeb', border: '#fde68a', fg: '#b45309' },
+    'Unpaid':  { bg: '#eff6ff', border: '#bfdbfe', fg: '#1d4ed8' },
+    'Pending': { bg: '#f8fafc', border: '#e2e8f0', fg: '#64748b' },
+    '—':       { bg: '#F9FAFB', border: '#E5E7EB', fg: '#6B7280' }
+};
 
-    const STATUS_STYLE = {
-        'Completed': { bg: '#ecfdf5', border: '#a7f3d0', fg: '#047857' },
-        'Upcoming':  { bg: '#fffbeb', border: '#fde68a', fg: '#b45309' },
-        'On Track':  { bg: '#eff6ff', border: '#bfdbfe', fg: '#1d4ed8' },
-        'Overdue':   { bg: '#fef2f2', border: '#fecaca', fg: '#b91c1c' },
-        '—':         { bg: '#F9FAFB', border: '#E5E7EB', fg: '#6B7280' }
-    };
-    const statusPill = (s) => {
-        const sty = STATUS_STYLE[s] || STATUS_STYLE['—'];
-        return `<span style="background:${sty.bg}; border:1px solid ${sty.border}; color:${sty.fg}; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700; white-space:nowrap;">${s}</span>`;
-    };
+const COLLECTION_ACCOUNT_STATUS_STYLE = {
+    overdue:  { bg: '#fef2f2', border: '#fecaca', fg: '#b91c1c' },
+    upcoming: { bg: '#fffbeb', border: '#fde68a', fg: '#b45309' },
+    ontrack:  { bg: '#eff6ff', border: '#bfdbfe', fg: '#1d4ed8' },
+    neutral:  { bg: '#F9FAFB', border: '#E5E7EB', fg: '#6B7280' }
+};
 
-    const baseRows = showOnlyUnpaid
-        ? stats.rows.filter(r => r.outstanding > 0)
-        : stats.rows;
-    // Most recent Last Payment first; rows with no Last Payment fall to the bottom.
-    const displayRows = [...baseRows].sort((a, b) => {
-        const ad = a.lastPaymentDateStr || '';
-        const bd = b.lastPaymentDateStr || '';
-        if (!ad && !bd) return 0;
-        if (!ad) return 1;
-        if (!bd) return -1;
-        return bd.localeCompare(ad);
-    });
+function _escColl(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
-    const statusCardChip = (label) => {
-        const sty = STATUS_STYLE[label];
-        const amt = stats.byStatusAmount[label] || 0;
-        const cnt = stats.byStatusCount[label] || 0;
-        return `
-            <div style="flex:1; min-width:130px; background:${sty.bg}; border:1px solid ${sty.border}; border-radius:10px; padding:10px 12px;">
-                <div style="font-size:0.62rem; color:${sty.fg}; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${label}</div>
-                <div style="font-size:1rem; font-weight:800; color:#111827; line-height:1.2; margin-top:2px;">$${formatCurrency(amt)}</div>
-                <div style="font-size:0.62rem; color:#9CA3AF; margin-top:2px;">${cnt} row${cnt === 1 ? '' : 's'}</div>
-            </div>`;
-    };
+function _collStatusPill(s) {
+    const sty = COLLECTION_STATUS_STYLE[s] || COLLECTION_STATUS_STYLE['—'];
+    return `<span style="background:${sty.bg}; border:1px solid ${sty.border}; color:${sty.fg}; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700; white-space:nowrap;">${_escColl(s) || '—'}</span>`;
+}
+
+function _collKpiTile(accent, title, value, sub) {
+    return `
+        <div class="stat-card" style="border-left: 4px solid ${accent}; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:flex-start;">
+            <h3 style="color:#64748b; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">${title}</h3>
+            <h2 style="font-size:1.55rem; font-weight:800; margin:4px 0; color:#111827;">${value}</h2>
+            <div style="font-size:0.7rem; color:#94a3b8;">${sub}</div>
+        </div>`;
+}
+
+function _collCard(iconClass, iconColor, title, desc, bodyHtml) {
+    return `
+        <div class="stat-card" style="background:#FFF; padding:16px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:stretch;">
+            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 4px 0; display:flex; align-items:center; gap:8px; color:#1e293b;">
+                <i class="${iconClass}" style="color:${iconColor};"></i> ${title}
+            </h3>
+            ${desc ? `<p style="margin:0 0 12px 0; font-size:0.7rem; color:#94a3b8;">${desc}</p>` : '<div style="margin-bottom:8px;"></div>'}
+            ${bodyHtml}
+        </div>`;
+}
+
+const _collEmptyBody = (msg) => `<div style="padding:24px; text-align:center; color:#94a3b8; font-size:0.78rem; font-style:italic;">${msg}</div>`;
+
+function _getCollectionActiveHTML(stats) {
+    const act = stats.active;
+
+    const kpis = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:16px; margin-bottom:20px;">
+            ${_collKpiTile('#6366f1', 'Active Contract Value',
+                `US$ ${formatCurrency(act.totalDue)}`,
+                `${act.contractCount} contract${act.contractCount === 1 ? '' : 's'} · ${act.rowCount} scheduled payment${act.rowCount === 1 ? '' : 's'} · after-tax`)}
+            ${_collKpiTile('#8b5cf6', 'Total Collected',
+                `US$ ${formatCurrency(act.totalPaid)}`,
+                `${act.collectionRate}% collection rate`)}
+            ${_collKpiTile('#f59e0b', 'Active Outstanding',
+                `US$ ${formatCurrency(act.totalBalance)}`,
+                'Amount due − amount paid across active payments')}
+            ${_collKpiTile('#ef4444', 'Overdue (61+ days)',
+                `US$ ${formatCurrency(act.overdue61Amount)}`,
+                `${act.overdue61Accounts} account${act.overdue61Accounts === 1 ? '' : 's'}`)}
+        </div>`;
+
+    const agingCard = _collCard('fa-solid fa-hourglass-half', '#f59e0b',
+        'Outstanding by aging bucket',
+        'Balance-carrying payments bucketed by days past Due Date · click a bar for a year-by-year breakdown',
+        `<div style="height:260px; position:relative;"><canvas id="collection-aging-chart"></canvas></div>
+         <div id="collection-aging-expand" style="display:none; margin-top:12px;"></div>`);
+
+    const distCard = _collCard('fa-solid fa-building', '#6366f1',
+        'Outstanding by distributor',
+        'Remaining balance per distributor (only distributors with outstanding > 0) · click a bar for a year-by-year breakdown',
+        act.distributors.length === 0
+            ? _collEmptyBody('No outstanding balance — nothing to show.')
+            : `<div style="height:260px; position:relative;"><canvas id="collection-distributor-chart"></canvas></div>
+               <div id="collection-dist-expand" style="display:none; margin-top:12px;"></div>`);
+
+    const accountRows = act.topAccounts.length === 0
+        ? `<tr><td colspan="7" style="padding:20px; text-align:center; color:#94a3b8;">No accounts with outstanding balance.</td></tr>`
+        : act.topAccounts.map(a => {
+            const sty = COLLECTION_ACCOUNT_STATUS_STYLE[a.statusKind] || COLLECTION_ACCOUNT_STATUS_STYLE.neutral;
+            return `
+            <tr data-collection-deal="${encodeURIComponent(a.deal)}" title="${_escColl(a.deal)} — click for contract detail"
+                style="border-bottom:1px solid #F1F5F9; cursor:pointer;"
+                onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <td style="padding:8px 10px; font-weight:600;">${_escColl(a.distributor)}</td>
+                <td style="padding:8px 10px;">${_escColl(a.endUser)}<div style="font-size:0.62rem; color:#94a3b8; margin-top:1px;">${_escColl(a.deal)}</div></td>
+                <td style="padding:8px 10px; font-weight:800; text-align:right; color:#ef4444; white-space:nowrap;">$${formatCurrency(a.outstanding)}</td>
+                <td style="padding:8px 10px;"><span style="background:${sty.bg}; border:1px solid ${sty.border}; color:${sty.fg}; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700; white-space:nowrap;">${a.statusLabel}</span></td>
+                <td style="padding:8px 10px; font-size:0.72rem; color:#64748b; white-space:nowrap;">${a.agingLabel || '—'}</td>
+                <td style="padding:8px 10px; font-family:monospace; white-space:nowrap; color:#64748b;">${a.nextDueStr || '—'}</td>
+                <td style="padding:8px 10px; color:#cbd5e1; text-align:right;"><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;"></i></td>
+            </tr>`;
+        }).join('');
+
+    const topAccountsCard = _collCard('fa-solid fa-ranking-star', '#ef4444',
+        'Top outstanding accounts',
+        'Contracts (grouped by CRM Deal Name) ranked by remaining balance · Next due = earliest unpaid Due Date · click a row for the full installment schedule',
+        `<div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead>
+                    <tr style="background:#F8FAFC; text-align:left; border-bottom:1px solid #E2E8F0;">
+                        <th style="padding:10px; color:#475569; font-weight:700;">Distributor</th>
+                        <th style="padding:10px; color:#475569; font-weight:700;">End User</th>
+                        <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Outstanding</th>
+                        <th style="padding:10px; color:#475569; font-weight:700;">Status</th>
+                        <th style="padding:10px; color:#475569; font-weight:700;">Aging</th>
+                        <th style="padding:10px; color:#475569; font-weight:700;">Next due</th>
+                        <th style="padding:10px;"></th>
+                    </tr>
+                </thead>
+                <tbody>${accountRows}</tbody>
+            </table>
+        </div>`);
+
+    const trendCard = _collCard('fa-solid fa-chart-line', '#8b5cf6',
+        'Collection trend',
+        'Amount Paid summed by calendar month of Date Paid',
+        stats.trend.length === 0
+            ? _collEmptyBody('No payments recorded yet.')
+            : `<div style="height:260px; position:relative;"><canvas id="collection-trend-chart"></canvas></div>`);
+
+    const avgChips = stats.avgDaysByYear.map(a => `
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; flex:1; min-width:130px;">
+            <div style="font-size:0.62rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${a.label}</div>
+            <div style="font-size:1.05rem; font-weight:800; color:#111827; margin-top:1px;">${a.avg} days</div>
+            <div style="font-size:0.62rem; color:#94a3b8;">${a.count} payment${a.count === 1 ? '' : 's'}</div>
+        </div>`).join('');
+
+    const timelinessCard = _collCard('fa-solid fa-stopwatch', '#10b981',
+        'Payment timeliness — year over year',
+        '% of payments made within the 30-day grace period after due date (On-Time? = Yes), grouped by year of Date Paid',
+        (stats.timeliness.length === 0
+            ? _collEmptyBody('No payments recorded yet.')
+            : `<div style="height:200px; position:relative;"><canvas id="collection-timeliness-chart"></canvas></div>`) +
+        (avgChips ? `
+            <div style="margin-top:14px;">
+                <div style="font-size:0.66rem; color:#475569; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Avg. days invoice → payment <span style="font-weight:600; color:#94a3b8; text-transform:none; letter-spacing:0;">(avg of Payment Days, grouped by year of Date Paid)</span></div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">${avgChips}</div>
+            </div>` : ''));
 
     return `
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
-            <div class="stat-card" style="border-left: 4px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#64748b; font-size:0.75rem; font-weight:700;">ACCUMULATED KTCV (AFTER TAX)</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalKtcvNet)}</h2>
-                <div style="font-size: 0.7rem; color: #94a3b8;">Net of 15% withholding tax</div>
-            </div>
-            <div class="stat-card" style="border-left: 4px solid #8b5cf6; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#8b5cf6; font-size:0.75rem; font-weight:700;">TOTAL COLLECTED</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalCollected)}</h2>
-                <div style="font-size: 0.7rem; color: #94a3b8;">Collection Rate: ${collectionRate}% of net KTCV</div>
-            </div>
-            <div class="stat-card" style="border-left: 4px solid #ef4444; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: flex-start;">
-                <h3 style="color:#ef4444; font-size:0.75rem; font-weight:700;">OUTSTANDING</h3>
-                <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">US$ ${formatCurrency(stats.globalTotalOutstanding)}</h2>
-                <div style="font-size: 0.7rem; color: #94a3b8;">Sum of Outstanding column</div>
-            </div>
+        ${kpis}
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(380px, 1fr)); gap:16px; margin-bottom:20px;">
+            ${agingCard}
+            ${distCard}
         </div>
-
-        <div class="stat-card" style="background:#FFF; padding: 16px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: stretch;">
-            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-chart-column" style="color: #6366f1;"></i> Collected by Payment Status
-            </h3>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
-                ${['Completed', 'Upcoming', 'On Track', 'Overdue'].map(statusCardChip).join('')}
-            </div>
-            <div style="height: 280px; position: relative;"><canvas id="collection-status-chart"></canvas></div>
-        </div>
-
-        <div class="stat-card" style="background:#FFF; padding: 16px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: stretch;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #6366f1; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-list-check"></i> Collection Detail (by Payment Status)
-                </h3>
-                <button id="collection-unpaid-toggle" style="background: ${showOnlyUnpaid ? '#ef4444' : '#6366f1'}; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <i class="fa-solid ${showOnlyUnpaid ? 'fa-filter-circle-xmark' : 'fa-filter'}"></i>
-                    ${showOnlyUnpaid ? 'Show All Items' : 'Show Only Outstanding (> 0)'}
-                </button>
-            </div>
-            <div style="overflow-x: auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-                    <thead>
-                        <tr style="background:#F8FAFC; text-align:left; border-bottom: 1px solid #E2E8F0;">
-                            <th style="padding:10px; color:#475569; font-weight:700;">Distributor</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">End User</th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">KOR TCV (Net)</th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Total Collected</th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Outstanding</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">Last Payment</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">Next Due</th>
-                            <th style="padding:10px; color:#475569; font-weight:700;">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${displayRows.length === 0 ? `
-                            <tr><td colspan="8" style="padding:20px; text-align:center; color:#94a3b8;">No rows to display.</td></tr>
-                        ` : displayRows.map(r => `
-                            <tr style="border-bottom: 1px solid #F1F5F9;">
-                                <td style="padding:6px 10px; font-weight:600;">${r.distributor}</td>
-                                <td style="padding:6px 10px;">${r.endUser}</td>
-                                <td style="padding:6px 10px; font-weight:700; color:#1e293b; text-align:right;">$${formatCurrency(r.ktcvNet)}</td>
-                                <td style="padding:6px 10px; font-weight:700; color:#8b5cf6; text-align:right;">$${formatCurrency(r.collected)}</td>
-                                <td style="padding:6px 10px; font-weight:800; color: ${r.outstanding > 0 ? '#ef4444' : '#10b981'}; text-align:right;">$${formatCurrency(r.outstanding)}</td>
-                                <td style="padding:6px 10px; font-family: monospace; white-space: nowrap; color:#64748b;">${r.lastPaymentDateStr || '—'}</td>
-                                <td style="padding:6px 10px; font-family: monospace; white-space: nowrap; color:#64748b;">${r.nextDueDateStr || '—'}</td>
-                                <td style="padding:6px 10px;">${statusPill(r.status)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="stat-card" style="background:#FFF; padding: 16px; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; display: flex; flex-direction: column; align-items: stretch;">
-            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 4px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-calculator"></i> Total Collected by Distributor (Descending)
-            </h3>
-            <p style="margin: 0 0 12px 0; font-size: 0.72rem; color: #94a3b8;">
-                Current Period Due = sum of Due Amount where Payment Status = Upcoming.
-                Future Projected = sum of Total Collected where Payment Status = On Track.
-            </p>
-            <div style="overflow-x: auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
-                    <thead>
-                        <tr style="background:#F8FAFC; text-align:left; border-bottom: 1px solid #E2E8F0;">
-                            <th style="padding:10px; color:#475569; font-weight:700;">Distributor</th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Total Collected</th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Current Period Due<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(Upcoming)</span></th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Future Projected<br><span style="font-weight:500; color:#94a3b8; font-size:0.7rem;">(On Track)</span></th>
-                            <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Outstanding</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${stats.distributorSummary.length === 0 ? `
-                            <tr><td colspan="5" style="padding:20px; text-align:center; color:#94a3b8;">No distributor data.</td></tr>
-                        ` : stats.distributorSummary.map(s => `
-                            <tr style="border-bottom: 1px solid #F1F5F9;">
-                                <td style="padding:8px 10px; font-weight:600;">${s.name}</td>
-                                <td style="padding:8px 10px; font-weight:800; text-align:right; color:#8b5cf6;">$${formatCurrency(s.totalCollected)}</td>
-                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.currentPeriodDue > 0 ? '#b45309' : '#94a3b8'};">$${formatCurrency(s.currentPeriodDue)}</td>
-                                <td style="padding:8px 10px; font-weight:700; text-align:right; color: ${s.futureProjected > 0 ? '#1d4ed8' : '#94a3b8'};">$${formatCurrency(s.futureProjected)}</td>
-                                <td style="padding:8px 10px; font-weight:800; text-align:right; color: ${s.outstanding > 0 ? '#ef4444' : '#10b981'};">$${formatCurrency(s.outstanding)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
+        ${topAccountsCard}
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(380px, 1fr)); gap:16px; margin-top:20px;">
+            ${trendCard}
+            ${timelinessCard}
         </div>
     `;
 }
+
+function _getCollectionPendingHTML(stats) {
+    const p = stats.pending;
+
+    const kpis = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:20px;">
+            ${_collKpiTile('#94a3b8', 'Pending', `${p.recordCount} record${p.recordCount === 1 ? '' : 's'}`, 'informational only')}
+            ${_collKpiTile('#0ea5e9', 'Total value if confirmed', `US$ ${formatCurrency(p.totalValue)}`, 'after-tax KOR TCV')}
+        </div>`;
+
+    const rowsHtml = p.table.length === 0
+        ? `<tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">No pending records.</td></tr>`
+        : p.table.map(a => `
+            <tr data-collection-deal="${encodeURIComponent(a.deal)}" title="${_escColl(a.deal)} — click for contract detail"
+                style="border-bottom:1px solid #F1F5F9; cursor:pointer;"
+                onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <td style="padding:8px 10px; font-weight:600;">${_escColl(a.distributor)}</td>
+                <td style="padding:8px 10px;">${_escColl(a.endUser)}<div style="font-size:0.62rem; color:#94a3b8; margin-top:1px;">${_escColl(a.deal)}</div></td>
+                <td style="padding:8px 10px; font-weight:800; text-align:right; color:#0369a1; white-space:nowrap;">$${formatCurrency(a.value)}</td>
+                <td style="padding:8px 10px; color:#cbd5e1; text-align:right;"><i class="fa-solid fa-chevron-right" style="font-size:0.7rem;"></i></td>
+            </tr>`).join('');
+
+    const tableCard = _collCard('fa-solid fa-file-circle-question', '#64748b',
+        'Pending',
+        'Contracts registered internally but not started yet (no Due Date set) · grouped by CRM Deal Name · click a row for detail',
+        `<div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                <thead>
+                    <tr style="background:#F8FAFC; text-align:left; border-bottom:1px solid #E2E8F0;">
+                        <th style="padding:10px; color:#475569; font-weight:700;">Distributor</th>
+                        <th style="padding:10px; color:#475569; font-weight:700;">End User</th>
+                        <th style="padding:10px; color:#475569; font-weight:700; text-align:right;">Est. value</th>
+                        <th style="padding:10px;"></th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>`);
+
+    return kpis + tableCard;
+}
+
+/**
+ * COLLECTION dashboard HTML for one of the two views.
+ * @param {Object} stats - Output of getCollectionStats
+ * @param {'active'|'pending'} [view='active']
+ * @returns {string}
+ */
+export function getCollectionHTML(stats, view = 'active') {
+    return view === 'pending' ? _getCollectionPendingHTML(stats) : _getCollectionActiveHTML(stats);
+}
+
+window.closeCollectionDealModal = function () {
+    const el = document.getElementById('collection-deal-modal');
+    if (el) el.remove();
+    if (window.__collectionDealModalEsc) {
+        document.removeEventListener('keydown', window.__collectionDealModalEsc);
+        window.__collectionDealModalEsc = null;
+    }
+};
+
+/**
+ * Contract detail modal for one CRM Deal Name: contract metadata, the full
+ * installment schedule, the Files hyperlink (from the raw sheet cell), and
+ * Notes. Reads window.__collectionDeals / window.__collectionFileLinks,
+ * stashed by views.js when the COLLECTION tab renders.
+ */
+window.showCollectionDealDetail = function (encodedDeal) {
+    const deal = decodeURIComponent(encodedDeal);
+    const d = (window.__collectionDeals || {})[deal];
+    if (!d) return;
+    const fileUrl = (window.__collectionFileLinks || {})[deal] || '';
+
+    window.closeCollectionDealModal();
+
+    const money = (v) => '$' + formatCurrency(v);
+    const metaChip = (label, value) => !value ? '' : `
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px;">
+            <div style="font-size:0.58rem; color:#94a3b8; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${label}</div>
+            <div style="font-size:0.78rem; color:#111827; font-weight:600; margin-top:1px;">${_escColl(value)}</div>
+        </div>`;
+
+    const instRows = d.installments.map(r => `
+        <tr style="border-bottom:1px solid #f3f4f6;${r.isOutstanding ? ' background:#fffbeb;' : ''}">
+            <td style="padding:8px 12px; font-size:0.74rem; color:#475569; text-align:center; font-weight:700;">${_escColl(r.installmentNo) || '—'}</td>
+            <td style="padding:8px 12px; font-size:0.74rem; color:#475569;">${_escColl(r.triggerEvent) || '—'}</td>
+            <td style="padding:8px 12px; font-size:0.74rem; font-family:monospace; white-space:nowrap; color:#64748b;">${r.dueStr || '—'}</td>
+            <td style="padding:8px 12px; font-size:0.76rem; text-align:right; font-weight:700; color:#1e293b; white-space:nowrap;">${money(r.amountDue)}</td>
+            <td style="padding:8px 12px; font-size:0.76rem; text-align:right; font-weight:700; color:#8b5cf6; white-space:nowrap;">${r.amountPaid ? money(r.amountPaid) : '—'}</td>
+            <td style="padding:8px 12px; font-size:0.76rem; text-align:right; font-weight:800; white-space:nowrap; color:${r.isOutstanding ? '#ef4444' : '#10b981'};">${money(r.balance)}</td>
+            <td style="padding:8px 12px;">${_collStatusPill(r.status)}</td>
+        </tr>`).join('');
+
+    const fileBtn = fileUrl ? `
+        <a href="${_escColl(fileUrl)}" target="_blank" rel="noopener"
+           style="display:inline-flex; align-items:center; gap:6px; background:#eef2ff; border:1px solid #c7d2fe; color:#4338ca; font-size:0.72rem; font-weight:700; padding:6px 12px; border-radius:8px; text-decoration:none; white-space:nowrap;">
+            <i class="fa-solid fa-folder-open"></i> Supporting docs
+        </a>` : '';
+
+    const notesBlock = d.notes ? `
+        <div style="margin:0 20px 16px 20px; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 14px;">
+            <div style="font-size:0.6rem; color:#b45309; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:3px;"><i class="fa-solid fa-note-sticky" style="margin-right:4px;"></i>Notes</div>
+            <div style="font-size:0.76rem; color:#374151; white-space:pre-wrap;">${_escColl(d.notes)}</div>
+        </div>` : '';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'collection-deal-modal';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(2px);';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closeCollectionDealModal(); });
+
+    overlay.innerHTML = `
+        <div style="background:#ffffff; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.28); width:min(940px,100%); max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid #eef2f7; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="width:34px; height:34px; flex-shrink:0; border-radius:10px; background:rgba(99,102,241,0.15); color:#6366f1; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <div style="min-width:0;">
+                        <div style="font-size:0.62rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">Collection · Contract Detail</div>
+                        <div style="font-size:0.9rem; font-weight:800; color:#111827; margin-top:2px; word-break:break-word;">${_escColl(d.deal)}</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                    ${fileBtn}
+                    <button onclick="closeCollectionDealModal()" style="border:none; background:#eef2f7; color:#475569; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem;" title="Close (Esc)"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div style="overflow:auto;">
+                <div style="display:flex; gap:8px; flex-wrap:wrap; padding:14px 20px 4px 20px;">
+                    ${metaChip('Distributor', d.distributor)}
+                    ${metaChip('Partner', d.partner)}
+                    ${metaChip('End User', d.endUser)}
+                    ${metaChip('Country', d.country)}
+                    ${metaChip('Terms', d.terms)}
+                    ${metaChip('Contract Start', d.contractStartStr)}
+                </div>
+                <div style="display:flex; gap:18px; padding:10px 20px 14px 20px; flex-wrap:wrap; font-size:0.72rem; color:#374151;">
+                    <span>Amount Due <strong style="color:#1e293b; font-size:0.95rem;">${money(d.totalDue)}</strong></span>
+                    <span>Collected <strong style="color:#8b5cf6; font-size:0.95rem;">${money(d.totalPaid)}</strong></span>
+                    <span>Balance <strong style="color:${d.totalBalance > 0.5 ? '#ef4444' : '#10b981'}; font-size:0.95rem;">${money(d.totalBalance)}</strong></span>
+                    <span style="color:#94a3b8;">${d.installments.length} scheduled payment${d.installments.length === 1 ? '' : 's'}</span>
+                </div>
+                ${notesBlock}
+                <div style="padding:0 20px 20px 20px;">
+                    <table style="width:100%; border-collapse:collapse; min-width:680px;">
+                        <thead style="background:#f9fafb;">
+                            <tr>
+                                <th style="padding:9px 12px; text-align:center; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Installment</th>
+                                <th style="padding:9px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Trigger Event</th>
+                                <th style="padding:9px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Due Date</th>
+                                <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Amount Due</th>
+                                <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#8b5cf6; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Amount Paid</th>
+                                <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#ef4444; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Balance</th>
+                                <th style="padding:9px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${instRows}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    window.__collectionDealModalEsc = function (e) {
+        if (e.key === 'Escape') window.closeCollectionDealModal();
+    };
+    document.addEventListener('keydown', window.__collectionDealModalEsc);
+};
 
 /**
  * Render the Collection Change Log for a scope (country or "ALL"). Mirrors the
@@ -2850,7 +3024,7 @@ export function getCollectionChangeLogHTML(scope, history, rowDiffs = []) {
 
     const fmtDateLong = (d) => new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-    const statusPills = ['Completed', 'Upcoming', 'On Track', 'Overdue'].map(s => {
+    const statusPills = ['Paid', 'Partial', 'Unpaid', 'Pending'].map(s => {
         const v = initial.byStatusAmount?.[s] || 0;
         const c = initial.byStatusCount?.[s] || 0;
         return `<span style="background:#fff; border:1px solid #ddd6fe; padding:3px 8px; border-radius:6px; font-size:0.65rem; color:#4338ca; font-weight:600;">${s} <span style="color:#111827; font-weight:700;">$${formatCurrency(v)}</span> <span style="color:#9CA3AF;">·${c}</span></span>`;
@@ -2862,7 +3036,7 @@ export function getCollectionChangeLogHTML(scope, history, rowDiffs = []) {
             <span style="font-size:0.7rem; color:#6B7280; white-space:nowrap;">${fmtDateLong(initial.date)}</span>
             <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Collected <strong style="color:#8b5cf6;">$${formatCurrency(initial.totalCollected || 0)}</strong></span>
             <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Outstanding <strong style="color:#ef4444;">$${formatCurrency(initial.totalOutstanding || 0)}</strong></span>
-            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">KTCV (Net) <strong style="color:#111827;">$${formatCurrency(initial.ktcvNet || 0)}</strong></span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Active Value <strong style="color:#111827;">$${formatCurrency(initial.ktcvNet || 0)}</strong></span>
             <span style="display:flex; gap:5px; flex-wrap:wrap; margin-left:auto;">${statusPills}</span>
         </div>`;
 
@@ -2876,10 +3050,10 @@ export function getCollectionChangeLogHTML(scope, history, rowDiffs = []) {
     changeEvents.reverse();
 
     const STATUS_COLOR = {
-        'Completed': '#10b981',
-        'Upcoming':  '#f59e0b',
-        'On Track':  '#3b82f6',
-        'Overdue':   '#ef4444'
+        'Paid':    '#10b981',
+        'Partial': '#f59e0b',
+        'Unpaid':  '#3b82f6',
+        'Pending': '#94a3b8'
     };
     const statusBadge = (s) => `<span style="background:#fff; border:1px solid #E5E7EB; color:${STATUS_COLOR[s] || '#6B7280'}; font-weight:700; font-size:0.62rem; padding:1px 6px; border-radius:5px;">${s}</span>`;
 
@@ -2958,7 +3132,7 @@ export function getCollectionChangeLogHTML(scope, history, rowDiffs = []) {
 
             const secondaryChips = [
                 secondaryChip('Outstanding', '#ef4444', ev.before.totalOutstanding, ev.after.totalOutstanding),
-                secondaryChip('KTCV Net', '#6366f1', ev.before.ktcvNet, ev.after.ktcvNet)
+                secondaryChip('Active Value', '#6366f1', ev.before.ktcvNet, ev.after.ktcvNet)
             ].filter(Boolean).join(' ');
 
             return `

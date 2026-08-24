@@ -299,22 +299,32 @@ function aggregateWeeklyStats(workbookData) {
         });
     }
 
-    /* ── COLLECTION: unpaid / outstanding summary ── */
+    /* ── COLLECTION: unpaid / outstanding summary ──
+       Installment-level layout: one row per scheduled payment, grouped into
+       contracts by CRM Deal Name. Pending rows (not started) are excluded. */
     const colData = workbookData['COLLECTION'] || [];
     if (colData.length > 0) {
+        const byDeal = {};
         colData.forEach(row => {
-            const keys        = Object.keys(row);
-            const ktcvKey     = findKorTcvKey(keys);
-            const distributor = String(row['Distributor'] || row['Partner'] || '').trim() || 'Unknown';
-            const endUser     = String(row['End User'] || '').trim() || '—';
-            const ktcv        = parseCurrency(row[ktcvKey]) || 0;
-            let received = 0;
-            keys.forEach(k => { if (k.toUpperCase().includes('RECEIVED')) received += parseCurrency(row[k]) || 0; });
-            const outstanding = ktcv - received;
-            if (outstanding > 0) {
-                stats.collectionSummary.push({ endUser, distributor, ktcv, received, outstanding });
-                if (!stats.collectionByDistributor[distributor]) stats.collectionByDistributor[distributor] = 0;
-                stats.collectionByDistributor[distributor] += outstanding;
+            const deal   = String(row['CRM Deal Name'] || '').trim();
+            const status = String(row['Status'] || '').trim().toLowerCase();
+            if (!deal || status === 'pending') return;
+            if (!byDeal[deal]) {
+                byDeal[deal] = {
+                    endUser: String(row['End User'] || '').trim() || '—',
+                    distributor: String(row['Distributor'] || row['Partner'] || '').trim() || 'Unknown',
+                    ktcv: 0, received: 0, outstanding: 0
+                };
+            }
+            byDeal[deal].ktcv        += parseCurrency(row['Amount Due']) || 0;
+            byDeal[deal].received    += parseCurrency(row['Amount Paid']) || 0;
+            byDeal[deal].outstanding += parseCurrency(row['Balance']) || 0;
+        });
+        Object.values(byDeal).forEach(d => {
+            if (d.outstanding > 0.5) {
+                stats.collectionSummary.push(d);
+                if (!stats.collectionByDistributor[d.distributor]) stats.collectionByDistributor[d.distributor] = 0;
+                stats.collectionByDistributor[d.distributor] += d.outstanding;
             }
         });
         stats.collectionSummary.sort((a, b) => b.outstanding - a.outstanding);

@@ -17,7 +17,7 @@ import {
     getGenericCountryStats, getExpiringContractsStats,
     getPartnerPerformanceStats, getPocStats, getEventStats,
     getCountrySpecificStats, getServiceAnalysisStats,
-    getCollectionStats,
+    getCollectionStats, getCollectionFileLinks,
     getTcvArrStats, getChurnRiskStats,
     getPartnerROIStats, getPipelineCoverageStats,
     getProjectStats, getDealLostStats,
@@ -743,35 +743,190 @@ function _renderEvent(eventData, filterCountry, metricsGrid) {
     setTimeout(() => initEventCharts(stats), 150);
 }
 
+/**
+ * Render the COLLECTION dashboard: two sub-tabs (Active Collections /
+ * Pending Records), interactive aging + distributor charts with
+ * click-to-expand year-of-Due-Date breakdowns, top-outstanding and pending
+ * tables with per-contract detail modals, collection trend, payment
+ * timeliness, and the change log.
+ *
+ * @param {Object[]} data - COLLECTION rows (country/search filtered)
+ * @param {string|null} filterCountry
+ * @param {HTMLElement} metricsGrid
+ */
 function _renderCollection(data, filterCountry, metricsGrid) {
     const stats = getCollectionStats(data);
 
-    if (window.collectionShowUnpaid === undefined) window.collectionShowUnpaid = false;
+    // Stash for the contract detail modal (ui.js window.showCollectionDealDetail).
+    window.__collectionDeals = stats.deals;
+    window.__collectionFileLinks = getCollectionFileLinks(window.__rawSheets ? window.__rawSheets['COLLECTION'] : null);
+
+    if (window.collectionView !== 'active' && window.collectionView !== 'pending') {
+        window.collectionView = 'active';
+    }
+
+    const tabBar = document.createElement('div');
+    tabBar.id = 'collection-tab-bar';
+    tabBar.style.gridColumn = '1 / -1';
+    tabBar.style.marginBottom = '6px';
 
     const container = document.createElement('div');
+    container.id = 'collection-dashboard-container';
     container.style.gridColumn = '1 / -1';
+
+    metricsGrid.appendChild(tabBar);
     metricsGrid.appendChild(container);
 
-    const updateUI = () => {
-        container.innerHTML = getCollectionHTML(stats, window.collectionShowUnpaid);
+    const destroyCharts = () => {
+        ['collectionAgingChart', 'collectionDistChart', 'collectionTrendChart', 'collectionTimelinessChart'].forEach(k => {
+            if (window[k]) {
+                try { window[k].destroy(); } catch { /* already detached */ }
+                window[k] = null;
+            }
+        });
+    };
 
-        const ctx = document.getElementById('collection-status-chart');
-        if (ctx) {
-            const labels = ['Completed', 'Upcoming', 'On Track', 'Overdue'];
-            const amounts = labels.map(l => stats.byStatusAmount[l] || 0);
-            const colors = ['rgba(16, 185, 129, 0.85)', 'rgba(245, 158, 11, 0.85)', 'rgba(59, 130, 246, 0.85)', 'rgba(239, 68, 68, 0.85)'];
+    /** Year-of-Due-Date drill-down panel shown under a clicked bar. */
+    const renderExpand = (hostId, title, byYear) => {
+        const host = document.getElementById(hostId);
+        if (!host) return;
+        const total = byYear.reduce((s, y) => s + y.amount, 0);
+        const max = Math.max(...byYear.map(y => y.amount), 1);
+        host.style.display = 'block';
+        host.innerHTML = `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+                    <div style="font-size:0.68rem; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">
+                        <i class="fa-solid fa-calendar-days" style="margin-right:5px;"></i>${title} — outstanding by year of Due Date
+                    </div>
+                    <button data-expand-close style="border:none; background:#e2e8f0; color:#475569; width:22px; height:22px; border-radius:6px; cursor:pointer; font-size:0.7rem; flex-shrink:0;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                ${byYear.length === 0
+                    ? '<div style="font-size:0.72rem; color:#94a3b8; font-style:italic;">Nothing outstanding in this bar.</div>'
+                    : byYear.map(y => `
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:5px;">
+                        <div style="width:110px; font-size:0.72rem; font-weight:700; color:#334155; white-space:nowrap;">${y.label}</div>
+                        <div style="flex:1; background:#e2e8f0; border-radius:5px; height:10px; overflow:hidden;">
+                            <div style="width:${Math.max(2, Math.round((y.amount / max) * 100))}%; height:100%; background:#6366f1; border-radius:5px;"></div>
+                        </div>
+                        <div style="width:100px; text-align:right; font-size:0.72rem; font-weight:800; color:#111827; white-space:nowrap;">$${formatCurrency(y.amount)}</div>
+                        <div style="width:70px; text-align:right; font-size:0.62rem; color:#94a3b8; white-space:nowrap;">${y.dealCount} deal${y.dealCount === 1 ? '' : 's'}</div>
+                    </div>`).join('')}
+                <div style="margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1; display:flex; justify-content:space-between; font-size:0.7rem; color:#64748b;">
+                    <span>Total</span><span style="font-weight:800; color:#111827;">$${formatCurrency(total)}</span>
+                </div>
+            </div>`;
+        host.querySelector('[data-expand-close]').addEventListener('click', () => {
+            host.style.display = 'none';
+            host.innerHTML = '';
+        });
+    };
 
-            if (window.collectionStatusChart) window.collectionStatusChart.destroy();
-            window.collectionStatusChart = new Chart(ctx, {
+    const barCursor = (evt, els) => {
+        const t = evt.native ? evt.native.target : evt.target;
+        if (t) t.style.cursor = els.length ? 'pointer' : 'default';
+    };
+    const moneyTicks = { callback: (v) => '$' + formatCurrency(v) };
+
+    const initActiveCharts = () => {
+        const act = stats.active;
+
+        const agingCtx = document.getElementById('collection-aging-chart');
+        if (agingCtx) {
+            window.collectionAgingChart = new Chart(agingCtx, {
                 type: 'bar',
                 data: {
-                    labels,
+                    labels: act.agingBuckets.map(b => b.label),
                     datasets: [{
-                        label: 'Amount',
-                        data: amounts,
-                        backgroundColor: colors,
+                        data: act.agingBuckets.map(b => b.amount),
+                        backgroundColor: ['rgba(148,163,184,0.85)', 'rgba(250,204,21,0.9)', 'rgba(251,146,60,0.9)', 'rgba(248,113,113,0.9)', 'rgba(220,38,38,0.9)'],
                         borderRadius: 6,
-                        barPercentage: 0.55
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (evt, els) => {
+                        if (!els.length) return;
+                        const b = act.agingBuckets[els[0].index];
+                        renderExpand('collection-aging-expand', b.label, b.byYear);
+                    },
+                    onHover: barCursor,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (item) => {
+                                    const b = act.agingBuckets[item.dataIndex];
+                                    return ` $${formatCurrency(b.amount)} · ${b.dealCount} contract${b.dealCount === 1 ? '' : 's'}`;
+                                },
+                                footer: () => 'Click for year-by-year breakdown'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: moneyTicks },
+                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        const distCtx = document.getElementById('collection-distributor-chart');
+        if (distCtx && act.distributors.length > 0) {
+            window.collectionDistChart = new Chart(distCtx, {
+                type: 'bar',
+                data: {
+                    labels: act.distributors.map(d => d.name),
+                    datasets: [{
+                        data: act.distributors.map(d => d.amount),
+                        backgroundColor: 'rgba(99,102,241,0.85)',
+                        borderRadius: 6,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (evt, els) => {
+                        if (!els.length) return;
+                        const d = act.distributors[els[0].index];
+                        renderExpand('collection-dist-expand', d.name, d.byYear);
+                    },
+                    onHover: barCursor,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (item) => {
+                                    const d = act.distributors[item.dataIndex];
+                                    return ` $${formatCurrency(d.amount)} · ${d.dealCount} contract${d.dealCount === 1 ? '' : 's'}`;
+                                },
+                                footer: () => 'Click for year-by-year breakdown'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: moneyTicks },
+                        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        const trendCtx = document.getElementById('collection-trend-chart');
+        if (trendCtx && stats.trend.length > 0) {
+            window.collectionTrendChart = new Chart(trendCtx, {
+                type: 'bar',
+                data: {
+                    labels: stats.trend.map(t => t.label),
+                    datasets: [{
+                        data: stats.trend.map(t => t.amount),
+                        backgroundColor: 'rgba(139,92,246,0.85)',
+                        borderRadius: 4,
+                        barPercentage: 0.7
                     }]
                 },
                 options: {
@@ -779,36 +934,103 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
-                        title: { display: true, text: 'Amount by Payment Status (Completed/On Track: Total Collected · Upcoming/Overdue: Due Amount)', font: { size: 11, weight: 'normal' }, color: '#94a3b8' },
-                        tooltip: {
-                            callbacks: {
-                                label: (item) => {
-                                    const cnt = stats.byStatusCount[item.label] || 0;
-                                    return ` $${formatCurrency(item.raw)} · ${cnt} row${cnt === 1 ? '' : 's'}`;
-                                }
-                            }
-                        }
+                        tooltip: { callbacks: { label: (item) => ` $${formatCurrency(item.raw)} collected` } }
                     },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: { callback: (v) => '$' + formatCurrency(v) } },
-                        x: { grid: { display: false } }
+                        y: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: moneyTicks },
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 60, minRotation: 40 } }
                     }
                 }
             });
         }
 
-        const toggleBtn = document.getElementById('collection-unpaid-toggle');
-        if (toggleBtn) {
-            toggleBtn.onclick = () => {
-                window.collectionShowUnpaid = !window.collectionShowUnpaid;
-                updateUI();
-            };
+        const tlCtx = document.getElementById('collection-timeliness-chart');
+        if (tlCtx && stats.timeliness.length > 0) {
+            window.collectionTimelinessChart = new Chart(tlCtx, {
+                type: 'bar',
+                data: {
+                    labels: stats.timeliness.map(t => t.label),
+                    datasets: [{
+                        data: stats.timeliness.map(t => t.pct),
+                        backgroundColor: 'rgba(16,185,129,0.85)',
+                        borderRadius: 6,
+                        barPercentage: 0.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (item) => {
+                                    const t = stats.timeliness[item.dataIndex];
+                                    return ` ${t.pct}% on-time · ${t.onTime}/${t.paid} payments`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { color: '#F3F4F6' }, ticks: { callback: (v) => v + '%' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
         }
-
-        _renderCollectionChangeLog(stats, filterCountry, container);
     };
 
-    updateUI();
+    const bindDealRows = () => {
+        container.querySelectorAll('[data-collection-deal]').forEach(el => {
+            el.addEventListener('click', () => window.showCollectionDealDetail(el.getAttribute('data-collection-deal')));
+        });
+    };
+
+    const renderTabBar = () => {
+        const tabs = [
+            { key: 'active', label: 'Active Collections', badge: stats.active.contractCount },
+            { key: 'pending', label: 'Pending Records', badge: stats.pending.recordCount }
+        ];
+        const v = window.collectionView;
+        tabBar.innerHTML = `
+            <div style="display:flex; gap:4px; border-bottom:2px solid #e5e7eb;">
+                ${tabs.map(t => `
+                    <button data-collection-view="${t.key}" style="
+                        padding:10px 22px;
+                        background:${v === t.key ? '#FFF' : 'transparent'};
+                        border:1px solid ${v === t.key ? '#e5e7eb' : 'transparent'};
+                        border-bottom:3px solid ${v === t.key ? '#6366f1' : 'transparent'};
+                        border-radius:8px 8px 0 0;
+                        color:${v === t.key ? '#4338ca' : '#6b7280'};
+                        font-weight:${v === t.key ? '700' : '600'};
+                        font-size:0.85rem;
+                        cursor:pointer;
+                        margin-bottom:-2px;
+                    ">${t.label} <span style="background:${v === t.key ? '#eef2ff' : '#f3f4f6'}; color:${v === t.key ? '#4338ca' : '#6b7280'}; font-size:0.68rem; font-weight:800; padding:1px 7px; border-radius:999px; margin-left:4px;">${t.badge}</span></button>
+                `).join('')}
+            </div>
+        `;
+        tabBar.querySelectorAll('[data-collection-view]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                window.collectionView = btn.dataset.collectionView;
+                renderTabBar();
+                renderView();
+            });
+        });
+    };
+
+    const renderView = () => {
+        destroyCharts();
+        container.innerHTML = getCollectionHTML(stats, window.collectionView);
+        bindDealRows();
+        if (window.collectionView === 'active') {
+            initActiveCharts();
+            _renderCollectionChangeLog(stats, filterCountry, container);
+        }
+    };
+
+    renderTabBar();
+    renderView();
 }
 
 /**
@@ -825,14 +1047,14 @@ function _renderCollectionChangeLog(stats, filterCountry, container) {
     const scope = filterCountry || 'ALL';
     const storageKey = `collectionChangeLog::${scope}`;
 
-    const rowsByKey = stats.rows.map(r => ({
-        key: `${r.distributor}::${r.endUser}`,
-        distributor: r.distributor,
-        endUser: r.endUser,
-        collected: Math.round(r.collected),
-        outstanding: Math.round(r.outstanding),
-        status: r.status,
-        nextDue: r.nextDueDateStr || ''
+    const rowsByKey = Object.values(stats.deals).map(d => ({
+        key: d.deal,
+        distributor: d.distributor,
+        endUser: d.endUser,
+        collected: Math.round(d.totalPaid),
+        outstanding: Math.round(d.totalBalance),
+        status: d.aggStatus,
+        nextDue: d.nextDueStr || ''
     }));
     const seen = new Map();
     const dedupedRows = rowsByKey.map(r => {
@@ -848,9 +1070,9 @@ function _renderCollectionChangeLog(stats, filterCountry, container) {
 
     const current = {
         date: new Date().toISOString(),
-        totalCollected: Math.round(stats.globalTotalCollected),
-        totalOutstanding: Math.round(stats.globalTotalOutstanding),
-        ktcvNet: Math.round(stats.globalTotalKtcvNet),
+        totalCollected: Math.round(stats.active.totalPaid),
+        totalOutstanding: Math.round(stats.active.totalBalance),
+        ktcvNet: Math.round(stats.active.totalDue),
         byStatusAmount: { ...stats.byStatusAmount },
         byStatusCount: { ...stats.byStatusCount },
         rows: dedupedRows,
