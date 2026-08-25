@@ -909,16 +909,33 @@ function _renderCollection(data, filterCountry, metricsGrid) {
 
         const agingCtx = document.getElementById('collection-aging-chart');
         if (agingCtx) {
+            // Stacked by distributor so each bucket shows WHO owes the money.
+            // Fixed hue order follows total outstanding (act.distributors is
+            // already sorted desc); anything past the palette folds into "Other".
+            const AGING_SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300'];
+            const AGING_OTHER_COLOR = '#94a3b8';
+            const agingBarBase = { stack: 'aging', borderRadius: 3, barPercentage: 0.6, borderColor: '#FFFFFF', borderWidth: 1 };
+            const topDistNames = act.distributors.slice(0, AGING_SERIES_COLORS.length).map(d => d.name);
+            const topDistSet = new Set(topDistNames);
+            const agingDatasets = topDistNames.map((name, i) => ({
+                ...agingBarBase,
+                label: name,
+                data: act.agingBuckets.map(b => (b.byDistributor || {})[name] || 0),
+                backgroundColor: AGING_SERIES_COLORS[i]
+            }));
+            const agingOther = act.agingBuckets.map(b =>
+                Object.entries(b.byDistributor || {}).reduce((s, [name, amt]) => s + (topDistSet.has(name) ? 0 : amt), 0));
+            if (agingOther.some(v => Math.abs(v) > 0.5)) {
+                agingDatasets.push({ ...agingBarBase, label: 'Other', data: agingOther, backgroundColor: AGING_OTHER_COLOR });
+            }
+            if (agingDatasets.length === 0) {
+                agingDatasets.push({ ...agingBarBase, label: 'Outstanding', data: act.agingBuckets.map(b => b.amount), backgroundColor: 'rgba(148,163,184,0.85)' });
+            }
             window.collectionAgingChart = new Chart(agingCtx, {
                 type: 'bar',
                 data: {
                     labels: act.agingBuckets.map(b => b.label),
-                    datasets: [{
-                        data: act.agingBuckets.map(b => b.amount),
-                        backgroundColor: ['rgba(148,163,184,0.85)', 'rgba(250,204,21,0.9)', 'rgba(251,146,60,0.9)', 'rgba(248,113,113,0.9)', 'rgba(220,38,38,0.9)'],
-                        borderRadius: 6,
-                        barPercentage: 0.6
-                    }]
+                    datasets: agingDatasets
                 },
                 options: {
                     responsive: true,
@@ -929,21 +946,30 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                         renderExpand('collection-aging-expand', b.label, b.byYear);
                     },
                     onHover: barCursor,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { display: false },
+                        legend: {
+                            display: topDistNames.length > 0,
+                            position: 'bottom',
+                            labels: { boxWidth: 10, boxHeight: 10, font: { size: 10 }, color: '#64748b' }
+                        },
                         tooltip: {
+                            filter: (item) => Math.abs(item.raw) > 0.005,
                             callbacks: {
-                                label: (item) => {
-                                    const b = act.agingBuckets[item.dataIndex];
-                                    return ` $${formatCurrency(b.amount)} · ${b.dealCount} contract${b.dealCount === 1 ? '' : 's'}`;
-                                },
-                                footer: () => 'Click for year-by-year breakdown'
+                                label: (item) => ` ${item.dataset.label}: $${formatCurrency(item.raw)}`,
+                                footer: (items) => {
+                                    const b = act.agingBuckets[items[0].dataIndex];
+                                    return [
+                                        `Total $${formatCurrency(b.amount)} · ${b.dealCount} contract${b.dealCount === 1 ? '' : 's'}`,
+                                        'Click for year-by-year breakdown'
+                                    ];
+                                }
                             }
                         }
                     },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: moneyTicks },
-                        x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                        y: { stacked: true, beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: moneyTicks },
+                        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } }
                     }
                 }
             });

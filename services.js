@@ -2056,7 +2056,7 @@ export function getCollectionStats(data) {
             rowCount: 0, contractCount: 0,
             totalDue: 0, totalPaid: 0, totalBalance: 0, collectionRate: 0,
             overdue61Amount: 0, overdue61Accounts: 0,
-            agingBuckets: COLLECTION_AGING_BUCKETS.map(b => ({ ...b, amount: 0, dealCount: 0, byYear: [] })),
+            agingBuckets: COLLECTION_AGING_BUCKETS.map(b => ({ ...b, amount: 0, dealCount: 0, byYear: [], byDistributor: {} })),
             distributors: [],
             topAccounts: []
         },
@@ -2222,11 +2222,14 @@ export function getCollectionStats(data) {
 
     act.agingBuckets = COLLECTION_AGING_BUCKETS.map(b => {
         const bRows = outRows.filter(r => _collAgingBucketKey(r.daysOverdue) === b.key);
+        const byDistributor = {};
+        bRows.forEach(r => { byDistributor[r.distributor] = (byDistributor[r.distributor] || 0) + r.balance; });
         return {
             ...b,
             amount: bRows.reduce((s, r) => s + r.balance, 0),
             dealCount: new Set(bRows.map(r => r.deal)).size,
-            byYear: yearBreakdown(bRows)
+            byYear: yearBreakdown(bRows),
+            byDistributor
         };
     });
 

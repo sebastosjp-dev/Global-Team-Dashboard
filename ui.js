@@ -2738,7 +2738,7 @@ function _getCollectionActiveHTML(stats) {
 
     const agingCard = _collCard('fa-solid fa-hourglass-half', '#f59e0b',
         'Outstanding by aging bucket',
-        'Balance-carrying payments bucketed by days past Due Date · click a bar for a year-by-year breakdown',
+        'Balance-carrying payments bucketed by days past Due Date · stacked by distributor (the debtor) · click a bar for a year-by-year breakdown',
         `<div style="height:260px; position:relative;"><canvas id="collection-aging-chart"></canvas></div>
          <div id="collection-aging-expand" style="display:none; margin-top:12px;"></div>`);
 
@@ -3081,10 +3081,27 @@ window.showCollectionKpiDetail = function (kind) {
             empty: 'No active contracts.'
         };
     } else if (kind === 'collected') {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        // Sort by the contract's Next Due: overdue first (oldest overdue at top), then
+        // upcoming by nearest date; Paid off contracts (no next due) sink to the bottom.
+        // Ties (same contract / same date) fall back to newest Date Paid first.
+        const dueRank = (r) => {
+            const d = stats.deals[r.deal];
+            if (!d || !d.nextDue) return 2;            // paid off
+            return d.nextDue < today ? 0 : 1;          // overdue : upcoming
+        };
         const list = stats.rows
             .filter(r => r.status !== 'Pending' && r.amountPaid > 0)
-            .sort((a, b) => (b.paidDate ? b.paidDate.getTime() : 0) - (a.paidDate ? a.paidDate.getTime() : 0));
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+            .sort((a, b) => {
+                const ra = dueRank(a), rb = dueRank(b);
+                if (ra !== rb) return ra - rb;
+                if (ra !== 2) {
+                    const da = stats.deals[a.deal].nextDue, db = stats.deals[b.deal].nextDue;
+                    const diff = da - db;
+                    if (diff !== 0) return diff;
+                }
+                return (b.paidDate ? b.paidDate.getTime() : 0) - (a.paidDate ? a.paidDate.getTime() : 0);
+            });
         // Contract-level remaining balance + next unpaid due date (from stats.deals).
         const balCell = (r) => {
             const d = stats.deals[r.deal];
@@ -3109,7 +3126,7 @@ window.showCollectionKpiDetail = function (kind) {
         cfg = {
             icon: 'fa-solid fa-sack-dollar', accent: '#8b5cf6',
             title: 'Total Collected', headline: `US$ ${formatCurrency(act.totalPaid)}`,
-            desc: `${list.length} payment${list.length === 1 ? '' : 's'} received · ${act.collectionRate}% of active contract value · newest first · Balance / Next Due are per contract · click a row for contract detail`,
+            desc: `${list.length} payment${list.length === 1 ? '' : 's'} received · ${act.collectionRate}% of active contract value · overdue first, then nearest Next Due, paid off last · Balance / Next Due are per contract · click a row for contract detail`,
             head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Date Paid') + th('Amount Paid', 'right') + th('Balance', 'right') + th('Next Due'),
             rows: list.map(r => row(r.deal,
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
