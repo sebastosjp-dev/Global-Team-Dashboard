@@ -3043,50 +3043,101 @@ window.showCollectionKpiDetail = function (kind) {
     if (kind === 'contracts') {
         const map = new Map();
         stats.rows.filter(r => r.status !== 'Pending').forEach(r => {
-            if (!map.has(r.deal)) map.set(r.deal, { deal: r.deal, distributor: r.distributor, endUser: r.endUser, count: 0, due: 0, paid: 0, bal: 0 });
+            if (!map.has(r.deal)) {
+                const d = stats.deals[r.deal];
+                map.set(r.deal, { deal: r.deal, distributor: r.distributor, endUser: r.endUser, count: 0, due: 0, paid: 0, bal: 0, nextDue: d ? d.nextDue : null, nextDueStr: d ? d.nextDueStr : '' });
+            }
             const e = map.get(r.deal);
             e.count += 1; e.due += r.amountDue; e.paid += r.amountPaid; e.bal += r.balance;
         });
-        const list = [...map.values()].sort((a, b) => b.due - a.due);
+        // Nearest Next Due first; fully-collected contracts (no next due) sink to the bottom.
+        const list = [...map.values()].sort((a, b) => {
+            if (!a.nextDue && !b.nextDue) return b.due - a.due;
+            if (!a.nextDue) return 1;
+            if (!b.nextDue) return -1;
+            const diff = a.nextDue - b.nextDue;
+            return diff !== 0 ? diff : b.due - a.due;
+        });
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const nextDueCell = (e) => {
+            if (!e.nextDue) return '<span style="color:#94a3b8;">—</span>';
+            const overdue = e.nextDue < today;
+            return `<span style="font-family:monospace; white-space:nowrap; color:${overdue ? '#b91c1c' : '#64748b'};${overdue ? ' font-weight:700;' : ''}">${e.nextDueStr}</span>`;
+        };
         cfg = {
             icon: 'fa-solid fa-file-signature', accent: '#6366f1',
             title: 'Active Contract Value', headline: `US$ ${formatCurrency(act.totalDue)}`,
-            desc: `${act.contractCount} active contract${act.contractCount === 1 ? '' : 's'} · ${act.rowCount} scheduled payment${act.rowCount === 1 ? '' : 's'} · after-tax KOR TCV · click a row for the full installment schedule`,
-            head: th('Distributor') + th('End User / Deal') + th('Payments', 'center') + th('Amount Due', 'right') + th('Collected', 'right') + th('Balance', 'right'),
+            desc: `${act.contractCount} active contract${act.contractCount === 1 ? '' : 's'} · ${act.rowCount} scheduled payment${act.rowCount === 1 ? '' : 's'} · after-tax KOR TCV · nearest Next Due first · click a row for the full installment schedule`,
+            head: th('Distributor') + th('End User / Deal') + th('Payments', 'center') + th('Next Due') + th('Amount Due', 'right') + th('Collected', 'right') + th('Balance', 'right'),
             rows: list.map(e => row(e.deal,
                 td(_escColl(e.distributor), 'left', ' font-weight:600;') +
                 td(`<span style="font-weight:600; color:#1e293b;">${_escColl(e.endUser)}</span><div style="font-size:0.62rem; color:#94a3b8; margin-top:1px;">${_escColl(e.deal)}</div>`) +
                 td(String(e.count), 'center') +
+                td(nextDueCell(e), 'left', ' white-space:nowrap;') +
                 td(money(e.due), 'right', ' font-weight:700; color:#1e293b; white-space:nowrap;') +
                 td(e.paid ? money(e.paid) : '—', 'right', ' font-weight:700; color:#8b5cf6; white-space:nowrap;') +
                 td(money(e.bal), 'right', ` font-weight:800; white-space:nowrap; color:${e.bal > 0.5 ? '#ef4444' : '#10b981'};`))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell(String(act.rowCount), 'center') + footCell(money(act.totalDue)) + footCell(money(act.totalPaid)) + footCell(money(act.totalBalance)),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell(String(act.rowCount), 'center') + footCell('', 'left') + footCell(money(act.totalDue)) + footCell(money(act.totalPaid)) + footCell(money(act.totalBalance)),
             empty: 'No active contracts.'
         };
     } else if (kind === 'collected') {
         const list = stats.rows
             .filter(r => r.status !== 'Pending' && r.amountPaid > 0)
             .sort((a, b) => (b.paidDate ? b.paidDate.getTime() : 0) - (a.paidDate ? a.paidDate.getTime() : 0));
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        // Contract-level remaining balance + next unpaid due date (from stats.deals).
+        const balCell = (r) => {
+            const d = stats.deals[r.deal];
+            const bal = d ? d.totalBalance : 0;
+            return td(money(bal), 'right', ` font-weight:800; white-space:nowrap; color:${bal > 0.5 ? '#ef4444' : '#10b981'};`);
+        };
+        const nextDueCell = (r) => {
+            const d = stats.deals[r.deal];
+            if (!d || !d.nextDue) return td('<span style="color:#10b981; font-weight:700;">Paid off</span>', 'left', ' white-space:nowrap;');
+            const overdue = d.nextDue < today;
+            return td(`<span style="font-family:monospace; color:${overdue ? '#b91c1c' : '#64748b'};${overdue ? ' font-weight:700;' : ''}">${d.nextDueStr}</span>`, 'left', ' white-space:nowrap;');
+        };
+        // Footer balance: sum each contract once, not once per payment row.
+        const seenDeals = new Set();
+        let totalBal = 0;
+        list.forEach(r => {
+            if (seenDeals.has(r.deal)) return;
+            seenDeals.add(r.deal);
+            const d = stats.deals[r.deal];
+            if (d) totalBal += d.totalBalance;
+        });
         cfg = {
             icon: 'fa-solid fa-sack-dollar', accent: '#8b5cf6',
             title: 'Total Collected', headline: `US$ ${formatCurrency(act.totalPaid)}`,
-            desc: `${list.length} payment${list.length === 1 ? '' : 's'} received · ${act.collectionRate}% of active contract value · newest first · click a row for contract detail`,
-            head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Date Paid') + th('Amount Paid', 'right'),
+            desc: `${list.length} payment${list.length === 1 ? '' : 's'} received · ${act.collectionRate}% of active contract value · newest first · Balance / Next Due are per contract · click a row for contract detail`,
+            head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Date Paid') + th('Amount Paid', 'right') + th('Balance', 'right') + th('Next Due'),
             rows: list.map(r => row(r.deal,
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
                 td(dealCell(r)) +
                 td(_escColl(r.installmentNo) || '—', 'center') +
                 td(r.paidDateStr || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
-                td(money(r.amountPaid), 'right', ' font-weight:800; color:#8b5cf6; white-space:nowrap;'))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.totalPaid)),
+                td(money(r.amountPaid), 'right', ' font-weight:800; color:#8b5cf6; white-space:nowrap;') +
+                balCell(r) +
+                nextDueCell(r))).join(''),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.totalPaid)) + footCell(money(totalBal)) + footCell('', 'left'),
             empty: 'No payments recorded yet.'
         };
     } else if (kind === 'outstanding') {
-        const list = stats.rows.filter(r => r.isOutstanding).sort((a, b) => b.balance - a.balance);
+        // Overdue rows first, then everything by Due Date ascending; rows without a due date sink to the bottom.
+        const list = stats.rows.filter(r => r.isOutstanding).sort((a, b) => {
+            const aOver = a.daysOverdue !== null && a.daysOverdue > 0 ? 0 : 1;
+            const bOver = b.daysOverdue !== null && b.daysOverdue > 0 ? 0 : 1;
+            if (aOver !== bOver) return aOver - bOver;
+            if (!a.due && !b.due) return b.balance - a.balance;
+            if (!a.due) return 1;
+            if (!b.due) return -1;
+            const diff = a.due - b.due;
+            return diff !== 0 ? diff : b.balance - a.balance;
+        });
         cfg = {
             icon: 'fa-solid fa-scale-unbalanced', accent: '#f59e0b',
             title: 'Active Outstanding', headline: `US$ ${formatCurrency(act.totalBalance)}`,
-            desc: `${list.length} balance-carrying scheduled payment${list.length === 1 ? '' : 's'} · largest balance first · click a row for contract detail`,
+            desc: `${list.length} balance-carrying scheduled payment${list.length === 1 ? '' : 's'} · overdue first, then by due date · click a row for contract detail`,
             head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Aging') + th('Balance', 'right'),
             rows: list.map(r => row(r.deal,
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
