@@ -2055,7 +2055,7 @@ export function getCollectionStats(data) {
         active: {
             rowCount: 0, contractCount: 0,
             totalDue: 0, totalPaid: 0, totalBalance: 0, collectionRate: 0,
-            overdue61Amount: 0, overdue61Accounts: 0,
+            overdueAmount: 0, overdueAccounts: 0,
             agingBuckets: COLLECTION_AGING_BUCKETS.map(b => ({ ...b, amount: 0, dealCount: 0, byYear: [], byDistributor: {} })),
             distributors: [],
             topAccounts: []
@@ -2197,9 +2197,9 @@ export function getCollectionStats(data) {
 
     const outRows = activeRows.filter(r => r.isOutstanding);
 
-    const overdue61Rows = outRows.filter(r => r.daysOverdue !== null && r.daysOverdue > 60);
-    act.overdue61Amount = overdue61Rows.reduce((s, r) => s + r.balance, 0);
-    act.overdue61Accounts = new Set(overdue61Rows.map(r => r.deal)).size;
+    const overdueRows = outRows.filter(r => r.daysOverdue !== null && r.daysOverdue > 0);
+    act.overdueAmount = overdueRows.reduce((s, r) => s + r.balance, 0);
+    act.overdueAccounts = new Set(overdueRows.map(r => r.deal)).size;
 
     // Year-of-Due-Date breakdown used by the click-to-expand drill-downs.
     const yearBreakdown = (rowsIn) => {

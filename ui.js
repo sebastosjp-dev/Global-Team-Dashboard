@@ -2730,9 +2730,9 @@ function _getCollectionActiveHTML(stats) {
                 `US$ ${formatCurrency(act.totalBalance)}`,
                 'Amount due − amount paid across active payments',
                 'outstanding')}
-            ${_collKpiTile('#ef4444', 'Overdue (61+ days)',
-                `US$ ${formatCurrency(act.overdue61Amount)}`,
-                `${act.overdue61Accounts} account${act.overdue61Accounts === 1 ? '' : 's'}`,
+            ${_collKpiTile('#ef4444', 'Overdue',
+                `US$ ${formatCurrency(act.overdueAmount)}`,
+                `${act.overdueAccounts} account${act.overdueAccounts === 1 ? '' : 's'} past due date`,
                 'overdue')}
         </div>`;
 
@@ -3168,12 +3168,12 @@ window.showCollectionKpiDetail = function (kind) {
         };
     } else if (kind === 'overdue') {
         const list = stats.rows
-            .filter(r => r.isOutstanding && r.daysOverdue !== null && r.daysOverdue > 60)
+            .filter(r => r.isOutstanding && r.daysOverdue !== null && r.daysOverdue > 0)
             .sort((a, b) => b.daysOverdue - a.daysOverdue);
         cfg = {
             icon: 'fa-solid fa-triangle-exclamation', accent: '#ef4444',
-            title: 'Overdue (61+ days)', headline: `US$ ${formatCurrency(act.overdue61Amount)}`,
-            desc: `${act.overdue61Accounts} account${act.overdue61Accounts === 1 ? '' : 's'} · ${list.length} payment${list.length === 1 ? '' : 's'} more than 60 days past Due Date · most overdue first · click a row for contract detail`,
+            title: 'Overdue', headline: `US$ ${formatCurrency(act.overdueAmount)}`,
+            desc: `${act.overdueAccounts} account${act.overdueAccounts === 1 ? '' : 's'} · ${list.length} payment${list.length === 1 ? '' : 's'} past Due Date · most overdue first · click a row for contract detail`,
             head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Days Overdue', 'right') + th('Balance', 'right'),
             rows: list.map(r => row(r.deal,
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
@@ -3182,8 +3182,8 @@ window.showCollectionKpiDetail = function (kind) {
                 td(r.dueStr || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
                 td(`${r.daysOverdue}d`, 'right', ' font-weight:800; color:#b91c1c; white-space:nowrap;') +
                 td(money(r.balance), 'right', ' font-weight:800; color:#ef4444; white-space:nowrap;'))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.overdue61Amount)),
-            empty: 'No payments overdue by more than 60 days.'
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.overdueAmount)),
+            empty: 'No payments past their Due Date.'
         };
     } else if (kind === 'pending') {
         const p = stats.pending;
