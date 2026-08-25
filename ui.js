@@ -3029,6 +3029,8 @@ window.showCollectionKpiDetail = function (kind) {
     const money = (v) => '$' + formatCurrency(v);
     const th = (label, align = 'left') => `<th style="padding:9px 12px; text-align:${align}; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap;">${label}</th>`;
     const td = (html, align = 'left', extra = '') => `<td style="padding:8px 12px; font-size:0.74rem; color:#475569; text-align:${align};${extra}">${html}</td>`;
+    const noTh = th('No.', 'center');
+    const noTd = (i) => td(String(i + 1), 'center', ' color:#94a3b8; font-weight:700; font-family:monospace;');
     const dealCell = (r) => `<span style="font-weight:600; color:#1e293b;">${_escColl(r.endUser)}</span><div style="font-size:0.62rem; color:#94a3b8; margin-top:1px;">${_escColl(r.deal)}</div>`;
     const row = (deal, cells) => `
         <tr onclick="showCollectionDealDetail('${encodeURIComponent(deal)}')" title="${_escColl(deal)} — click for contract detail"
@@ -3068,8 +3070,9 @@ window.showCollectionKpiDetail = function (kind) {
             icon: 'fa-solid fa-file-signature', accent: '#6366f1',
             title: 'Active Contract Value', headline: `US$ ${formatCurrency(act.totalDue)}`,
             desc: `${act.contractCount} active contract${act.contractCount === 1 ? '' : 's'} · ${act.rowCount} scheduled payment${act.rowCount === 1 ? '' : 's'} · after-tax KOR TCV · nearest Next Due first · click a row for the full installment schedule`,
-            head: th('Distributor') + th('End User / Deal') + th('Payments', 'center') + th('Next Due') + th('Amount Due', 'right') + th('Collected', 'right') + th('Balance', 'right'),
-            rows: list.map(e => row(e.deal,
+            head: noTh + th('Distributor') + th('End User / Deal') + th('Payments', 'center') + th('Next Due') + th('Amount Due', 'right') + th('Collected', 'right') + th('Balance', 'right'),
+            rows: list.map((e, i) => row(e.deal,
+                noTd(i) +
                 td(_escColl(e.distributor), 'left', ' font-weight:600;') +
                 td(`<span style="font-weight:600; color:#1e293b;">${_escColl(e.endUser)}</span><div style="font-size:0.62rem; color:#94a3b8; margin-top:1px;">${_escColl(e.deal)}</div>`) +
                 td(String(e.count), 'center') +
@@ -3077,7 +3080,7 @@ window.showCollectionKpiDetail = function (kind) {
                 td(money(e.due), 'right', ' font-weight:700; color:#1e293b; white-space:nowrap;') +
                 td(e.paid ? money(e.paid) : '—', 'right', ' font-weight:700; color:#8b5cf6; white-space:nowrap;') +
                 td(money(e.bal), 'right', ` font-weight:800; white-space:nowrap; color:${e.bal > 0.5 ? '#ef4444' : '#10b981'};`))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell(String(act.rowCount), 'center') + footCell('', 'left') + footCell(money(act.totalDue)) + footCell(money(act.totalPaid)) + footCell(money(act.totalBalance)),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(String(act.rowCount), 'center') + footCell('', 'left') + footCell(money(act.totalDue)) + footCell(money(act.totalPaid)) + footCell(money(act.totalBalance)),
             empty: 'No active contracts.'
         };
     } else if (kind === 'collected') {
@@ -3127,8 +3130,9 @@ window.showCollectionKpiDetail = function (kind) {
             icon: 'fa-solid fa-sack-dollar', accent: '#8b5cf6',
             title: 'Total Collected', headline: `US$ ${formatCurrency(act.totalPaid)}`,
             desc: `${list.length} payment${list.length === 1 ? '' : 's'} received · ${act.collectionRate}% of active contract value · overdue first, then nearest Next Due, paid off last · Balance / Next Due are per contract · click a row for contract detail`,
-            head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Date Paid') + th('Amount Paid', 'right') + th('Balance', 'right') + th('Next Due'),
-            rows: list.map(r => row(r.deal,
+            head: noTh + th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Date Paid') + th('Amount Paid', 'right') + th('Balance', 'right') + th('Next Due'),
+            rows: list.map((r, i) => row(r.deal,
+                noTd(i) +
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
                 td(dealCell(r)) +
                 td(_escColl(r.installmentNo) || '—', 'center') +
@@ -3136,7 +3140,7 @@ window.showCollectionKpiDetail = function (kind) {
                 td(money(r.amountPaid), 'right', ' font-weight:800; color:#8b5cf6; white-space:nowrap;') +
                 balCell(r) +
                 nextDueCell(r))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.totalPaid)) + footCell(money(totalBal)) + footCell('', 'left'),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.totalPaid)) + footCell(money(totalBal)) + footCell('', 'left'),
             empty: 'No payments recorded yet.'
         };
     } else if (kind === 'outstanding') {
@@ -3155,15 +3159,16 @@ window.showCollectionKpiDetail = function (kind) {
             icon: 'fa-solid fa-scale-unbalanced', accent: '#f59e0b',
             title: 'Active Outstanding', headline: `US$ ${formatCurrency(act.totalBalance)}`,
             desc: `${list.length} balance-carrying scheduled payment${list.length === 1 ? '' : 's'} · overdue first, then by due date · click a row for contract detail`,
-            head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Aging') + th('Balance', 'right'),
-            rows: list.map(r => row(r.deal,
+            head: noTh + th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Aging') + th('Balance', 'right'),
+            rows: list.map((r, i) => row(r.deal,
+                noTd(i) +
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
                 td(dealCell(r)) +
                 td(_escColl(r.installmentNo) || '—', 'center') +
                 td(r.dueStr || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
                 td(agingText(r), 'left', ' white-space:nowrap;') +
                 td(money(r.balance), 'right', ' font-weight:800; color:#ef4444; white-space:nowrap;'))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(list.reduce((s, r) => s + r.balance, 0))),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(list.reduce((s, r) => s + r.balance, 0))),
             empty: 'No outstanding balance — everything is collected.'
         };
     } else if (kind === 'overdue') {
@@ -3174,15 +3179,16 @@ window.showCollectionKpiDetail = function (kind) {
             icon: 'fa-solid fa-triangle-exclamation', accent: '#ef4444',
             title: 'Overdue', headline: `US$ ${formatCurrency(act.overdueAmount)}`,
             desc: `${act.overdueAccounts} account${act.overdueAccounts === 1 ? '' : 's'} · ${list.length} payment${list.length === 1 ? '' : 's'} past Due Date · most overdue first · click a row for contract detail`,
-            head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Days Overdue', 'right') + th('Balance', 'right'),
-            rows: list.map(r => row(r.deal,
+            head: noTh + th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Days Overdue', 'right') + th('Balance', 'right'),
+            rows: list.map((r, i) => row(r.deal,
+                noTd(i) +
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
                 td(dealCell(r)) +
                 td(_escColl(r.installmentNo) || '—', 'center') +
                 td(r.dueStr || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
                 td(`${r.daysOverdue}d`, 'right', ' font-weight:800; color:#b91c1c; white-space:nowrap;') +
                 td(money(r.balance), 'right', ' font-weight:800; color:#ef4444; white-space:nowrap;'))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.overdueAmount)),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(act.overdueAmount)),
             empty: 'No payments past their Due Date.'
         };
     } else if (kind === 'pending') {
@@ -3191,12 +3197,13 @@ window.showCollectionKpiDetail = function (kind) {
             icon: 'fa-solid fa-file-circle-question', accent: '#0ea5e9',
             title: 'Pending Records', headline: `US$ ${formatCurrency(p.totalValue)}`,
             desc: `${p.recordCount} contract${p.recordCount === 1 ? '' : 's'} registered internally but not started yet (no Due Date set) · after-tax KOR TCV if confirmed · click a row for contract detail`,
-            head: th('Distributor') + th('End User / Deal') + th('Value if confirmed', 'right'),
-            rows: p.table.map(a => row(a.deal,
+            head: noTh + th('Distributor') + th('End User / Deal') + th('Value if confirmed', 'right'),
+            rows: p.table.map((a, i) => row(a.deal,
+                noTd(i) +
                 td(_escColl(a.distributor), 'left', ' font-weight:600;') +
                 td(`<span style="font-weight:600; color:#1e293b;">${_escColl(a.endUser)}</span><div style="font-size:0.62rem; color:#94a3b8; margin-top:1px;">${_escColl(a.deal)}</div>`) +
                 td(money(a.value), 'right', ' font-weight:800; color:#0369a1; white-space:nowrap;'))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell(money(p.totalValue)),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(p.totalValue)),
             empty: 'No pending records.'
         };
     } else if (kind.indexOf('timeliness:') === 0) {
@@ -3249,8 +3256,9 @@ window.showCollectionKpiDetail = function (kind) {
                     ${tile('Received', `${received.length} payment${received.length === 1 ? '' : 's'}`, `US$ ${formatCurrency(recvAmt)} collected in ${year}`, '#8b5cf6')}
                     ${tile('On-Time', `${t.onTime} of ${t.paid} (${t.pct}%)`, avg ? `avg ${avg.avg} days invoice → payment` : 'within 30-day grace period', '#10b981')}
                 </div>`,
-            head: th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Amount Due', 'right') + th('Date Paid') + th('Amount Paid', 'right') + th('On-Time', 'center'),
-            rows: list.map(r => row(r.deal,
+            head: noTh + th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Amount Due', 'right') + th('Date Paid') + th('Amount Paid', 'right') + th('On-Time', 'center'),
+            rows: list.map((r, i) => row(r.deal,
+                noTd(i) +
                 td(_escColl(r.distributor), 'left', ' font-weight:600;') +
                 td(dealCell(r)) +
                 td(_escColl(r.installmentNo) || '—', 'center') +
@@ -3259,7 +3267,7 @@ window.showCollectionKpiDetail = function (kind) {
                 td(r.paidDateStr || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
                 td(isRecv(r) ? money(r.amountPaid) : '—', 'right', ' font-weight:800; color:#8b5cf6; white-space:nowrap;') +
                 td(onTimeCell(r), 'center', ' white-space:nowrap;'))).join(''),
-            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(schedAmt)) + footCell('', 'left') + footCell(money(recvAmt)) + footCell(`${t.onTime}/${t.paid} on-time`, 'center'),
+            foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(schedAmt)) + footCell('', 'left') + footCell(money(recvAmt)) + footCell(`${t.onTime}/${t.paid} on-time`, 'center'),
             empty: `No installments scheduled or payments received in ${year}.`
         };
     } else {
