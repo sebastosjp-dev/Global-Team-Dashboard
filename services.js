@@ -2275,7 +2275,15 @@ export function getCollectionStats(data) {
                     statusKind = 'upcoming';
                 }
             }
-            return { ...a, nextDueStr: d ? d.nextDueStr : '', statusLabel, statusKind, agingLabel };
+            return { ...a, nextDue, nextDueStr: d ? d.nextDueStr : '', statusLabel, statusKind, agingLabel };
+        })
+        // Past-due next-due dates first (oldest at top), then upcoming by earliest due; no due date last.
+        .sort((a, b) => {
+            if (!a.nextDue && !b.nextDue) return b.outstanding - a.outstanding;
+            if (!a.nextDue) return 1;
+            if (!b.nextDue) return -1;
+            const diff = a.nextDue - b.nextDue;
+            return diff !== 0 ? diff : b.outstanding - a.outstanding;
         });
 
     /* ── VIEW 2: Pending Records (Status = Pending) ── */
@@ -2293,18 +2301,35 @@ export function getCollectionStats(data) {
         table: [...pendMap.values()].sort((a, b) => b.value - a.value)
     };
 
-    /* ── Collection trend: Amount Paid by calendar month of Date Paid ── */
+    /* ── Collection trend: expected (Amount Due) vs collected (Amount Paid)
+       per calendar month of Due Date, active rows only. The uncollected gap
+       is split into already-overdue vs not-yet-due so the chart can color
+       "missed" money apart from money that simply isn't due yet. ── */
     const trendMap = new Map();
-    rows.forEach(r => {
-        if (!r.paidDate) return;
-        const k = `${r.paidDate.getFullYear()}-${String(r.paidDate.getMonth() + 1).padStart(2, '0')}`;
-        trendMap.set(k, (trendMap.get(k) || 0) + r.amountPaid);
+    activeRows.forEach(r => {
+        if (!r.due) return;
+        const k = `${r.due.getFullYear()}-${String(r.due.getMonth() + 1).padStart(2, '0')}`;
+        if (!trendMap.has(k)) {
+            trendMap.set(k, { key: k, expected: 0, collected: 0, overdueGap: 0, upcomingGap: 0, rows: [] });
+        }
+        const e = trendMap.get(k);
+        e.expected += r.amountDue;
+        e.collected += r.amountPaid;
+        if (r.isOutstanding) {
+            if (r.daysOverdue !== null && r.daysOverdue > 0) e.overdueGap += r.balance;
+            else e.upcomingGap += r.balance;
+        }
+        e.rows.push(r);
     });
-    stats.trend = [...trendMap.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([k, amount]) => {
-            const [y, m] = k.split('-').map(Number);
-            return { key: k, label: new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' }), amount };
+    stats.trend = [...trendMap.values()]
+        .sort((a, b) => a.key.localeCompare(b.key))
+        .map(e => {
+            const [y, m] = e.key.split('-').map(Number);
+            return {
+                ...e,
+                label: new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' }),
+                gap: e.overdueGap + e.upcomingGap
+            };
         });
 
     /* ── Payment timeliness + avg payment days, by year of Date Paid ── */

@@ -757,8 +757,10 @@ function _renderEvent(eventData, filterCountry, metricsGrid) {
 function _renderCollection(data, filterCountry, metricsGrid) {
     const stats = getCollectionStats(data);
 
-    // Stash for the contract detail modal (ui.js window.showCollectionDealDetail).
+    // Stash for the contract detail modal (ui.js window.showCollectionDealDetail)
+    // and the KPI drill-down modal (ui.js window.showCollectionKpiDetail).
     window.__collectionDeals = stats.deals;
+    window.__collectionStats = stats;
     window.__collectionFileLinks = getCollectionFileLinks(window.__rawSheets ? window.__rawSheets['COLLECTION'] : null);
 
     if (window.collectionView !== 'active' && window.collectionView !== 'pending') {
@@ -820,6 +822,80 @@ function _renderCollection(data, filterCountry, metricsGrid) {
             host.style.display = 'none';
             host.innerHTML = '';
         });
+    };
+
+    /** Installment-level drill-down under a clicked Collection-plan bar. */
+    const renderTrendExpand = (month) => {
+        const host = document.getElementById('collection-trend-expand');
+        if (!host) return;
+        const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const pct = month.expected > 0 ? Math.round((month.collected / month.expected) * 100) : 0;
+        const statusPill = (r) => {
+            const c = r.status === 'Paid' ? { bg: '#dcfce7', fg: '#166534' }
+                : r.status === 'Partial' ? { bg: '#fef3c7', fg: '#92400e' }
+                : (r.isOutstanding && r.daysOverdue > 0) ? { bg: '#fee2e2', fg: '#991b1b' }
+                : { bg: '#f1f5f9', fg: '#475569' };
+            const label = (r.status === 'Unpaid' && r.daysOverdue !== null && r.daysOverdue > 0)
+                ? `Overdue ${r.daysOverdue}d` : r.status;
+            return `<span style="background:${c.bg}; color:${c.fg}; padding:2px 8px; border-radius:999px; font-size:0.66rem; font-weight:700; white-space:nowrap;">${esc(label)}</span>`;
+        };
+        // Money still missing first (most overdue at top), then paid rows.
+        const sorted = [...month.rows].sort((a, b) => {
+            if (a.isOutstanding !== b.isOutstanding) return a.isOutstanding ? -1 : 1;
+            return b.balance - a.balance;
+        });
+        host.style.display = 'block';
+        host.innerHTML = `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+                    <div style="font-size:0.68rem; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">
+                        <i class="fa-solid fa-calendar-days" style="margin-right:5px;"></i>${esc(month.label)} — installments due this month
+                    </div>
+                    <button data-expand-close style="border:none; background:#e2e8f0; color:#475569; width:22px; height:22px; border-radius:6px; cursor:pointer; font-size:0.7rem; flex-shrink:0;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px; font-size:0.72rem;">
+                    <span style="color:#64748b;">Expected <b style="color:#111827;">$${formatCurrency(month.expected)}</b></span>
+                    <span style="color:#64748b;">Collected <b style="color:#7c3aed;">$${formatCurrency(month.collected)}</b> (${pct}%)</span>
+                    <span style="color:#64748b;">Gap <b style="color:${month.gap > 0.5 ? '#dc2626' : '#111827'};">$${formatCurrency(month.gap)}</b>${month.overdueGap > 0.5 ? ` <span style="color:#dc2626;">· overdue $${formatCurrency(month.overdueGap)}</span>` : ''}</span>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.72rem;">
+                        <thead>
+                            <tr style="text-align:left; border-bottom:1px solid #e2e8f0; color:#64748b;">
+                                <th style="padding:6px 8px; font-weight:700;">End User / Deal</th>
+                                <th style="padding:6px 8px; font-weight:700;">Distributor</th>
+                                <th style="padding:6px 8px; font-weight:700;">Due</th>
+                                <th style="padding:6px 8px; font-weight:700;">Status</th>
+                                <th style="padding:6px 8px; font-weight:700; text-align:right;">Due amt</th>
+                                <th style="padding:6px 8px; font-weight:700; text-align:right;">Paid</th>
+                                <th style="padding:6px 8px; font-weight:700; text-align:right;">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sorted.map(r => `
+                            <tr data-collection-deal="${encodeURIComponent(r.deal)}" title="${esc(r.deal)} — click for contract detail"
+                                style="border-bottom:1px solid #f1f5f9; cursor:pointer;"
+                                onmouseover="this.style.background='#eef2ff'" onmouseout="this.style.background=''">
+                                <td style="padding:6px 8px; font-weight:600; color:#1e293b;">${esc(r.endUser)}<div style="font-size:0.6rem; color:#94a3b8;">${esc(r.deal)}${r.installmentNo ? ` · #${esc(r.installmentNo)}` : ''}</div></td>
+                                <td style="padding:6px 8px; color:#475569;">${esc(r.distributor)}</td>
+                                <td style="padding:6px 8px; font-family:monospace; white-space:nowrap; color:#64748b;">${esc(r.dueStr)}</td>
+                                <td style="padding:6px 8px;">${statusPill(r)}</td>
+                                <td style="padding:6px 8px; text-align:right; font-weight:700; white-space:nowrap;">$${formatCurrency(r.amountDue)}</td>
+                                <td style="padding:6px 8px; text-align:right; color:#7c3aed; font-weight:700; white-space:nowrap;">${r.amountPaid > 0 ? '$' + formatCurrency(r.amountPaid) : '—'}${r.paidDateStr ? `<div style="font-size:0.58rem; color:#94a3b8; font-weight:400;">${esc(r.paidDateStr)}</div>` : ''}</td>
+                                <td style="padding:6px 8px; text-align:right; font-weight:800; white-space:nowrap; color:${r.balance > 0.5 ? '#dc2626' : '#16a34a'};">$${formatCurrency(r.balance)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+        host.querySelector('[data-expand-close]').addEventListener('click', () => {
+            host.style.display = 'none';
+            host.innerHTML = '';
+        });
+        host.querySelectorAll('[data-collection-deal]').forEach(el => {
+            el.addEventListener('click', () => window.showCollectionDealDetail(el.getAttribute('data-collection-deal')));
+        });
+        host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
 
     const barCursor = (evt, els) => {
@@ -922,23 +998,63 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                 type: 'bar',
                 data: {
                     labels: stats.trend.map(t => t.label),
-                    datasets: [{
-                        data: stats.trend.map(t => t.amount),
-                        backgroundColor: 'rgba(139,92,246,0.85)',
-                        borderRadius: 4,
-                        barPercentage: 0.7
-                    }]
+                    datasets: [
+                        {
+                            label: 'Collected',
+                            data: stats.trend.map(t => t.collected),
+                            backgroundColor: 'rgba(139,92,246,0.85)',
+                            borderRadius: 3,
+                            barPercentage: 0.7
+                        },
+                        {
+                            label: 'Overdue (uncollected)',
+                            data: stats.trend.map(t => t.overdueGap),
+                            backgroundColor: 'rgba(239,68,68,0.8)',
+                            borderRadius: 3,
+                            barPercentage: 0.7
+                        },
+                        {
+                            label: 'Not yet due',
+                            data: stats.trend.map(t => t.upcomingGap),
+                            backgroundColor: 'rgba(203,213,225,0.9)',
+                            borderRadius: 3,
+                            barPercentage: 0.7
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: (evt, els) => {
+                        if (!els.length) return;
+                        renderTrendExpand(stats.trend[els[0].index]);
+                    },
+                    onHover: barCursor,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: (item) => ` $${formatCurrency(item.raw)} collected` } }
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: { boxWidth: 10, boxHeight: 10, font: { size: 10 }, color: '#64748b' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (item) => ` ${item.dataset.label}: $${formatCurrency(item.raw)}`,
+                                footer: (items) => {
+                                    const t = stats.trend[items[0].dataIndex];
+                                    const pct = t.expected > 0 ? Math.round((t.collected / t.expected) * 100) : 0;
+                                    return [
+                                        `Expected $${formatCurrency(t.expected)} · collected ${pct}%`,
+                                        `Gap $${formatCurrency(t.gap)}`,
+                                        'Click for installment detail'
+                                    ];
+                                }
+                            }
+                        }
                     },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: moneyTicks },
-                        x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 60, minRotation: 40 } }
+                        y: { stacked: true, beginAtZero: true, grid: { color: '#F3F4F6' }, ticks: moneyTicks },
+                        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 60, minRotation: 40 } }
                     }
                 }
             });
@@ -960,6 +1076,12 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: (evt, els) => {
+                        if (!els.length) return;
+                        const t = stats.timeliness[els[0].index];
+                        window.showCollectionKpiDetail('timeliness:' + t.year);
+                    },
+                    onHover: barCursor,
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -967,7 +1089,8 @@ function _renderCollection(data, filterCountry, metricsGrid) {
                                 label: (item) => {
                                     const t = stats.timeliness[item.dataIndex];
                                     return ` ${t.pct}% on-time · ${t.onTime}/${t.paid} payments`;
-                                }
+                                },
+                                footer: () => 'Click for scheduled vs received detail'
                             }
                         }
                     },
@@ -983,6 +1106,9 @@ function _renderCollection(data, filterCountry, metricsGrid) {
     const bindDealRows = () => {
         container.querySelectorAll('[data-collection-deal]').forEach(el => {
             el.addEventListener('click', () => window.showCollectionDealDetail(el.getAttribute('data-collection-deal')));
+        });
+        container.querySelectorAll('[data-collection-kpi]').forEach(el => {
+            el.addEventListener('click', () => window.showCollectionKpiDetail(el.getAttribute('data-collection-kpi')));
         });
     };
 
