@@ -3032,10 +3032,10 @@ window.showCollectionKpiDetail = function (kind) {
     const noTh = th('No.', 'center');
     const noTd = (i) => td(String(i + 1), 'center', ' color:#94a3b8; font-weight:700; font-family:monospace;');
     const dealCell = (r) => `<span style="font-weight:600; color:#1e293b;">${_escColl(r.endUser)}</span><div style="font-size:0.62rem; color:#94a3b8; margin-top:1px;">${_escColl(r.deal)}</div>`;
-    const row = (deal, cells) => `
+    const row = (deal, cells, bg = '') => `
         <tr onclick="showCollectionDealDetail('${encodeURIComponent(deal)}')" title="${_escColl(deal)} — click for contract detail"
-            style="border-bottom:1px solid #f3f4f6; cursor:pointer;"
-            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">${cells}</tr>`;
+            style="border-bottom:1px solid #f3f4f6; cursor:pointer;${bg ? ` background:${bg};` : ''}"
+            onmouseover="this.style.background='${bg ? '#fee2e2' : '#f8fafc'}'" onmouseout="this.style.background='${bg}'">${cells}</tr>`;
     const footCell = (html, align = 'right') => `<td style="padding:9px 12px; font-size:0.76rem; font-weight:800; color:#111827; text-align:${align}; white-space:nowrap;">${html}</td>`;
     const agingText = (r) => r.daysOverdue !== null && r.daysOverdue > 0
         ? `<span style="color:#b91c1c; font-weight:700;">${r.daysOverdue}d overdue</span>`
@@ -3160,14 +3160,18 @@ window.showCollectionKpiDetail = function (kind) {
             title: 'Active Outstanding', headline: `US$ ${formatCurrency(act.totalBalance)}`,
             desc: `${list.length} balance-carrying scheduled payment${list.length === 1 ? '' : 's'} · overdue first, then by due date · click a row for contract detail`,
             head: noTh + th('Distributor') + th('End User / Deal') + th('Installment', 'center') + th('Due Date') + th('Aging') + th('Balance', 'right'),
-            rows: list.map((r, i) => row(r.deal,
-                noTd(i) +
-                td(_escColl(r.distributor), 'left', ' font-weight:600;') +
-                td(dealCell(r)) +
-                td(_escColl(r.installmentNo) || '—', 'center') +
-                td(r.dueStr || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
-                td(agingText(r), 'left', ' white-space:nowrap;') +
-                td(money(r.balance), 'right', ' font-weight:800; color:#ef4444; white-space:nowrap;'))).join(''),
+            rows: list.map((r, i) => {
+                const isOverdue = r.daysOverdue !== null && r.daysOverdue > 0;
+                return row(r.deal,
+                    noTd(i) +
+                    td(_escColl(r.distributor), 'left', ' font-weight:600;') +
+                    td(dealCell(r)) +
+                    td(_escColl(r.installmentNo) || '—', 'center') +
+                    td(r.dueStr || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
+                    td(agingText(r), 'left', ' white-space:nowrap;') +
+                    td(money(r.balance), 'right', ` font-weight:800; color:${isOverdue ? '#ef4444' : '#475569'}; white-space:nowrap;`),
+                    isOverdue ? '#fef2f2' : '');
+            }).join(''),
             foot: footCell('Total', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell('', 'left') + footCell(money(list.reduce((s, r) => s + r.balance, 0))),
             empty: 'No outstanding balance — everything is collected.'
         };
