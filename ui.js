@@ -7074,8 +7074,8 @@ function _materialFileButton(file) {
         <button onclick="openMaterialFile('${encUrl}','${encName}')" title="${hasLink ? _escColl(file.link) : 'No link attached yet'}"
             style="display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0;
                    border-radius:10px; padding:10px 14px; cursor:pointer; transition:box-shadow 0.15s, transform 0.15s; ${hasLink ? '' : 'opacity:0.6;'}"
-            onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; this.style.transform='translateY(-1px)';"
-            onmouseout="this.style.boxShadow='none'; this.style.transform='none';">
+            onmouseover="this.style.boxShadow='0 4px 12px rgba(99,102,241,0.18)'; this.style.transform='translateY(-1px)'; this.style.borderColor='#6366f1';"
+            onmouseout="this.style.boxShadow='none'; this.style.transform='none'; this.style.borderColor='#e2e8f0';">
             <div style="width:36px; height:36px; border-radius:8px; background:${color}18; color:${color}; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0;">
                 <i class="fa-solid ${icon}"></i>
             </div>
@@ -7084,9 +7084,10 @@ function _materialFileButton(file) {
                 <div style="display:flex; align-items:center; gap:6px; margin-top:2px; flex-wrap:wrap;">${metaBits || '<span style="font-size:0.65rem; color:#cbd5e1;">—</span>'}</div>
                 ${note}
             </div>
-            <div style="flex-shrink:0; color:${hasLink ? '#6366f1' : '#cbd5e1'}; font-size:0.85rem;">
-                <i class="fa-solid ${hasLink ? 'fa-arrow-up-right-from-square' : 'fa-link-slash'}"></i>
-            </div>
+            <span style="flex-shrink:0; display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:8px; font-size:0.65rem; font-weight:800; letter-spacing:0.04em;
+                         ${hasLink ? 'background:#6366f1; color:#fff; box-shadow:0 2px 6px rgba(99,102,241,0.35);' : 'background:#f1f5f9; color:#94a3b8;'}">
+                <i class="fa-solid ${hasLink ? 'fa-arrow-up-right-from-square' : 'fa-link-slash'}" style="font-size:0.7rem;"></i>${hasLink ? 'OPEN' : 'NO LINK'}
+            </span>
         </button>
     `;
 }
@@ -7124,7 +7125,8 @@ export function getMaterialsHTML(stats) {
         return `
             <div class="stat-card" style="display:block; background:#fff; padding:0; overflow:hidden; border-left:5px solid ${color};">
                 <div onclick="toggleMaterialsCategory(${i})"
-                     style="display:flex; align-items:center; gap:14px; padding:16px 20px; cursor:pointer; user-select:none;">
+                     onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='transparent';"
+                     style="display:flex; align-items:center; gap:14px; padding:16px 20px; cursor:pointer; user-select:none; transition:background 0.15s;">
                     <div style="width:44px; height:44px; border-radius:10px; background:${color}18; color:${color}; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0;">
                         <i class="fa-solid fa-folder"></i>
                     </div>
@@ -7134,7 +7136,11 @@ export function getMaterialsHTML(stats) {
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
                         <span style="font-size:0.7rem; font-weight:700; color:#6B7280; background:#f1f5f9; padding:3px 10px; border-radius:999px; white-space:nowrap;">${cat.count} file${cat.count === 1 ? '' : 's'}</span>
-                        <i id="materials-cat-chev-${i}" class="fa-solid fa-chevron-down" style="color:#94a3b8; font-size:0.8rem; transition:transform 0.25s;"></i>
+                        <span style="display:inline-flex; align-items:center; gap:7px; padding:6px 14px; border-radius:8px; background:#6366f1; color:#fff;
+                                     font-size:0.7rem; font-weight:800; letter-spacing:0.04em; white-space:nowrap; box-shadow:0 2px 6px rgba(99,102,241,0.35);">
+                            BROWSE
+                            <i id="materials-cat-chev-${i}" class="fa-solid fa-chevron-down" style="font-size:0.7rem; transition:transform 0.25s;"></i>
+                        </span>
                     </div>
                 </div>
                 <div id="materials-cat-body-${i}" style="display:none; padding:6px 20px 18px 20px; border-top:1px dashed #e2e8f0; background:#f8fafc;">
