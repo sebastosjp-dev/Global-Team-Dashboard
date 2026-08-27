@@ -984,7 +984,7 @@ window._wrSaveRefs = function () {
     localStorage.setItem(`wr-refs-${getWeekKey()}`, text);
     document.getElementById('wr-refs-view').innerHTML = text
         ? text.replace(/\n/g, '<br>')
-        : '<span class="wr-empty">차주 필요한 자료 링크나 메모를 입력하세요…</span>';
+        : '<span class="wr-empty">Enter links or notes for materials needed next week…</span>';
     window._wrCancelRefs();
 };
 

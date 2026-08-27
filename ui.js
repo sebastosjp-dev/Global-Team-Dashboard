@@ -7122,7 +7122,7 @@ export function getMaterialsHTML(stats) {
         `).join('');
 
         return `
-            <div class="stat-card" style="background:#fff; padding:0; overflow:hidden; border-left:5px solid ${color};">
+            <div class="stat-card" style="display:block; background:#fff; padding:0; overflow:hidden; border-left:5px solid ${color};">
                 <div onclick="toggleMaterialsCategory(${i})"
                      style="display:flex; align-items:center; gap:14px; padding:16px 20px; cursor:pointer; user-select:none;">
                     <div style="width:44px; height:44px; border-radius:10px; background:${color}18; color:${color}; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0;">

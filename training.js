@@ -375,8 +375,8 @@ export function selectTrainingView(setCurrentTab, workbookData) {
                 <h2 style="font-size: 1.25rem; font-weight: 800; color: #1e293b; margin-bottom: 12px;">Staff training data not loaded</h2>
                 <p style="color: #475569; margin-bottom: 16px;">
                     ${sheetExists
-                        ? `"Staff Training" 시트는 발견됐지만 직원 이름을 인식하지 못했어요. 아래 컬럼 중 이름 컬럼이 있는지 확인해주세요.`
-                        : `현재 불러온 워크북에 "Staff Training" 시트가 없습니다. Google Drive 파일에 시트가 추가됐는지, 그리고 우측 상단의 새로고침 버튼을 눌렀는지 확인해주세요.`}
+                        ? `The "Staff Training" sheet was found, but no staff name column could be recognized. Please check whether one of the columns below contains staff names.`
+                        : `The loaded workbook has no "Staff Training" sheet. Please check that the sheet has been added to the Google Drive file and that you clicked the refresh button at the top right.`}
                 </p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div style="padding: 16px; background: #f8fafc; border-radius: 12px;">
