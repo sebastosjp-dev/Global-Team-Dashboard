@@ -1288,7 +1288,7 @@ export function getQuarterlyForecastHTML(stats) {
                     <h3 style="margin:0; font-size:0.7rem; color:#6366f1; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; line-height:1.2;">QUARTERLY FORECAST · ${currentYear}</h3>
                     <h2 style="margin:0; font-size:1rem; font-weight:800; color:#111827; line-height:1.3;">${country} — Q1 to Q4 (New + Renewal)</h2>
                 </div>
-                <div style="margin-left:auto; font-size:0.65rem; color:#6b7280; font-weight:600;">w = stage-weighted (확도 반영) · prev = existing ARR · <span style="color:#6366f1; font-weight:700;">Click any quarter to view deal details</span></div>
+                <div style="margin-left:auto; font-size:0.65rem; color:#6b7280; font-weight:600;">w = stage-weighted (probability-adjusted) · prev = existing ARR · <span style="color:#6366f1; font-weight:700;">Click any quarter to view deal details</span></div>
             </div>
             ${quarterlyTcvChart}
             ${annualKpiStrip}
@@ -1511,10 +1511,10 @@ window.openAnnualKpiModal = function (kpiKey) {
         : (['New', 'Upsell', 'Recurring'].includes(d.revenueType) ? d.revenueType : 'Unspecified');
 
     const GROUP_DEFS = [
-        { key: 'New',         title: '신규 로고 · New Logo',                 fg: '#16a34a', bg: 'rgba(22,163,74,0.10)',   br: 'rgba(22,163,74,0.30)',   icon: 'fa-star' },
-        { key: 'Recurring',   title: '기존 로고 · 재계약/연장 (Renewal)',     fg: '#9333ea', bg: 'rgba(147,51,234,0.10)',  br: 'rgba(147,51,234,0.30)',  icon: 'fa-rotate' },
-        { key: 'Upsell',      title: '기존 로고 · Up/Cross Sell (Upsell)',   fg: '#2563eb', bg: 'rgba(37,99,235,0.10)',   br: 'rgba(37,99,235,0.30)',   icon: 'fa-arrow-trend-up' },
-        { key: 'Unspecified', title: '구분 미지정 · Unspecified',            fg: '#64748b', bg: 'rgba(100,116,139,0.10)', br: 'rgba(100,116,139,0.30)', icon: 'fa-circle-question' }
+        { key: 'New',         title: 'New Logo',                             fg: '#16a34a', bg: 'rgba(22,163,74,0.10)',   br: 'rgba(22,163,74,0.30)',   icon: 'fa-star' },
+        { key: 'Recurring',   title: 'Existing Logo · Renewal',              fg: '#9333ea', bg: 'rgba(147,51,234,0.10)',  br: 'rgba(147,51,234,0.30)',  icon: 'fa-rotate' },
+        { key: 'Upsell',      title: 'Existing Logo · Up/Cross Sell',        fg: '#2563eb', bg: 'rgba(37,99,235,0.10)',   br: 'rgba(37,99,235,0.30)',   icon: 'fa-arrow-trend-up' },
+        { key: 'Unspecified', title: 'Unspecified',                          fg: '#64748b', bg: 'rgba(100,116,139,0.10)', br: 'rgba(100,116,139,0.30)', icon: 'fa-circle-question' }
     ];
     const visibleGroups = kpiKey === 'renewalArr'
         ? GROUP_DEFS.filter(g => g.key === 'Recurring')
@@ -1554,8 +1554,8 @@ window.openAnnualKpiModal = function (kpiKey) {
     const pipelineNotice = allUnspecified ? `
         <div style="margin-bottom:16px; padding:10px 14px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; font-size:0.72rem; color:#92400E; font-weight:600; line-height:1.5;">
             <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>
-            PIPELINE 시트에 <b>Revenue Type</b> 열이 없어 신규/기존 로고 구분이 표시되지 않습니다.
-            PIPELINE 시트에 <code>Revenue Type</code> 열(New / Upsell / Recurring)을 추가하면 자동으로 구분됩니다.
+            The PIPELINE sheet has no <b>Revenue Type</b> column, so the New/Existing Logo breakdown is not shown.
+            Add a <code>Revenue Type</code> column (New / Upsell / Recurring) to the PIPELINE sheet and deals will be grouped automatically.
         </div>` : '';
 
     const valueCell = d => {
@@ -1587,7 +1587,7 @@ window.openAnnualKpiModal = function (kpiKey) {
         const total = list.reduce((s, d) => s + metricOf(d), 0);
         const share = grandTotal > 0 ? (total / grandTotal * 100).toFixed(1) + '%' : '—';
         const rows = list.length === 0
-            ? `<tr><td colspan="5" style="padding:16px; text-align:center; color:#9ca3af; font-style:italic;">해당 없음 · No deals</td></tr>`
+            ? `<tr><td colspan="5" style="padding:16px; text-align:center; color:#9ca3af; font-style:italic;">No deals</td></tr>`
             : list.map((d, i) => `
                 <tr style="border-bottom:1px solid #F3F4F6; background:${i % 2 === 0 ? 'transparent' : '#FAFBFF'};">
                     <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
@@ -1624,8 +1624,8 @@ window.openAnnualKpiModal = function (kpiKey) {
     const emptyState = deals.length === 0 ? `
         <div style="padding:36px; text-align:center; color:#9ca3af;">
             <i class="fa-regular fa-folder-open" style="font-size:1.6rem; margin-bottom:10px; display:block;"></i>
-            ${stats.currentYear}년 해당 데이터가 없습니다.
-            ${kpiKey === 'renewalArr' ? '<div style="margin-top:8px; font-size:0.72rem;">END USER (CSM) 시트에 <b>End License Date</b> 데이터가 있어야 갱신 대상이 집계됩니다.</div>' : ''}
+            No data for ${stats.currentYear}.
+            ${kpiKey === 'renewalArr' ? '<div style="margin-top:8px; font-size:0.72rem;">Renewal targets are counted from <b>End License Date</b> data in the END USER (CSM) sheet.</div>' : ''}
         </div>` : '';
 
     const body = document.getElementById('qf-modal-body');
@@ -1638,7 +1638,7 @@ window.openAnnualKpiModal = function (kpiKey) {
             </div>
             <div style="flex:1; min-width:0;">
                 <div style="font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">${stats.country} · Annual Total ${stats.currentYear}</div>
-                <div style="font-size:1.15rem; font-weight:800; color:#111827; line-height:1.2;">${meta.label} — 신규/기존 로고 구분</div>
+                <div style="font-size:1.15rem; font-weight:800; color:#111827; line-height:1.2;">${meta.label} — New vs. Existing Logo Breakdown</div>
                 <div style="font-size:0.68rem; color:#9ca3af; font-weight:600; margin-top:2px;">${meta.desc}</div>
             </div>
             <div style="text-align:right; flex-shrink:0;">
@@ -1694,11 +1694,11 @@ function _getRevenueTypeBreakdownHTML(stats) {
         </div>`;
 
     if (!stats.hasRevenueType) {
-        return cardWrap(`<div style="font-size:0.78rem; color:#64748b; padding:14px; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px;">ORDER SHEET 에 <b>Revenue Type</b> 열이 없습니다. 헤더(예: <code>Revenue Type</code>) 를 추가하면 New / Upsell / Recurring 분포가 여기 표시됩니다.</div>`);
+        return cardWrap(`<div style="font-size:0.78rem; color:#64748b; padding:14px; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px;">The ORDER SHEET has no <b>Revenue Type</b> column. Add the header (e.g. <code>Revenue Type</code>) to show the New / Upsell / Recurring distribution here.</div>`);
     }
 
     if (ordered.length === 0) {
-        return cardWrap(`<div style="font-size:0.78rem; color:#64748b; padding:14px;">Revenue Type 데이터가 비어 있습니다.</div>`);
+        return cardWrap(`<div style="font-size:0.78rem; color:#64748b; padding:14px;">Revenue Type data is empty.</div>`);
     }
 
     const totalTcv  = ordered.reduce((s, t) => s + (breakdown[t].tcv  || 0), 0);
@@ -2778,7 +2778,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-table-cells"></i></div>
                         <div>
                             <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">New Pipeline Volume by Country (${currentYear})</h2>
-                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly pipeline — Pipeline TCV · Weighted TCV · ARR side by side. Weighted TCV = PIPELINE 시트의 Weighted KOR TCV. ARR = TCV ÷ Contract Yr.</p>
+                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly pipeline — Pipeline TCV · Weighted TCV · ARR side by side. Weighted TCV = Weighted KOR TCV from the PIPELINE sheet. ARR = TCV ÷ Contract Yr.</p>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; font-size: 0.65rem; font-weight: 700;">
@@ -5732,7 +5732,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
 
     // ── Revenue Type mix panel (FINANCIAL only) ────────────────
     // Distinguishes the three revenue streams behind the financial objectives:
-    // New TCV / Up·Cross Sell / Recurring (재계약 연장), from the ORDER SHEET.
+    // New TCV / Up·Cross Sell / Recurring (renewal/extension), from the ORDER SHEET.
     const buildRevenueMixPanel = () => {
         const mix = opts.revenueMix;
         if (!mix) return '';
@@ -5755,18 +5755,18 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                     <div style="font-size:0.75rem; font-weight:800; color:#0F766E; letter-spacing:0.08em; text-transform:uppercase;">
                         <i class="fa-solid fa-layer-group" style="margin-right:6px;"></i>Revenue Type Mix — ${mix.year} Won TCV
                     </div>
-                    <span class="metric-info" data-tooltip="ORDER SHEET의 Revenue Type 기준으로 올해 계약(WON TCV)을 New TCV / Up·Cross Sell / Recurring(재계약 연장)으로 구분한 분기별 집계입니다.">i</span>
+                    <span class="metric-info" data-tooltip="Quarterly breakdown of this year's won contracts (WON TCV) into New TCV / Up·Cross Sell / Recurring (renewal/extension), based on the ORDER SHEET's Revenue Type.">i</span>
                 </div>
                 ${inner}
             </div>`;
 
         if (!mix.hasRevenueType) {
-            return panelWrap(`<div style="font-size:0.78rem; color:#64748b; padding:12px; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px;">ORDER SHEET 에 <b>Revenue Type</b> 열이 없습니다. New / Upsell / Recurring 값을 입력하면 세 매출 흐름이 여기서 구분됩니다.</div>`);
+            return panelWrap(`<div style="font-size:0.78rem; color:#64748b; padding:12px; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px;">The ORDER SHEET has no <b>Revenue Type</b> column. Enter New / Upsell / Recurring values to break out the three revenue streams here.</div>`);
         }
 
         const allTypes = Object.keys(mix.types);
         if (!allTypes.length) {
-            return panelWrap(`<div style="font-size:0.78rem; color:#64748b; padding:12px;">${mix.year}년 계약 데이터가 없습니다.</div>`);
+            return panelWrap(`<div style="font-size:0.78rem; color:#64748b; padding:12px;">No contract data for ${mix.year}.</div>`);
         }
         const ORDER = ['New', 'Upsell', 'Recurring'];
         const ordered = [
