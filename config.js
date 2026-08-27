@@ -27,6 +27,7 @@ export const APPROVED_SHEETS = [
     'TASK',
     'TECH,SALES PARTNER COMPETENCY',
     'DEAL LOST',
+    'MATERIALS',
 ];
 
 export const CONFIG = {

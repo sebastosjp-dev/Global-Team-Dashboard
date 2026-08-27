@@ -5097,6 +5097,176 @@ export function getCountrySpecificHTML(stats, countryName) {
  * @param {string} currentUser
  * @param {Array<string>} availableUsers
  */
+/* ── KPI quarter drill-down modal ─────────────────────────────── */
+
+function _kpiRateColor(r) {
+    return r >= 100 ? '#10B981' : (r >= 70 ? '#F59E0B' : (r >= 40 ? '#F97316' : '#EF4444'));
+}
+
+function _kpiFmtVal(v, currency) {
+    if (!v) return currency ? '$0' : '0';
+    if (currency) return '$' + formatCurrency(Math.round(v));
+    return String(Math.round(v * 100) / 100);
+}
+
+window.closeKPIQuarterModal = function () {
+    const el = document.getElementById('kpi-quarter-modal');
+    if (el) el.remove();
+    if (window.__kpiQuarterModalEsc) {
+        document.removeEventListener('keydown', window.__kpiQuarterModalEsc);
+        window.__kpiQuarterModalEsc = null;
+    }
+};
+
+/**
+ * Drill-down popup for one quarter bar on the KPI BSC dashboard.
+ * Reads the self-contained JSON payload stashed on the clicked row
+ * (data-kpiq), so it works for both the saved-structure dashboard
+ * and the read-only KPI-sheet render.
+ */
+window.showKPIQuarterDetail = function (rowEl) {
+    let d;
+    try { d = JSON.parse(decodeURIComponent(rowEl.dataset.kpiq)); } catch (_e) { return; }
+    if (!d) return;
+
+    window.closeKPIQuarterModal();
+
+    const qi = d.qi;
+    const t = d.targets[qi] || 0;
+    const a = d.ach[qi] || 0;
+    const r = d.rates[qi] || 0;
+    const rc = _kpiRateColor(r);
+    const gap = t - a;
+    const fmt = (v) => _kpiFmtVal(v, d.currency);
+
+    const statChip = (label, value, color = '#0F172A', sub = '') => `
+        <div style="flex:1; min-width:120px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px;">
+            <div style="font-size:0.6rem; color:#94a3b8; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">${label}</div>
+            <div style="font-size:1.25rem; font-weight:800; color:${color}; margin-top:3px; line-height:1.2;">${value}</div>
+            ${sub ? `<div style="font-size:0.66rem; color:#94a3b8; font-weight:600; margin-top:2px;">${sub}</div>` : ''}
+        </div>`;
+
+    const gapChip = gap > 0
+        ? statChip('Remaining to target', fmt(gap), '#EF4444', `${Math.max(0, 100 - r)}%p short`)
+        : statChip('Over target', '+' + fmt(Math.abs(gap)), '#10B981', 'Target exceeded');
+
+    // Quarter comparison table — selected quarter highlighted
+    const quarterCompareRows = [0, 1, 2, 3].map(i => {
+        const qr = d.rates[i] || 0;
+        const qc = _kpiRateColor(qr);
+        const selected = i === qi;
+        return `
+            <tr style="border-bottom:1px solid #f3f4f6; ${selected ? `background:${d.color}12;` : ''}">
+                <td style="padding:8px 12px; font-size:0.74rem; font-weight:800; color:${selected ? d.color : '#475569'};">Q${i + 1}${selected ? ' ◀' : ''}</td>
+                <td style="padding:8px 12px; font-size:0.76rem; text-align:right; color:#64748b; font-weight:600;">${fmt(d.targets[i] || 0)}</td>
+                <td style="padding:8px 12px; font-size:0.76rem; text-align:right; color:#1e293b; font-weight:700;">${fmt(d.ach[i] || 0)}</td>
+                <td style="padding:8px 12px; font-size:0.78rem; text-align:right; font-weight:800; color:${qc};">${qr}%</td>
+            </tr>`;
+    }).join('');
+
+    // Sub-item breakdown — skip when it is just the synthetic sheet total
+    const subs = (d.subItems || []).filter(s2 => s2.name !== 'Sheet');
+    const subBlock = subs.length ? `
+        <div style="padding:0 20px 16px 20px;">
+            <div style="font-size:0.62rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">Breakdown · Q${qi + 1}</div>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead style="background:#f9fafb;">
+                    <tr>
+                        <th style="padding:7px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Item</th>
+                        <th style="padding:7px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Q${qi + 1} Achieved</th>
+                        <th style="padding:7px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Annual Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${subs.map((s2, i) => `
+                        <tr style="border-bottom:1px solid #f3f4f6;">
+                            <td style="padding:7px 12px; font-size:0.76rem; color:#374151; font-weight:600;">${_escColl(s2.name) || `Item ${i + 1}`}</td>
+                            <td style="padding:7px 12px; font-size:0.76rem; text-align:right; font-weight:700; color:#1e293b;">${fmt(s2.q[qi] || 0)}</td>
+                            <td style="padding:7px 12px; font-size:0.74rem; text-align:right; font-weight:600; color:#64748b;">${fmt(s2.q.reduce((x, y) => x + (y || 0), 0))}</td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>` : '';
+
+    const kpiLines = String(d.kpis || '').split('\n').filter(Boolean);
+    const kpiBlock = kpiLines.length ? `
+        <div style="margin:0 20px 16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px;">
+            <div style="font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;"><i class="fa-solid fa-list-check" style="margin-right:5px;"></i>KPI Definition</div>
+            ${kpiLines.map(l => `<div style="font-size:0.74rem; color:#475569; line-height:1.6;">• ${_escColl(l)}</div>`).join('')}
+        </div>` : '';
+
+    const annualColor = _kpiRateColor(d.annualRate);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'kpi-quarter-modal';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(2px);';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closeKPIQuarterModal(); });
+
+    overlay.innerHTML = `
+        <div style="background:#ffffff; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.28); width:min(640px,100%); max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid #eef2f7; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="width:34px; height:34px; flex-shrink:0; border-radius:10px; background:${d.color}22; color:${d.color}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.78rem;">Q${qi + 1}</div>
+                    <div style="min-width:0;">
+                        <div style="font-size:0.62rem; color:${d.color}; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">${_escColl(d.category)} · Q${qi + 1} ${d.year}</div>
+                        <div style="font-size:0.9rem; font-weight:800; color:#111827; margin-top:2px; word-break:break-word;">${_escColl(d.objective)}</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                    <div style="background:${rc}15; border:1px solid ${rc}40; color:${rc}; font-size:0.82rem; font-weight:800; padding:6px 12px; border-radius:8px;">${r}%</div>
+                    <button onclick="closeKPIQuarterModal()" style="border:none; background:#eef2f7; color:#475569; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem;" title="Close (Esc)"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div style="overflow:auto;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap; padding:16px 20px 4px 20px;">
+                    ${statChip(`Q${qi + 1} Target`, fmt(t), '#475569')}
+                    ${statChip(`Q${qi + 1} Achieved`, fmt(a), rc, `Weight ${d.weight}%`)}
+                    ${gapChip}
+                </div>
+                <div style="padding:12px 20px 16px 20px;">
+                    <div style="height:10px; background:#F1F5F9; border-radius:6px; overflow:hidden;">
+                        <div style="height:100%; width:${Math.min(100, r)}%; background:${rc}; transition:width 0.4s;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.66rem; color:#94a3b8; font-weight:600; margin-top:4px;">
+                        <span>0%</span><span>Achievement rate: ${r}%</span><span>100%</span>
+                    </div>
+                </div>
+                ${kpiBlock}
+                <div style="padding:0 20px 16px 20px;">
+                    <div style="font-size:0.62rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">Quarterly Comparison</div>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead style="background:#f9fafb;">
+                            <tr>
+                                <th style="padding:7px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Quarter</th>
+                                <th style="padding:7px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Target</th>
+                                <th style="padding:7px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Achieved</th>
+                                <th style="padding:7px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>${quarterCompareRows}</tbody>
+                    </table>
+                </div>
+                ${subBlock}
+                <div style="margin:0 20px 20px 20px; padding:10px 14px; background:linear-gradient(90deg, ${annualColor}08, transparent); border-left:3px solid ${annualColor}; border-radius:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div style="font-size:0.72rem; color:#475569; font-weight:600;">
+                        Annual: <strong style="color:#0F172A;">${fmt(d.sumT)}</strong> target · <strong style="color:${annualColor};">${fmt(d.sumA)}</strong> achieved (<strong style="color:${annualColor};">${d.annualRate}%</strong>)
+                    </div>
+                    <div style="font-size:0.72rem; color:#475569; font-weight:600;">
+                        Weighted contribution: <strong style="color:${annualColor};">${d.weightedConv}%</strong> / ${d.weight}%
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    window.__kpiQuarterModalEsc = function (e) {
+        if (e.key === 'Escape') window.closeKPIQuarterModal();
+    };
+    document.addEventListener('keydown', window.__kpiQuarterModalEsc);
+};
+
 export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFullYear(), isAdmin = true, currentUser = 'admin', availableUsers = [], opts = {}) {
     const readOnly = !!opts.readOnly;
     if (!kpiData || !kpiData.categories) {
@@ -5293,8 +5463,28 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
             const rc = rateColor(r);
             const tbar = (t / maxBar) * 100;
             const abar = (a / maxBar) * 100;
+            const payload = encodeURIComponent(JSON.stringify({
+                year: currentKPIYear,
+                category: cat.name || '',
+                color: cat.color || '#6366f1',
+                objective: obj.name || '—',
+                kpis: obj.kpis || '',
+                weight: obj.weight || 0,
+                currency,
+                qi,
+                targets: s.targets,
+                ach: s.ach,
+                rates: s.quarterRates,
+                sumT: s.sumT,
+                sumA: s.sumA,
+                annualRate: s.annualRate,
+                weightedConv: s.weightedConv,
+                subItems: (obj.subItems || [])
+                    .filter(sub => (sub.name && sub.name.trim()) || (sub.achievements || []).some(v => v))
+                    .map(sub => ({ name: sub.name || '', q: sub.achievements || [0, 0, 0, 0] }))
+            }));
             return `
-                <div style="display:grid; grid-template-columns: 36px 110px 1fr 110px 70px; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #F1F5F9;">
+                <div class="kpi-q-row" data-kpiq="${payload}" onclick="window.showKPIQuarterDetail(this)" title="Click to see Q${qi+1} details" style="display:grid; grid-template-columns: 36px 110px 1fr 110px 70px; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid #F1F5F9; cursor:pointer;">
                     <div style="font-size:0.72rem; font-weight:800; color:#475569; letter-spacing:0.08em;">Q${qi+1}</div>
                     <div style="font-size:0.78rem; color:#64748B; font-weight:600;">${formatVal(t, currency)}</div>
                     <div style="position:relative; height:18px; background:#F1F5F9; border-radius:10px; overflow:hidden;">
@@ -5347,6 +5537,110 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
         `;
     };
 
+    // ── Revenue Type mix panel (FINANCIAL only) ────────────────
+    // Distinguishes the three revenue streams behind the financial objectives:
+    // New TCV / Up·Cross Sell / Recurring (재계약 연장), from the ORDER SHEET.
+    const buildRevenueMixPanel = () => {
+        const mix = opts.revenueMix;
+        if (!mix) return '';
+
+        const MIX_LABEL = {
+            New: 'New TCV',
+            Upsell: 'Up/Cross Sell',
+            Recurring: 'Recurring (Renewal)',
+            Unspecified: 'Unspecified'
+        };
+        const MIX_COLORS = {
+            New:         { fg: '#16a34a', bg: 'rgba(22,163,74,0.10)'  },
+            Upsell:      { fg: '#2563eb', bg: 'rgba(37,99,235,0.10)'  },
+            Recurring:   { fg: '#9333ea', bg: 'rgba(147,51,234,0.10)' },
+            Unspecified: { fg: '#64748b', bg: 'rgba(100,116,139,0.10)' }
+        };
+        const panelWrap = (inner) => `
+            <div style="background:white; border:1px solid #E2E8F0; border-left:4px solid #14b8a6; border-radius:14px; padding:16px 20px; box-shadow:0 2px 6px rgba(15,23,42,0.04);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                    <div style="font-size:0.75rem; font-weight:800; color:#0F766E; letter-spacing:0.08em; text-transform:uppercase;">
+                        <i class="fa-solid fa-layer-group" style="margin-right:6px;"></i>Revenue Type Mix — ${mix.year} Won TCV
+                    </div>
+                    <span class="metric-info" data-tooltip="ORDER SHEET의 Revenue Type 기준으로 올해 계약(WON TCV)을 New TCV / Up·Cross Sell / Recurring(재계약 연장)으로 구분한 분기별 집계입니다.">i</span>
+                </div>
+                ${inner}
+            </div>`;
+
+        if (!mix.hasRevenueType) {
+            return panelWrap(`<div style="font-size:0.78rem; color:#64748b; padding:12px; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px;">ORDER SHEET 에 <b>Revenue Type</b> 열이 없습니다. New / Upsell / Recurring 값을 입력하면 세 매출 흐름이 여기서 구분됩니다.</div>`);
+        }
+
+        const allTypes = Object.keys(mix.types);
+        if (!allTypes.length) {
+            return panelWrap(`<div style="font-size:0.78rem; color:#64748b; padding:12px;">${mix.year}년 계약 데이터가 없습니다.</div>`);
+        }
+        const ORDER = ['New', 'Upsell', 'Recurring'];
+        const ordered = [
+            ...ORDER.filter(t => allTypes.includes(t)),
+            ...allTypes.filter(t => !ORDER.includes(t) && t !== 'Unspecified'),
+            ...(allTypes.includes('Unspecified') ? ['Unspecified'] : [])
+        ];
+
+        // Annual stacked share bar
+        const segments = ordered.map(t => {
+            const c = MIX_COLORS[t] || MIX_COLORS.Unspecified;
+            const share = mix.annualTotal > 0 ? (mix.types[t].annual / mix.annualTotal * 100) : 0;
+            return share > 0 ? `<div title="${MIX_LABEL[t] || t}: $${formatCurrency(mix.types[t].annual)} (${share.toFixed(1)}%)" style="width:${share}%; background:${c.fg};"></div>` : '';
+        }).join('');
+        const legend = ordered.map(t => {
+            const c = MIX_COLORS[t] || MIX_COLORS.Unspecified;
+            const share = mix.annualTotal > 0 ? (mix.types[t].annual / mix.annualTotal * 100) : 0;
+            return `<span style="display:inline-flex; align-items:center; gap:5px; font-size:0.7rem; font-weight:700; color:${c.fg};"><span style="width:8px; height:8px; border-radius:2px; background:${c.fg};"></span>${MIX_LABEL[t] || t} ${share.toFixed(0)}%</span>`;
+        }).join('');
+
+        const th = (label, right = true) => `<th style="padding:7px 10px; font-weight:700; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.05em; color:#475569; ${right ? 'text-align:right;' : 'text-align:left;'}">${label}</th>`;
+        const td = (v, extra = '') => `<td style="padding:7px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric:tabular-nums; ${extra}">${v}</td>`;
+
+        const bodyRows = ordered.map(t => {
+            const b = mix.types[t];
+            const c = MIX_COLORS[t] || MIX_COLORS.Unspecified;
+            const share = mix.annualTotal > 0 ? (b.annual / mix.annualTotal * 100).toFixed(1) + '%' : '—';
+            return `
+                <tr>
+                    <td style="padding:7px 10px; border-bottom:1px solid #F1F5F9;">
+                        <span style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:${c.fg}; background:${c.bg}; padding:3px 9px; border-radius:999px; font-size:0.7rem;">
+                            <span style="width:6px; height:6px; border-radius:50%; background:${c.fg};"></span>${MIX_LABEL[t] || t}
+                        </span>
+                    </td>
+                    ${['Q1','Q2','Q3','Q4'].map(q => td(b[q] ? '$' + formatCurrency(b[q]) : '<span style="color:#CBD5E1;">—</span>')).join('')}
+                    ${td('<b>$' + formatCurrency(b.annual) + '</b>', `color:${c.fg};`)}
+                    ${td(b.deals)}
+                    ${td(share, 'color:#475569;')}
+                </tr>`;
+        }).join('');
+
+        return panelWrap(`
+            <div style="height:10px; display:flex; border-radius:6px; overflow:hidden; background:#F1F5F9; margin-bottom:6px;">${segments}</div>
+            <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px;">${legend}</div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.76rem;">
+                    <thead>
+                        <tr style="background:#F8FAFC;">
+                            ${th('Type', false)}${th('Q1')}${th('Q2')}${th('Q3')}${th('Q4')}${th('Annual')}${th('Deals')}${th('Share')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${bodyRows}
+                        <tr style="background:#F8FAFC; font-weight:800;">
+                            <td style="padding:8px 10px;">Total</td>
+                            ${['Q1','Q2','Q3','Q4'].map(q => `<td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">$${formatCurrency(mix.qTotals[q])}</td>`).join('')}
+                            <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">$${formatCurrency(mix.annualTotal)}</td>
+                            <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${mix.dealTotal}</td>
+                            <td style="padding:8px 10px; text-align:right; color:#475569;">100%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `);
+    };
+    const revenueMixPanel = buildRevenueMixPanel();
+
     const categoryBlocks = kpiData.categories.map(cat => {
         const catWeight = (cat.objectives || []).reduce((s, o) => s + (o.weight || 0), 0);
         let catWeightedRate = 0;
@@ -5376,6 +5670,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                     </div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr; gap:14px;">
+                    ${isCurrencyCat(cat.name) ? revenueMixPanel : ''}
                     ${objectives}
                 </div>
             </div>
@@ -6529,5 +6824,158 @@ export function getTaskDashboardHTML(stats) {
             ${cardWrap('⑦ POC / Service Coverage', '#06b6d4', serviceHtml, '', 'span 5')}
             ${cardWrap('⑧ Recent Activity', '#f59e0b', recentHtml, '', 'span 7')}
         </div>
+    `;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MATERIALS LIBRARY VIEW (category folders → topic groups → file buttons)
+   ═══════════════════════════════════════════════════════════════ */
+
+const MATERIALS_CAT_COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#a855f7', '#ec4899', '#14b8a6', '#f97316'];
+
+function _materialFormatIcon(format, link) {
+    const f = String(format || '').toLowerCase();
+    if (/drive\.google\.com\/drive\/folders/i.test(link || '')) return { icon: 'fa-folder-open', color: '#f59e0b' };
+    if (f.includes('pdf')) return { icon: 'fa-file-pdf', color: '#ef4444' };
+    if (f.includes('html') || f.includes('web')) return { icon: 'fa-globe', color: '#0ea5e9' };
+    if (f.includes('ppt') || f.includes('slide')) return { icon: 'fa-file-powerpoint', color: '#f97316' };
+    if (f.includes('doc') || f.includes('word')) return { icon: 'fa-file-word', color: '#3b82f6' };
+    if (f.includes('xls') || f.includes('sheet') || f.includes('csv')) return { icon: 'fa-file-excel', color: '#10b981' };
+    if (f.includes('video') || f.includes('mp4')) return { icon: 'fa-file-video', color: '#a855f7' };
+    if (f.includes('zip')) return { icon: 'fa-file-zipper', color: '#6B7280' };
+    return { icon: 'fa-file-lines', color: '#6B7280' };
+}
+
+/** Toggle one category folder open/closed in the Materials library. */
+window.toggleMaterialsCategory = function (idx) {
+    const body = document.getElementById(`materials-cat-body-${idx}`);
+    const chev = document.getElementById(`materials-cat-chev-${idx}`);
+    if (!body) return;
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    if (chev) chev.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+};
+
+/** Open / download one material file in a new tab. */
+window.openMaterialFile = function (encodedUrl, encodedName) {
+    const url = decodeURIComponent(encodedUrl || '');
+    if (url) {
+        window.open(url, '_blank', 'noopener');
+    } else {
+        alert(`No download link is attached yet for:\n${decodeURIComponent(encodedName || '')}\n\nAdd a URL in the "Source Link" column of the Materials sheet.`);
+    }
+};
+
+function _materialFileButton(file) {
+    const { icon, color } = _materialFormatIcon(file.format, file.link);
+    const hasLink = !!file.link;
+    const encUrl = encodeURIComponent(file.link || '');
+    const encName = encodeURIComponent(file.name || '');
+    const metaBits = [file.format, file.language, file.lastModified].filter(Boolean)
+        .map(b => `<span style="font-size:0.65rem; color:#94a3b8; font-weight:600; white-space:nowrap;">${_escColl(b)}</span>`)
+        .join('<span style="color:#e2e8f0;">·</span>');
+    const note = file.note
+        ? `<div style="font-size:0.65rem; color:#94a3b8; margin-top:2px; font-style:italic;">${_escColl(file.note)}</div>`
+        : '';
+    return `
+        <button onclick="openMaterialFile('${encUrl}','${encName}')" title="${hasLink ? _escColl(file.link) : 'No link attached yet'}"
+            style="display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0;
+                   border-radius:10px; padding:10px 14px; cursor:pointer; transition:box-shadow 0.15s, transform 0.15s; ${hasLink ? '' : 'opacity:0.6;'}"
+            onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; this.style.transform='translateY(-1px)';"
+            onmouseout="this.style.boxShadow='none'; this.style.transform='none';">
+            <div style="width:36px; height:36px; border-radius:8px; background:${color}18; color:${color}; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0;">
+                <i class="fa-solid ${icon}"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:0.8rem; font-weight:700; color:#111827; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${_escColl(file.name)}</div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:2px; flex-wrap:wrap;">${metaBits || '<span style="font-size:0.65rem; color:#cbd5e1;">—</span>'}</div>
+                ${note}
+            </div>
+            <div style="flex-shrink:0; color:${hasLink ? '#6366f1' : '#cbd5e1'}; font-size:0.85rem;">
+                <i class="fa-solid ${hasLink ? 'fa-arrow-up-right-from-square' : 'fa-link-slash'}"></i>
+            </div>
+        </button>
+    `;
+}
+
+/**
+ * Materials library: one accordion card per Category; opening it reveals the
+ * sub-topics (GPU, LLM, …) each holding clickable file buttons that open or
+ * download the file's Source Link in a new tab.
+ * @param {Object} stats - from getMaterialsStats()
+ */
+export function getMaterialsHTML(stats) {
+    if (!stats || !stats.categories || stats.categories.length === 0) {
+        return '<p style="padding:40px; text-align:center; color:#6B7280;">No materials found in the Materials sheet.</p>';
+    }
+
+    const cards = stats.categories.map((cat, i) => {
+        const color = MATERIALS_CAT_COLORS[i % MATERIALS_CAT_COLORS.length];
+        const topicChips = cat.topics.map(t =>
+            `<span style="background:${color}14; color:${color}; border:1px solid ${color}33; padding:2px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; white-space:nowrap;">${_escColl(t.name)} · ${t.files.length}</span>`
+        ).join('');
+
+        const topicSections = cat.topics.map(t => `
+            <div style="margin-bottom:14px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                    <i class="fa-solid fa-tag" style="color:${color}; font-size:0.7rem;"></i>
+                    <span style="font-size:0.7rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.05em;">${_escColl(t.name)}</span>
+                    <span style="font-size:0.65rem; color:#94a3b8; font-weight:600;">${t.files.length} file${t.files.length === 1 ? '' : 's'}</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:10px;">
+                    ${t.files.map(_materialFileButton).join('')}
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <div class="stat-card" style="background:#fff; padding:0; overflow:hidden; border-left:5px solid ${color};">
+                <div onclick="toggleMaterialsCategory(${i})"
+                     style="display:flex; align-items:center; gap:14px; padding:16px 20px; cursor:pointer; user-select:none;">
+                    <div style="width:44px; height:44px; border-radius:10px; background:${color}18; color:${color}; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0;">
+                        <i class="fa-solid fa-folder"></i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:1rem; font-weight:800; color:#111827;">${_escColl(cat.name)}</div>
+                        <div style="display:flex; align-items:center; gap:6px; margin-top:5px; flex-wrap:wrap;">${topicChips}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">
+                        <span style="font-size:0.7rem; font-weight:700; color:#6B7280; background:#f1f5f9; padding:3px 10px; border-radius:999px; white-space:nowrap;">${cat.count} file${cat.count === 1 ? '' : 's'}</span>
+                        <i id="materials-cat-chev-${i}" class="fa-solid fa-chevron-down" style="color:#94a3b8; font-size:0.8rem; transition:transform 0.25s;"></i>
+                    </div>
+                </div>
+                <div id="materials-cat-body-${i}" style="display:none; padding:6px 20px 18px 20px; border-top:1px dashed #e2e8f0; background:#f8fafc;">
+                    <div style="height:10px;"></div>
+                    ${topicSections}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div class="stat-icon" style="background:rgba(99,102,241,0.15); color:#6366f1; width:48px; height:48px; font-size:1.3rem; display:flex; align-items:center; justify-content:center; border-radius:12px;"><i class="fa-solid fa-box-archive"></i></div>
+                <div>
+                    <h2 style="font-size:1.6rem; font-weight:700; color:#111827; margin:0;">Materials Library</h2>
+                    <p style="color:#6B7280; font-size:0.8rem; margin:2px 0 0 0;">Click a category folder to browse its topics, then click a file to open or download it.</p>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 16px; text-align:center;">
+                    <div style="font-size:1.1rem; font-weight:800; color:#111827;">${stats.totalFiles}</div>
+                    <div style="font-size:0.6rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Files</div>
+                </div>
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 16px; text-align:center;">
+                    <div style="font-size:1.1rem; font-weight:800; color:#111827;">${stats.categories.length}</div>
+                    <div style="font-size:0.6rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Categories</div>
+                </div>
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 16px; text-align:center;">
+                    <div style="font-size:1.1rem; font-weight:800; color:${stats.totalLinks === stats.totalFiles ? '#10b981' : '#f59e0b'};">${stats.totalLinks}</div>
+                    <div style="font-size:0.6rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">With Link</div>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px;">${cards}</div>
     `;
 }

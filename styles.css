@@ -2052,3 +2052,13 @@ select:focus {
 .poc-sb-legend-dot.today { background: #1D4ED8; }
 .poc-sb-legend-dot.sched { background: #F59E0B; }
 .poc-sb-legend-dot.end { background: #FFFFFF; border: 2px solid #6B7280; width: 8px; height: 8px; }
+
+/* ═══ KPI dashboard: clickable quarter rows ═══ */
+.kpi-q-row {
+    border-radius: 8px;
+    transition: background 0.15s ease;
+}
+.kpi-q-row:hover {
+    background: #F8FAFC;
+    box-shadow: inset 0 0 0 1px #E2E8F0;
+}

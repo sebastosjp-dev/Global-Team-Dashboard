@@ -4,6 +4,18 @@
  */
 import { parseCurrency, formatCurrency } from './utils.js';
 import { getKPIHTML, getKPIDashboardHTML } from './ui.js';
+import { getRevenueTypeQuarterlyMix } from './services.js';
+
+/**
+ * Revenue-Type quarterly mix (New / Upsell / Recurring) from the ORDER SHEET.
+ * Returns null when the workbook isn't loaded yet.
+ */
+function computeRevenueMix() {
+    const orderRows = window.__workbookData?.['ORDER SHEET'];
+    if (!orderRows || !orderRows.length) return null;
+    try { return getRevenueTypeQuarterlyMix(orderRows); }
+    catch (e) { console.warn('[KPI] revenue mix failed:', e); return null; }
+}
 
 /* ═══════════════════════════════════════════════════════════════
    State
@@ -286,7 +298,7 @@ export function renderKPISheetDashboard(container, sheetRows, rawSheet) {
                 Could not parse the KPI sheet — showing default Balanced Scorecard structure.
             </div>
         `}
-        ${getKPIDashboardHTML(data, year, true, 'admin', [], { readOnly: true })}
+        ${getKPIDashboardHTML(data, year, true, 'admin', [], { readOnly: true, revenueMix: computeRevenueMix() })}
     `;
 }
 
@@ -427,7 +439,7 @@ async function renderKPIView() {
     if (metricsGrid) {
         const html = kpiViewMode === 'edit'
             ? wrapEditWithBackButton(getKPIHTML(getMergedData(), currentKPIYear, isAdmin, currentUser, availableUsers))
-            : getKPIDashboardHTML(getMergedData(), currentKPIYear, isAdmin, currentUser, availableUsers);
+            : getKPIDashboardHTML(getMergedData(), currentKPIYear, isAdmin, currentUser, availableUsers, { revenueMix: computeRevenueMix() });
         metricsGrid.innerHTML = html;
         metricsGrid.classList.remove('hidden');
     }

@@ -22,7 +22,8 @@ import {
     getPartnerROIStats, getPipelineCoverageStats,
     getProjectStats, getDealLostStats,
     getQuarterlyForecastStats, getCsmTaskStats,
-    getCsmViewStats, getTaskDashboardStats
+    getCsmViewStats, getTaskDashboardStats,
+    getMaterialsStats
 } from './services.js';
 import {
                                                 getOrderSheetHTML, getPipelineHTML, getPartnerHTML, getPartnerNetworkDetailsHTML,
@@ -36,7 +37,8 @@ import {
     getCollectionChangeLogHTML,
     getProjectHTML, getDealLostHTML,
     getQuarterlyForecastHTML, getCsmTasksByClientHTML,
-    getCsmViewHTML, getTaskDashboardHTML
+    getCsmViewHTML, getTaskDashboardHTML,
+    getMaterialsHTML
 } from './ui.js';
 import { loadKPIQuarterlyTargets, renderKPISheetDashboard } from './kpi.js';
 
@@ -57,9 +59,10 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     metricsGrid.innerHTML = '';
     let hasMetrics = false;
     const isGlobalTab = tabName && tabName.includes('Global(Contract Date)');
+    const isMaterialsTab = String(tabName).trim().toUpperCase() === 'MATERIALS';
     const isCountryTab = tabName && filterCountry === null &&
         !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST', 'TASK', 'KPI'].includes(tabName) &&
-        !isGlobalTab;
+        !isGlobalTab && !isMaterialsTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
         _renderQuarterlyForecast(workbookData, filterCountry, metricsGrid);
@@ -127,6 +130,11 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'KPI') {
         renderKPISheetDashboard(metricsGrid, workbookData['KPI'] || [], window.__rawSheets?.['KPI']);
+        hasMetrics = true;
+    }
+
+    if (isMaterialsTab) {
+        _renderMaterials(data, tabName, metricsGrid);
         hasMetrics = true;
     }
 
@@ -754,6 +762,21 @@ function _renderEvent(eventData, filterCountry, metricsGrid) {
  * @param {string|null} filterCountry
  * @param {HTMLElement} metricsGrid
  */
+/**
+ * MATERIALS library — category folders with clickable file/link buttons.
+ * @param {Object[]} data - Materials rows (already search-filtered)
+ * @param {string} tabName - actual sheet name (used to reach the raw sheet for embedded hyperlinks)
+ * @param {HTMLElement} metricsGrid
+ */
+function _renderMaterials(data, tabName, metricsGrid) {
+    const rawSheet = window.__rawSheets ? window.__rawSheets[tabName] : null;
+    const stats = getMaterialsStats(data, rawSheet);
+    const container = document.createElement('div');
+    container.style.gridColumn = '1 / -1';
+    container.innerHTML = getMaterialsHTML(stats);
+    metricsGrid.appendChild(container);
+}
+
 function _renderCollection(data, filterCountry, metricsGrid) {
     const stats = getCollectionStats(data);
 

@@ -109,6 +109,8 @@ function processWorkbook(workbook) {
     });
     // Expose raw worksheets so views can re-parse non-tabular sheets (e.g. KPI)
     window.__rawSheets = workbook.Sheets;
+    // Expose parsed rows so standalone views (e.g. KPI tab) can read other sheets
+    window.__workbookData = workbookData;
 
     dropZone.classList.remove('active');
     dashboardContainer.classList.add('active');
@@ -174,6 +176,8 @@ function selectTab(tabName, subTabName = null) {
  */
 function renderTableData(searchTerm = "", filterCountry = null) {
     const data = workbookData[currentTab] || [];
+    // Materials is rendered as a card/button library (views.js), never as a raw table.
+    const isMaterials = String(currentTab).trim().toUpperCase() === 'MATERIALS';
     tableHead.innerHTML = '';
     tableBody.innerHTML = '';
 
@@ -214,14 +218,14 @@ function renderTableData(searchTerm = "", filterCountry = null) {
         dataTable.classList.add('hidden');
     } else {
         if (dataSection) {
-            if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK' || currentTab === 'KPI') {
+            if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK' || currentTab === 'KPI' || isMaterials) {
                 dataSection.classList.add('hidden');
             } else {
                 dataSection.classList.remove('hidden');
             }
         }
         emptyState.classList.add('hidden');
-        if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK' || currentTab === 'KPI') {
+        if (currentTab === 'PARTNER' || currentTab === 'POC' || currentTab === 'PROJECT' || currentTab === 'DEAL LOST' || currentTab === 'TASK' || currentTab === 'KPI' || isMaterials) {
             dataTable.classList.add('hidden');
         } else {
             dataTable.classList.remove('hidden');

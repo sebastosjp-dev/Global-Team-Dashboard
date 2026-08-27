@@ -105,6 +105,7 @@ function _buildSimpleNav(container, name, onSelect) {
     let icon = 'fa-folder';
     if (name === 'EVENT') icon = 'fa-calendar-check';
     else if (name === 'DEAL LOST') icon = 'fa-circle-xmark';
+    else if (_normalizeSheetName(name) === 'MATERIALS') icon = 'fa-box-archive';
     navItem.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${name}</span>`;
     navItem.onclick = () => onSelect(name, null);
     container.appendChild(navItem);

@@ -181,6 +181,51 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     };
 }
 
+/**
+ * Quarterly Revenue-Type mix — WON TCV of the current year from the ORDER SHEET,
+ * split into New / Upsell / Recurring (renewal) per contract-start quarter.
+ * Used by the KPI dashboard to distinguish the three revenue streams.
+ *
+ * @param {Object[]} orderRows - workbookData['ORDER SHEET'] rows
+ * @param {string|null} [filterCountry]
+ * @returns {{year:number, hasRevenueType:boolean, types:Object, qTotals:Object, annualTotal:number, dealTotal:number}}
+ */
+export function getRevenueTypeQuarterlyMix(orderRows, filterCountry = null) {
+    const currentYear = new Date().getFullYear();
+    const result = {
+        year: currentYear, hasRevenueType: false,
+        types: {}, qTotals: { Q1: 0, Q2: 0, Q3: 0, Q4: 0 },
+        annualTotal: 0, dealTotal: 0
+    };
+    const rows = Array.isArray(orderRows) ? orderRows : [];
+    if (!rows.length) return result;
+
+    const keys = Object.keys(rows[0]);
+    const tcvKey = findKorTcvKey(keys);
+    const startKey = findContractStartKey(keys);
+    const revKey = findRevenueTypeKey(keys);
+    result.hasRevenueType = !!revKey;
+
+    rows.filter(r => isCountryMatch(r, filterCountry)).forEach(row => {
+        const d = parseExcelDateSafe(row[startKey]);
+        if (!d || d.getFullYear() !== currentYear) return;
+        const qId = `Q${Math.floor(d.getMonth() / 3) + 1}`;
+        const tcv = tcvKey ? parseCurrency(row[tcvKey]) : 0;
+        const rType = _normalizeRevenueType(revKey ? row[revKey] : null);
+        if (!result.types[rType]) {
+            result.types[rType] = { Q1: 0, Q2: 0, Q3: 0, Q4: 0, annual: 0, deals: 0 };
+        }
+        result.types[rType][qId] += tcv;
+        result.types[rType].annual += tcv;
+        result.types[rType].deals += 1;
+        result.qTotals[qId] += tcv;
+        result.annualTotal += tcv;
+        result.dealTotal += 1;
+    });
+
+    return result;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    PIPELINE
    ═══════════════════════════════════════════════════════════════ */
@@ -2888,4 +2933,125 @@ export function getTaskDashboardStats(taskData, filterCountry = null, taskView =
         agingBuckets,
         recent
     };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MATERIALS (sales / marketing file library)
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Extract hyperlinks embedded in the raw MATERIALS sheet cells.
+ * Google's xlsx export keeps in-cell hyperlinks on cell.l.Target; the
+ * plain-text value of "Source Link" may also itself be a URL. Returns a
+ * map: trimmed File Name -> URL (embedded link wins over nothing).
+ * @param {Object|null} rawSheet - raw XLSX worksheet (window.__rawSheets['Materials'])
+ * @returns {Object<string,string>}
+ */
+export function getMaterialsFileLinks(rawSheet) {
+    const links = {};
+    if (!rawSheet) return links;
+    const cellRe = /^([A-Z]+)(\d+)$/;
+    let nameCol = null, linkCol = null, headerRow = null;
+    Object.keys(rawSheet).forEach(addr => {
+        const m = cellRe.exec(addr);
+        if (!m) return;
+        const v = String(rawSheet[addr] && rawSheet[addr].v != null ? rawSheet[addr].v : '').trim().toLowerCase();
+        if (v === 'file name' && nameCol === null) { nameCol = m[1]; headerRow = parseInt(m[2], 10); }
+        if (v === 'source link' && linkCol === null) linkCol = m[1];
+    });
+    if (!nameCol || headerRow === null) return links;
+    Object.keys(rawSheet).forEach(addr => {
+        const m = cellRe.exec(addr);
+        if (!m || m[1] !== nameCol) return;
+        const rowNum = parseInt(m[2], 10);
+        if (rowNum <= headerRow) return;
+        const nameCell = rawSheet[addr];
+        const name = String(nameCell && nameCell.v != null ? nameCell.v : '').trim();
+        if (!name) return;
+        const linkCell = linkCol ? rawSheet[`${linkCol}${rowNum}`] : null;
+        const target =
+            (linkCell && linkCell.l && linkCell.l.Target) ||
+            (linkCell && /^https?:\/\//i.test(String(linkCell.v || '').trim()) ? String(linkCell.v).trim() : '') ||
+            (nameCell && nameCell.l && nameCell.l.Target) || '';
+        if (target && !links[name]) links[name] = target;
+    });
+    return links;
+}
+
+/**
+ * Group MATERIALS rows into Category -> Topic -> files for the library view.
+ * Rows without a File Name are skipped; rows without a link still render
+ * (the button shows but reports that no link is attached yet).
+ * @param {Object[]} data - MATERIALS rows from sheet_to_json
+ * @param {Object|null} rawSheet - raw worksheet for embedded hyperlinks
+ * @returns {{totalFiles:number, totalLinks:number, categories:Object[]}}
+ */
+export function getMaterialsStats(data, rawSheet) {
+    const rows = Array.isArray(data) ? data : [];
+    const keys = rows.length ? Object.keys(rows[0]) : [];
+    const pick = (re) => keys.find(k => re.test(String(k).trim()));
+    const kName = pick(/^file\s*name$/i) || pick(/file/i);
+    const kCat = pick(/^category$/i);
+    const kTopic = pick(/^topic$/i);
+    const kLang = pick(/^language$/i);
+    const kFmt = pick(/^format$/i);
+    const kMod = pick(/^last\s*modified$/i);
+    const kLink = pick(/^source\s*link$/i) || pick(/link/i);
+    const kNote = pick(/^note/i);
+
+    const embedded = getMaterialsFileLinks(rawSheet);
+
+    const fmtDate = (v) => {
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        // Excel serial number (sheet_to_json returns these when the cell lacks date formatting)
+        const num = typeof v === 'number' ? v : (/^\d{5}$/.test(String(v).trim()) ? parseInt(v, 10) : NaN);
+        if (isFinite(num) && num > 20000 && num < 80000) {
+            v = new Date(Math.round((num - 25569) * 86400 * 1000));
+            return `${String(v.getUTCDate()).padStart(2, '0')}-${months[v.getUTCMonth()]}-${v.getUTCFullYear()}`;
+        }
+        if (v instanceof Date && !isNaN(v)) {
+            return `${String(v.getDate()).padStart(2, '0')}-${months[v.getMonth()]}-${v.getFullYear()}`;
+        }
+        return String(v || '').trim();
+    };
+
+    const catMap = new Map();
+    let totalFiles = 0, totalLinks = 0;
+
+    rows.forEach(r => {
+        const name = String(kName ? r[kName] : '').trim();
+        if (!name) return;
+        const category = String(kCat ? r[kCat] : '').trim() || 'Uncategorized';
+        const topic = String(kTopic ? r[kTopic] : '').trim() || 'General';
+        const rawLink = String(kLink ? r[kLink] : '').trim();
+        const link = /^https?:\/\//i.test(rawLink) ? rawLink : (embedded[name] || '');
+
+        const file = {
+            name,
+            topic,
+            language: String(kLang ? r[kLang] : '').trim(),
+            format: String(kFmt ? r[kFmt] : '').trim(),
+            lastModified: fmtDate(kMod ? r[kMod] : ''),
+            link,
+            note: String(kNote ? r[kNote] : '').trim()
+        };
+
+        if (!catMap.has(category)) catMap.set(category, new Map());
+        const topicMap = catMap.get(category);
+        if (!topicMap.has(topic)) topicMap.set(topic, []);
+        topicMap.get(topic).push(file);
+        totalFiles++;
+        if (link) totalLinks++;
+    });
+
+    const categories = Array.from(catMap.entries()).map(([name, topicMap]) => {
+        const topics = Array.from(topicMap.entries()).map(([tName, files]) => ({ name: tName, files }));
+        return {
+            name,
+            count: topics.reduce((s, t) => s + t.files.length, 0),
+            topics
+        };
+    });
+
+    return { totalFiles, totalLinks, categories };
 }
