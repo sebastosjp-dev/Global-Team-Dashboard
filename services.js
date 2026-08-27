@@ -336,6 +336,8 @@ export function getPipelineStats(pData, orderData = []) {
         const stage = stageKey && r[stageKey] ? String(r[stageKey]).trim() : 'Unknown';
 
         const dealType = _normalizeDealType(r[findDealTypeKey(keys)]);
+        const pRevTypeKey = findRevenueTypeKey(keys);
+        const revenueType = _normalizeRevenueType(pRevTypeKey ? r[pRevTypeKey] : null);
 
         // Resolve contract years for ARR = TCV / years.
         // 1) explicit "Contract Yr" column (Perpetual → 1, matching collection logic)
@@ -373,7 +375,7 @@ export function getPipelineStats(pData, orderData = []) {
             pipelineByQuarter[qMatch].countries[c].weighted += wAmt;
             pipelineByQuarter[qMatch].countries[c].arr = (pipelineByQuarter[qMatch].countries[c].arr || 0) + arr;
             pipelineByQuarter[qMatch].countries[c].count++;
-            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year, stage, dealType, month: d ? d.getMonth() + 1 : null });
+            pipelineByQuarter[qMatch].deals.push({ name: dealName, amount: amt, weighted: wAmt, arr, years, country: c, year, stage, dealType, revenueType, month: d ? d.getMonth() + 1 : null });
 
             if (!pipelineByStage[stage]) pipelineByStage[stage] = { amount: 0, weighted: 0, arr: 0, count: 0 };
             pipelineByStage[stage].amount += amt;
@@ -522,7 +524,8 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
                     wArr,
                     tcv,
                     arr,
-                    stage: d.stage || 'Unknown'
+                    stage: d.stage || 'Unknown',
+                    revenueType: d.revenueType || 'Unspecified'
                 });
             });
         });

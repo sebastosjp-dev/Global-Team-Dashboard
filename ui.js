@@ -1148,9 +1148,16 @@ export function getQuarterlyForecastHTML(stats) {
     const qIdx = q => qOrder.indexOf(q);
     const qIdxNow = qIdx(currentQuarter);
 
-    const kpiCard = (label, value, color, sub) => `
-        <div style="background:#fff; border-radius:10px; padding:14px 16px; border-left:4px solid ${color}; box-shadow:0 1px 4px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:4px; min-width:0;">
-            <div style="font-size:0.66rem; font-weight:800; color:${color}; text-transform:uppercase; letter-spacing:0.06em;">${label}</div>
+    const kpiCard = (label, value, color, sub, kpiKey) => `
+        <div onclick="window.openAnnualKpiModal('${kpiKey}')"
+             style="background:#fff; border-radius:10px; padding:14px 16px; border-left:4px solid ${color}; box-shadow:0 1px 4px rgba(0,0,0,0.04); display:flex; flex-direction:column; gap:4px; min-width:0; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;"
+             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 24px ${color}30';"
+             onmouseout="this.style.transform='none'; this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)';"
+             title="Click to view New Logo / Renewal / Up·Cross Sell breakdown">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                <span style="font-size:0.66rem; font-weight:800; color:${color}; text-transform:uppercase; letter-spacing:0.06em;">${label}</span>
+                <i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.55rem; color:${color}; opacity:0.7;"></i>
+            </div>
             <div style="font-size:1.35rem; font-weight:800; color:#111827; line-height:1.1;">$${formatCurrency(value)}</div>
             <div style="font-size:0.62rem; color:#9ca3af; font-weight:600;">${sub}</div>
         </div>
@@ -1169,10 +1176,10 @@ export function getQuarterlyForecastHTML(stats) {
             <span style="height:1px; flex:1; background:#E5E7EB;"></span>
         </div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px;">
-            ${kpiCard('Booked TCV', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4')}
-            ${kpiCard('Booked ARR', kpiTotals.bookedArr, '#10b981', 'Closed-won, Q1–Q4')}
-            ${kpiCard('Weighted Pipeline ARR', kpiTotals.weightedArr, '#f59e0b', 'Stage-prob × ARR/yr')}
-            ${kpiCard('Renewal Target ARR', kpiTotals.renewalArr, '#a855f7', 'Contracts ending in ' + currentYear)}
+            ${kpiCard('Booked TCV', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4 · Click for logo breakdown', 'bookedTcv')}
+            ${kpiCard('Booked ARR', kpiTotals.bookedArr, '#10b981', 'Closed-won, Q1–Q4 · Click for logo breakdown', 'bookedArr')}
+            ${kpiCard('Weighted Pipeline ARR', kpiTotals.weightedArr, '#f59e0b', 'Stage-prob × ARR/yr · Click for logo breakdown', 'weightedArr')}
+            ${kpiCard('Renewal Target ARR', kpiTotals.renewalArr, '#a855f7', 'Contracts ending in ' + currentYear + ' · Click for details', 'renewalArr')}
         </div>
     `;
 
@@ -1465,6 +1472,188 @@ window.openQuarterlyForecastModal = function (qId) {
 window.closeQuarterlyForecastModal = function () {
     const m = document.getElementById('qf-modal');
     if (m) m.style.display = 'none';
+};
+
+/* ── Modal: Annual KPI logo-type breakdown (New / Renewal / Up·Cross Sell) ── */
+window.openAnnualKpiModal = function (kpiKey) {
+    const stats = window.__qForecastStats;
+    if (!stats) return;
+
+    const fmt = window.__qfFmt || (n => Math.round(n || 0).toLocaleString('en-US'));
+    const qOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+    const KPI_META = {
+        bookedTcv:   { label: 'Booked TCV',           color: '#0ea5e9', source: 'booked',   icon: 'fa-file-signature',  desc: `Closed-won contracts · Q1–Q4 ${stats.currentYear}` },
+        bookedArr:   { label: 'Booked ARR',           color: '#10b981', source: 'booked',   icon: 'fa-file-signature',  desc: `Closed-won contracts · Q1–Q4 ${stats.currentYear}` },
+        weightedArr: { label: 'Weighted Pipeline ARR', color: '#f59e0b', source: 'forecast', icon: 'fa-filter',          desc: `Stage-probability weighted ARR · ${stats.currentYear} pipeline` },
+        renewalArr:  { label: 'Renewal Target ARR',    color: '#a855f7', source: 'renewal',  icon: 'fa-rotate',          desc: `Contracts ending in ${stats.currentYear}` }
+    };
+    const meta = KPI_META[kpiKey];
+    if (!meta) return;
+
+    const metricOf = d =>
+        kpiKey === 'bookedTcv'   ? (d.tcv || 0) :
+        kpiKey === 'bookedArr'   ? (d.arr || 0) :
+        kpiKey === 'weightedArr' ? (d.wArr || 0) :
+                                   (d.targetArr || 0);
+
+    /* Collect deals across all four quarters, tagging each with its quarter */
+    const deals = [];
+    qOrder.forEach(q => {
+        const bucket = stats.quarters[q] && stats.quarters[q][meta.source];
+        (bucket && bucket.deals || []).forEach(d => deals.push({ ...d, quarter: q }));
+    });
+    const grandTotal = deals.reduce((s, d) => s + metricOf(d), 0);
+
+    /* Renewals are by definition existing-logo renewals; others use Revenue Type */
+    const groupKeyOf = d => kpiKey === 'renewalArr'
+        ? 'Recurring'
+        : (['New', 'Upsell', 'Recurring'].includes(d.revenueType) ? d.revenueType : 'Unspecified');
+
+    const GROUP_DEFS = [
+        { key: 'New',         title: '신규 로고 · New Logo',                 fg: '#16a34a', bg: 'rgba(22,163,74,0.10)',   br: 'rgba(22,163,74,0.30)',   icon: 'fa-star' },
+        { key: 'Recurring',   title: '기존 로고 · 재계약/연장 (Renewal)',     fg: '#9333ea', bg: 'rgba(147,51,234,0.10)',  br: 'rgba(147,51,234,0.30)',  icon: 'fa-rotate' },
+        { key: 'Upsell',      title: '기존 로고 · Up/Cross Sell (Upsell)',   fg: '#2563eb', bg: 'rgba(37,99,235,0.10)',   br: 'rgba(37,99,235,0.30)',   icon: 'fa-arrow-trend-up' },
+        { key: 'Unspecified', title: '구분 미지정 · Unspecified',            fg: '#64748b', bg: 'rgba(100,116,139,0.10)', br: 'rgba(100,116,139,0.30)', icon: 'fa-circle-question' }
+    ];
+    const visibleGroups = kpiKey === 'renewalArr'
+        ? GROUP_DEFS.filter(g => g.key === 'Recurring')
+        : GROUP_DEFS.filter(g => g.key !== 'Unspecified' || deals.some(d => groupKeyOf(d) === 'Unspecified'));
+
+    const grouped = {};
+    visibleGroups.forEach(g => { grouped[g.key] = []; });
+    deals.forEach(d => { (grouped[groupKeyOf(d)] || (grouped[groupKeyOf(d)] = [])).push(d); });
+    Object.values(grouped).forEach(list => list.sort((a, b) => metricOf(b) - metricOf(a)));
+
+    const isGlobalView = /global/i.test(stats.country || '');
+    const countryTag = c => (!isGlobalView || !c) ? '' :
+        `<span style="display:inline-block; font-size:0.6rem; font-weight:800; color:#475569; background:#F1F5F9; border:1px solid #E2E8F0; padding:2px 7px; border-radius:6px; letter-spacing:0.03em; white-space:nowrap; margin-right:8px; vertical-align:middle;">${c}</span>`;
+    const qBadge = q =>
+        `<span style="display:inline-block; font-size:0.6rem; font-weight:800; color:#4338CA; background:#EEF2FF; border:1px solid #C7D2FE; padding:2px 7px; border-radius:6px; white-space:nowrap;">${q}</span>`;
+
+    /* Summary strip: one tile per logo type */
+    const summaryStrip = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:18px;">
+            ${visibleGroups.map(g => {
+                const list = grouped[g.key] || [];
+                const total = list.reduce((s, d) => s + metricOf(d), 0);
+                const share = grandTotal > 0 ? (total / grandTotal * 100).toFixed(1) + '%' : '—';
+                return `
+                    <div style="background:${g.bg}; border:1px solid ${g.br}; border-radius:12px; padding:12px 14px;">
+                        <div style="font-size:0.62rem; font-weight:800; color:${g.fg}; letter-spacing:0.03em; margin-bottom:4px;"><i class="fa-solid ${g.icon}" style="margin-right:5px;"></i>${g.title}</div>
+                        <div style="font-size:1.15rem; font-weight:800; color:#111827; line-height:1.1; font-variant-numeric:tabular-nums;">$${fmt(total)}</div>
+                        <div style="font-size:0.62rem; color:#6b7280; font-weight:600; margin-top:3px;">${list.length} deal${list.length === 1 ? '' : 's'} · ${share} of total</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    /* Notice when pipeline rows carry no Revenue Type column */
+    const allUnspecified = kpiKey === 'weightedArr' && deals.length > 0 && deals.every(d => groupKeyOf(d) === 'Unspecified');
+    const pipelineNotice = allUnspecified ? `
+        <div style="margin-bottom:16px; padding:10px 14px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; font-size:0.72rem; color:#92400E; font-weight:600; line-height:1.5;">
+            <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>
+            PIPELINE 시트에 <b>Revenue Type</b> 열이 없어 신규/기존 로고 구분이 표시되지 않습니다.
+            PIPELINE 시트에 <code>Revenue Type</code> 열(New / Upsell / Recurring)을 추가하면 자동으로 구분됩니다.
+        </div>` : '';
+
+    const valueCell = d => {
+        if (kpiKey === 'bookedTcv') return `
+            <span style="color:#0EA5E9; font-weight:800;">TCV $${fmt(d.tcv)}</span>
+            <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">ARR $${fmt(d.arr)}</span>`;
+        if (kpiKey === 'bookedArr') return `
+            <span style="color:#10B981; font-weight:800;">ARR $${fmt(d.arr)}</span>
+            <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">TCV $${fmt(d.tcv)}</span>`;
+        if (kpiKey === 'weightedArr') return `
+            <span style="color:#F59E0B; font-weight:800;">wARR $${fmt(d.wArr)}</span>
+            <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">ARR $${fmt(d.arr)}</span>`;
+        return `
+            <span style="color:#A855F7; font-weight:800;">Target $${fmt(d.targetArr)}</span>
+            <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">prev $${fmt(d.currentArr)}</span>`;
+    };
+
+    const extraHeader = kpiKey === 'weightedArr' ? '<th style="padding:9px 12px; text-align:left; font-size:0.66rem; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em;">Stage</th>'
+        : kpiKey === 'renewalArr' ? '<th style="padding:9px 12px; text-align:left; font-size:0.66rem; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em;">End Date</th>'
+        : '';
+    const extraCell = d => kpiKey === 'weightedArr'
+        ? `<td style="padding:9px 12px;">${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.62rem', padding: '2px 8px' })}</td>`
+        : kpiKey === 'renewalArr'
+            ? `<td style="padding:9px 12px; color:#6B7280; font-size:0.75rem; white-space:nowrap;">${d.endDate || ''} <span style="background:rgba(168,85,247,0.12); color:#7e22ce; font-size:0.62rem; font-weight:800; padding:1px 7px; border-radius:8px; margin-left:6px;">${d.dDay || ''}</span></td>`
+            : '';
+
+    const groupSections = visibleGroups.map(g => {
+        const list = grouped[g.key] || [];
+        const total = list.reduce((s, d) => s + metricOf(d), 0);
+        const share = grandTotal > 0 ? (total / grandTotal * 100).toFixed(1) + '%' : '—';
+        const rows = list.length === 0
+            ? `<tr><td colspan="5" style="padding:16px; text-align:center; color:#9ca3af; font-style:italic;">해당 없음 · No deals</td></tr>`
+            : list.map((d, i) => `
+                <tr style="border-bottom:1px solid #F3F4F6; background:${i % 2 === 0 ? 'transparent' : '#FAFBFF'};">
+                    <td style="padding:9px 12px; color:#94A3B8; font-family:monospace; font-weight:700; width:30px;">${String(i + 1).padStart(2, '0')}</td>
+                    <td style="padding:9px 12px; width:50px;">${qBadge(d.quarter)}</td>
+                    <td style="padding:9px 12px; color:#111827; font-weight:600;">${countryTag(d.country)}${d.name}</td>
+                    ${extraCell(d)}
+                    <td style="padding:9px 12px; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;">${valueCell(d)}</td>
+                </tr>
+            `).join('');
+        return `
+            <div style="margin-bottom:22px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:${g.bg}; border-left:4px solid ${g.fg}; border-radius:8px; margin-bottom:8px; flex-wrap:wrap;">
+                    <span style="font-size:0.78rem; font-weight:800; color:${g.fg}; letter-spacing:0.02em;"><i class="fa-solid ${g.icon}" style="margin-right:7px;"></i>${g.title}</span>
+                    <span style="font-size:0.78rem; font-weight:800; color:#111827; font-variant-numeric:tabular-nums;">$${fmt(total)} · ${list.length} deal${list.length === 1 ? '' : 's'} · ${share}</span>
+                </div>
+                <div style="overflow:auto; border:1px solid #F3F4F6; border-radius:8px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+                        <thead style="background:#F9FAFB;">
+                            <tr>
+                                <th style="padding:9px 12px; text-align:left; font-size:0.66rem; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em;">#</th>
+                                <th style="padding:9px 12px; text-align:left; font-size:0.66rem; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em;">Q</th>
+                                <th style="padding:9px 12px; text-align:left; font-size:0.66rem; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em;">Customer / Deal</th>
+                                ${extraHeader}
+                                <th style="padding:9px 12px; text-align:right; font-size:0.66rem; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.06em;">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const emptyState = deals.length === 0 ? `
+        <div style="padding:36px; text-align:center; color:#9ca3af;">
+            <i class="fa-regular fa-folder-open" style="font-size:1.6rem; margin-bottom:10px; display:block;"></i>
+            ${stats.currentYear}년 해당 데이터가 없습니다.
+            ${kpiKey === 'renewalArr' ? '<div style="margin-top:8px; font-size:0.72rem;">END USER (CSM) 시트에 <b>End License Date</b> 데이터가 있어야 갱신 대상이 집계됩니다.</div>' : ''}
+        </div>` : '';
+
+    const body = document.getElementById('qf-modal-body');
+    if (!body) return;
+
+    body.innerHTML = `
+        <div style="position:sticky; top:0; background:#fff; padding:20px 26px 16px; border-bottom:1px solid #F3F4F6; z-index:1; display:flex; align-items:center; gap:14px;">
+            <div style="background:${meta.color}1A; color:${meta.color}; width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="fa-solid ${meta.icon}" style="font-size:1.1rem;"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:0.7rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">${stats.country} · Annual Total ${stats.currentYear}</div>
+                <div style="font-size:1.15rem; font-weight:800; color:#111827; line-height:1.2;">${meta.label} — 신규/기존 로고 구분</div>
+                <div style="font-size:0.68rem; color:#9ca3af; font-weight:600; margin-top:2px;">${meta.desc}</div>
+            </div>
+            <div style="text-align:right; flex-shrink:0;">
+                <div style="font-size:0.62rem; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Total</div>
+                <div style="font-size:1.3rem; font-weight:900; color:${meta.color}; font-variant-numeric:tabular-nums;">$${fmt(grandTotal)}</div>
+            </div>
+            <button onclick="window.closeQuarterlyForecastModal()" style="background:#F3F4F6; border:none; width:36px; height:36px; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#374151; font-size:1rem;" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='#F3F4F6'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div style="padding:22px 26px 26px;">
+            ${deals.length === 0 ? emptyState : `${pipelineNotice}${summaryStrip}${groupSections}`}
+        </div>
+    `;
+    document.getElementById('qf-modal').style.display = 'flex';
 };
 
 if (typeof window !== 'undefined' && !window.__qfEscBound) {
@@ -5322,7 +5511,11 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
         });
     });
 
-    // TCV totals — sum of currency (FINANCIAL) objectives, per quarter and annual
+    // TCV totals — sum of currency (FINANCIAL) objectives, per quarter and annual.
+    // Up/cross selling targets are a subset of the Nett Base + New Revenue target
+    // (its upsell portion), so they are excluded from the target sum to avoid
+    // double counting; achievements are tracked as disjoint deals and still add up.
+    const isSubsetTarget = (objName) => /up\s*\/?\s*cross/i.test(objName || '');
     const tcvAch = [0, 0, 0, 0];
     const tcvTgt = [0, 0, 0, 0];
     kpiData.categories.forEach(cat => {
@@ -5331,7 +5524,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
             const s = objectiveStats(obj);
             for (let q = 0; q < 4; q++) {
                 tcvAch[q] += s.ach[q];
-                tcvTgt[q] += s.targets[q];
+                if (!isSubsetTarget(obj.name)) tcvTgt[q] += s.targets[q];
             }
         });
     });
