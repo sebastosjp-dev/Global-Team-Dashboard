@@ -2861,6 +2861,9 @@ const COLLECTION_STATUS_STYLE = {
     'Partial': { bg: '#fffbeb', border: '#fde68a', fg: '#b45309' },
     'Unpaid':  { bg: '#eff6ff', border: '#bfdbfe', fg: '#1d4ed8' },
     'Pending': { bg: '#f8fafc', border: '#e2e8f0', fg: '#64748b' },
+    // Derived (not sheet statuses): Overdue = unpaid past Due Date, Scheduled = unpaid, Due Date not reached yet
+    'Overdue':   { bg: '#fef2f2', border: '#fecaca', fg: '#b91c1c' },
+    'Scheduled': { bg: '#f8fafc', border: '#e2e8f0', fg: '#64748b' },
     '—':       { bg: '#F9FAFB', border: '#E5E7EB', fg: '#6B7280' }
 };
 
@@ -3108,16 +3111,30 @@ window.showCollectionDealDetail = function (encodedDeal) {
             <div style="font-size:0.78rem; color:#111827; font-weight:600; margin-top:1px;">${_escColl(value)}</div>
         </div>`;
 
-    const instRows = d.installments.map(r => `
-        <tr style="border-bottom:1px solid #f3f4f6;${r.isOutstanding ? ' background:#fffbeb;' : ''}">
+    const overdueBalance = d.installments.reduce((s, r) =>
+        s + ((r.isOutstanding && r.daysOverdue !== null && r.daysOverdue > 0) ? r.balance : 0), 0);
+
+    const instRows = d.installments.map(r => {
+        // Split outstanding rows into truly overdue (past Due Date) vs merely scheduled (not due yet)
+        const isOverdue = r.isOutstanding && r.daysOverdue !== null && r.daysOverdue > 0;
+        const isScheduled = r.isOutstanding && !isOverdue;
+        const statusCell = isOverdue
+            ? `${_collStatusPill('Overdue')}<span style="margin-left:6px; font-size:0.66rem; font-weight:800; color:#b91c1c; white-space:nowrap;">${r.daysOverdue}d</span>${r.status === 'Partial' ? `<span style="margin-left:6px;">${_collStatusPill('Partial')}</span>` : ''}`
+            : isScheduled && r.status === 'Unpaid'
+                ? _collStatusPill('Scheduled')
+                : _collStatusPill(r.status);
+        const balanceColor = isOverdue ? '#ef4444' : isScheduled ? '#64748b' : '#10b981';
+        return `
+        <tr style="border-bottom:1px solid #f3f4f6;${isOverdue ? ' background:#fef2f2;' : isScheduled ? ' background:#fffbeb;' : ''}">
             <td style="padding:8px 12px; font-size:0.74rem; color:#475569; text-align:center; font-weight:700;">${_escColl(r.installmentNo) || '—'}</td>
             <td style="padding:8px 12px; font-size:0.74rem; color:#475569;">${_escColl(r.triggerEvent) || '—'}</td>
-            <td style="padding:8px 12px; font-size:0.74rem; font-family:monospace; white-space:nowrap; color:#64748b;">${r.dueStr || '—'}</td>
+            <td style="padding:8px 12px; font-size:0.74rem; font-family:monospace; white-space:nowrap; color:${isOverdue ? '#b91c1c' : '#64748b'};${isOverdue ? ' font-weight:700;' : ''}">${r.dueStr || '—'}</td>
             <td style="padding:8px 12px; font-size:0.76rem; text-align:right; font-weight:700; color:#1e293b; white-space:nowrap;">${money(r.amountDue)}</td>
             <td style="padding:8px 12px; font-size:0.76rem; text-align:right; font-weight:700; color:#8b5cf6; white-space:nowrap;">${r.amountPaid ? money(r.amountPaid) : '—'}</td>
-            <td style="padding:8px 12px; font-size:0.76rem; text-align:right; font-weight:800; white-space:nowrap; color:${r.isOutstanding ? '#ef4444' : '#10b981'};">${money(r.balance)}</td>
-            <td style="padding:8px 12px;">${_collStatusPill(r.status)}</td>
-        </tr>`).join('');
+            <td style="padding:8px 12px; font-size:0.76rem; text-align:right; font-weight:800; white-space:nowrap; color:${balanceColor};">${money(r.balance)}</td>
+            <td style="padding:8px 12px; white-space:nowrap;">${statusCell}</td>
+        </tr>`;
+    }).join('');
 
     const fileBtn = fileUrl ? `
         <a href="${_escColl(fileUrl)}" target="_blank" rel="noopener"
@@ -3163,7 +3180,8 @@ window.showCollectionDealDetail = function (encodedDeal) {
                 <div style="display:flex; gap:18px; padding:10px 20px 14px 20px; flex-wrap:wrap; font-size:0.72rem; color:#374151;">
                     <span>Amount Due <strong style="color:#1e293b; font-size:0.95rem;">${money(d.totalDue)}</strong></span>
                     <span>Collected <strong style="color:#8b5cf6; font-size:0.95rem;">${money(d.totalPaid)}</strong></span>
-                    <span>Balance <strong style="color:${d.totalBalance > 0.5 ? '#ef4444' : '#10b981'}; font-size:0.95rem;">${money(d.totalBalance)}</strong></span>
+                    <span title="Everything not yet collected, including installments whose Due Date has not arrived">Balance <strong style="color:${d.totalBalance > 0.5 ? '#ef4444' : '#10b981'}; font-size:0.95rem;">${money(d.totalBalance)}</strong></span>
+                    <span title="Unpaid balance on installments already past their Due Date">Overdue <strong style="color:${overdueBalance > 0 ? '#b91c1c' : '#10b981'}; font-size:0.95rem;">${money(overdueBalance)}</strong></span>
                     <span style="color:#94a3b8;">${d.installments.length} scheduled payment${d.installments.length === 1 ? '' : 's'}</span>
                 </div>
                 ${notesBlock}
