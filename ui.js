@@ -2298,7 +2298,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             <span style="color: #1F2937; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
                             ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.55rem', padding: '1px 6px' })}
                             <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex-shrink:0; line-height:1;">
-                                <span style="color: #10B981; font-weight: 800; font-size:0.7rem;" title="Weighted">W $${formatCurrency(d.weighted)}</span>
+                                <span style="color: #2563eb; font-weight: 800; font-size:0.7rem;" title="TCV (total contract value)">TCV $${formatCurrency(d.amount || 0)}</span>
+                                <span style="color: #10B981; font-weight: 700; font-size:0.6rem;" title="Weighted">W $${formatCurrency(d.weighted)}</span>
                                 <span style="color: #a855f7; font-weight: 700; font-size:0.6rem;" title="ARR">ARR $${formatCurrency(d.arr || 0)}</span>
                             </span>
                         </div>`;
@@ -2315,13 +2316,16 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                     });
                     const sumW = arr => arr.reduce((s, d) => s + (d.weighted || 0), 0);
                     const sumA = arr => arr.reduce((s, d) => s + (d.arr || 0), 0);
+                    const sumT = arr => arr.reduce((s, d) => s + (d.amount || 0), 0);
                     const totalW = sumW(qData.deals);
                     const totalA = sumA(qData.deals);
+                    const totalT = sumT(qData.deals);
 
                     // Combined POC (BANT) + Trial Only — the two tagged buckets summed.
                     const comboList = [...(grouped['POC (BANT)'] || []), ...(grouped['Trial Only'] || [])];
                     const comboW = sumW(comboList);
                     const comboA = sumA(comboList);
+                    const comboT = sumT(comboList);
 
                     const groupHtml = TYPE_GROUPS
                         // Always show POC (BANT) — even at 0 — so the absence of
@@ -2338,7 +2342,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                             <span style="font-size: 0.55rem; font-weight: 800; color: ${g.fg}; background: rgba(255,255,255,0.6); padding: 1px 6px; border-radius: 8px;">${list.length}</span>
                                         </span>
                                         <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; line-height:1; flex-shrink:0;">
-                                            <span style="font-size: 0.66rem; font-weight: 800; color: ${g.fg};" title="Weighted subtotal">W $${formatCurrency(sumW(list))}</span>
+                                            <span style="font-size: 0.66rem; font-weight: 800; color: #2563eb;" title="TCV subtotal (total contract value)">TCV $${formatCurrency(sumT(list))}</span>
+                                            <span style="font-size: 0.56rem; font-weight: 700; color: ${g.fg};" title="Weighted subtotal">W $${formatCurrency(sumW(list))}</span>
                                             <span style="font-size: 0.56rem; font-weight: 700; color: #a855f7;" title="ARR subtotal">ARR $${formatCurrency(sumA(list))}</span>
                                         </span>
                                     </div>
@@ -2352,7 +2357,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">All Deals · Total</span>
                         <span style="display:flex; align-items:center; gap:6px;">
                             <span style="font-size: 0.6rem; color: #6b7280; font-weight: 700; background: rgba(99,102,241,0.1); padding: 1px 6px; border-radius: 8px;">${qData.deals.length} deals</span>
-                            <span style="font-size: 0.66rem; color: #10B981; font-weight: 800;" title="Total weighted">W $${formatCurrency(totalW)}</span>
+                            <span style="font-size: 0.66rem; color: #2563eb; font-weight: 800;" title="Total TCV (total contract value)">TCV $${formatCurrency(totalT)}</span>
+                            <span style="font-size: 0.6rem; color: #10B981; font-weight: 700;" title="Total weighted">W $${formatCurrency(totalW)}</span>
                             <span style="font-size: 0.6rem; color: #a855f7; font-weight: 700;" title="Total ARR">ARR $${formatCurrency(totalA)}</span>
                         </span>
                     </div>
@@ -2363,7 +2369,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             <span style="font-size: 0.55rem; font-weight: 800; color: #475569; background: rgba(255,255,255,0.7); padding: 1px 6px; border-radius: 8px;">${comboList.length}</span>
                         </span>
                         <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; line-height:1; flex-shrink:0;">
-                            <span style="font-size: 0.66rem; font-weight: 800; color: #0f766e;" title="POC + Trial weighted">W $${formatCurrency(comboW)}</span>
+                            <span style="font-size: 0.66rem; font-weight: 800; color: #2563eb;" title="POC + Trial TCV (total contract value)">TCV $${formatCurrency(comboT)}</span>
+                            <span style="font-size: 0.56rem; font-weight: 700; color: #0f766e;" title="POC + Trial weighted">W $${formatCurrency(comboW)}</span>
                             <span style="font-size: 0.56rem; font-weight: 700; color: #a855f7;" title="POC + Trial ARR">ARR $${formatCurrency(comboA)}</span>
                         </span>
                     </div>
