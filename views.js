@@ -94,7 +94,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     }
 
     if (tabName === 'EVENT' && workbookData['EVENT']) {
-        _renderEvent(workbookData['EVENT'], filterCountry, metricsGrid);
+        _renderEvent(workbookData, filterCountry, metricsGrid);
         hasMetrics = true;
     }
 
@@ -254,6 +254,8 @@ function _renderPartner(data, filterCountry, tabName, metricsGrid, workbookData,
     if (!data || data.length === 0) return;
     window.partnerFilters = window.partnerFilters || { year: 'all' };
     const stats = getPartnerStats(data, filterCountry, workbookData, window.partnerFilters.year);
+    // Stash for the Active Partners / Open Pipeline / Tier / Ownership modals in ui.js
+    window.__partnerStats = stats;
     const container = document.createElement('div');
     container.style.gridColumn = '1 / -1';
     container.innerHTML = getPartnerHTML(stats, filterCountry, tabName);
@@ -740,9 +742,13 @@ function _renderTaskDashboard(taskData, filterCountry, metricsGrid, workbookData
     renderAll();
 }
 
-function _renderEvent(eventData, filterCountry, metricsGrid) {
-    const stats = getEventStats(eventData, filterCountry);
+function _renderEvent(workbookData, filterCountry, metricsGrid) {
+    // CONVERSION LOG backs the funnel/revenue views; tolerate naming variants.
+    const convSheet = Object.keys(workbookData).find(k => k.trim().toUpperCase() === 'CONVERSION LOG')
+        || Object.keys(workbookData).find(k => /conversion/i.test(k));
+    const stats = getEventStats(workbookData['EVENT'], convSheet ? workbookData[convSheet] : [], filterCountry);
     if (!stats) return;
+    window.__eventStats = stats;
     const eventHeader = document.createElement('div');
     eventHeader.style.gridColumn = '1 / -1';
     eventHeader.style.marginBottom = '25px';

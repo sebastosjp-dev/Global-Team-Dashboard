@@ -710,6 +710,152 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
     }
     const revenuePartnersArr = Object.values(revenueByPartner);
 
+    /* ── Activation status (PARTNER sheet "Activation Status") ── */
+    const activationKey = findKey(pKeys, k => k.toLowerCase().includes('activation'));
+    const accTcvKey = findKey(pKeys, k => {
+        const l = k.toLowerCase();
+        return l.includes('accumulated') && l.includes('tcv') && !l.includes('number');
+    });
+
+    // Same deduped population the country tiles count.
+    const dedupedPartnerRows = Object.values(partnerGroups).flat();
+    const activePartners = dedupedPartnerRows
+        .filter(r => activationKey && String(r[activationKey]).trim().toLowerCase() === 'active')
+        .map(r => ({
+            name: normalizePartnerName(r[pNameKey]),
+            country: normalizeCountry(r[pCountryKey]) || '',
+            tcv: accTcvKey ? parseCurrency(r[accTcvKey]) : 0
+        }))
+        .sort((a, b) => b.tcv - a.tcv);
+
+    /* ── Open pipeline: PIPELINE weighted KOR TCV in open stages ── */
+    const OPEN_STAGES = new Set(['discovery', 'quotation', 'negotiation', 'poc']);
+    const pipelineRows = ((workbookData && workbookData['PIPELINE']) || [])
+        .filter(r => isCountryMatch(r, filterCountry));
+    let plStageKey, plWeightedKey, plPartnerKey, plDealNameKey, plCloseKey, plTechKey, plSalesKey;
+    if (pipelineRows.length > 0) {
+        const plKeys = Object.keys(pipelineRows[0]);
+        plStageKey    = findKey(plKeys, k => k.toLowerCase().includes('deal stage'), k => k.toLowerCase() === 'stage');
+        plWeightedKey = findKey(plKeys, k => { const u = k.toUpperCase(); return u.includes('WEIGHTED') && u.includes('KOR TCV'); });
+        plPartnerKey  = findKey(plKeys, k => k.toLowerCase() === 'partner', k => k.toLowerCase().includes('partner'));
+        plDealNameKey = findKey(plKeys, k => k.toLowerCase().includes('deal name'));
+        plCloseKey    = findKey(plKeys, k => k.toLowerCase().includes('close date'), k => k.toLowerCase().includes('close'));
+        plTechKey     = findKey(plKeys, k => k.toLowerCase().includes('technical ownership'));
+        plSalesKey    = findKey(plKeys, k => {
+            const l = k.toLowerCase();
+            return l.includes('ownership') && (l.includes('sales') || l.includes('prospect'));
+        });
+    }
+
+    const openPipeByName = {};
+    let openPipelineTotal = 0;
+    let openPipelineDeals = 0;
+    pipelineRows.forEach(r => {
+        const stage = plStageKey ? String(r[plStageKey]).trim().toLowerCase() : '';
+        if (!OPEN_STAGES.has(stage)) return;
+        const w = plWeightedKey ? parseCurrency(r[plWeightedKey]) : 0;
+        const pName = normalizePartnerName(plPartnerKey ? r[plPartnerKey] : '');
+        const key = pName.toLowerCase();
+        if (!openPipeByName[key]) openPipeByName[key] = { name: pName, total: 0, count: 0 };
+        openPipeByName[key].total += w;
+        openPipeByName[key].count += 1;
+        openPipelineTotal += w;
+        openPipelineDeals += 1;
+    });
+
+    /* ── Partner tiers from Accumulated TCV percentiles ──
+       Gold ≥ p80, Silver ≥ p20, Bronze > 0, Not Activated = 0.
+       Percentiles run over revenue-producing partners only, on the FULL
+       PARTNER sheet, so a partner's tier never shifts with the country filter. */
+    const tierSourceRows = (workbookData && workbookData['PARTNER'] && workbookData['PARTNER'].length > 0)
+        ? workbookData['PARTNER'] : data;
+    const tKeys = Object.keys(tierSourceRows[0] || {});
+    const tNameKey = findKey(tKeys, k => k.toLowerCase().includes('company'), k => k.toLowerCase().includes('name')) || tKeys[0];
+    const tCountryKey = findCountryKey(tKeys);
+    const tActivationKey = findKey(tKeys, k => k.toLowerCase().includes('activation'));
+    const tAccTcvKey = findKey(tKeys, k => {
+        const l = k.toLowerCase();
+        return l.includes('accumulated') && l.includes('tcv') && !l.includes('number');
+    });
+
+    const tierSeen = new Set();
+    const tierEntries = [];
+    tierSourceRows.forEach(r => {
+        const name = normalizePartnerName(r[tNameKey]);
+        const key = name.toLowerCase();
+        if (key === 'direct' || tierSeen.has(key)) return;
+        tierSeen.add(key);
+        tierEntries.push({
+            name,
+            key,
+            country: tCountryKey ? (normalizeCountry(r[tCountryKey]) || '') : '',
+            tcv: tAccTcvKey ? parseCurrency(r[tAccTcvKey]) : 0,
+            status: tActivationKey ? String(r[tActivationKey]).trim() : ''
+        });
+    });
+    const producingTcvs = tierEntries.filter(e => e.tcv > 0).map(e => e.tcv).sort((a, b) => a - b);
+    const percentileInc = (p) => {
+        if (producingTcvs.length === 0) return 0;
+        const idx = (producingTcvs.length - 1) * p;
+        const lo = Math.floor(idx), hi = Math.ceil(idx);
+        return producingTcvs[lo] + (producingTcvs[hi] - producingTcvs[lo]) * (idx - lo);
+    };
+    const tierP80 = percentileInc(0.8);
+    const tierP20 = percentileInc(0.2);
+    const tierOf = (tcv) => tcv <= 0 ? 'Not Activated' : tcv >= tierP80 ? 'Gold' : tcv >= tierP20 ? 'Silver' : 'Bronze';
+    const tierByName = {};
+    tierEntries.forEach(e => { e.tier = tierOf(e.tcv); tierByName[e.key] = e.tier; });
+
+    const tierInScope = (e) => !filterCountry || filterCountry === 'All' || e.country === filterCountry;
+    const tierMembers = { 'Gold': [], 'Silver': [], 'Bronze': [], 'Not Activated': [] };
+    tierEntries.filter(tierInScope).forEach(e => tierMembers[e.tier].push(e));
+    Object.values(tierMembers).forEach(list => list.sort((a, b) => b.tcv - a.tcv));
+
+    /* ── Sales & Technical Ownership splits from tagged PIPELINE deals ── */
+    const normalizeOwner = (raw) => {
+        const l = String(raw == null ? '' : raw).trim().toLowerCase();
+        if (!l) return null;
+        if (l.includes('whatap')) return 'WhaTap';
+        if (l.includes('shared') || l.includes('joint')) return 'Shared';
+        if (l.includes('partner')) return 'Partner';
+        return null;
+    };
+    const ownershipByPartner = {};
+    pipelineRows.forEach(r => {
+        const techRaw = plTechKey ? String(r[plTechKey]).trim() : '';
+        const salesRaw = plSalesKey ? String(r[plSalesKey]).trim() : '';
+        if (!techRaw && !salesRaw) return;
+        const pName = normalizePartnerName(plPartnerKey ? r[plPartnerKey] : '');
+        const key = pName.toLowerCase();
+        if (key === 'direct') return; // ownership split only meaningful for partner deals
+        if (!ownershipByPartner[key]) ownershipByPartner[key] = {
+            name: pName,
+            taggedCount: 0,
+            tech:  { 'Partner': 0, 'Shared': 0, 'WhaTap': 0, total: 0 },
+            sales: { 'Partner': 0, 'Shared': 0, 'WhaTap': 0, total: 0 },
+            deals: []
+        };
+        const e = ownershipByPartner[key];
+        e.taggedCount += 1;
+        const tOwn = normalizeOwner(techRaw);
+        const sOwn = normalizeOwner(salesRaw);
+        if (tOwn) { e.tech[tOwn] += 1; e.tech.total += 1; }
+        if (sOwn) { e.sales[sOwn] += 1; e.sales.total += 1; }
+        const closeD = plCloseKey ? parseExcelDateSafe(r[plCloseKey]) : null;
+        e.deals.push({
+            name: (plDealNameKey && String(r[plDealNameKey] || '').trim()) || '(unnamed)',
+            stage: plStageKey ? String(r[plStageKey]).trim() : '',
+            weighted: plWeightedKey ? parseCurrency(r[plWeightedKey]) : 0,
+            closeDate: closeD
+                ? `${closeD.getFullYear()}-${String(closeD.getMonth() + 1).padStart(2, '0')}-${String(closeD.getDate()).padStart(2, '0')}`
+                : '',
+            tech: techRaw || '—',
+            sales: salesRaw || '—'
+        });
+    });
+    const ownershipPartners = Object.values(ownershipByPartner)
+        .sort((a, b) => b.taggedCount - a.taggedCount || a.name.localeCompare(b.name));
+
     return {
         counts,
         partnerGroups,
@@ -724,7 +870,31 @@ export function getPartnerStats(data, filterCountry, workbookData, partnerYearFi
         pNameKey,
         partnerYearFilter: yearFilter,
         currentYear,
-        previousYear: currentYear - 1
+        previousYear: currentYear - 1,
+        activation: {
+            key: activationKey || null,
+            active: activePartners.length,
+            total: dedupedPartnerRows.length,
+            pct: dedupedPartnerRows.length > 0 ? Math.round(activePartners.length / dedupedPartnerRows.length * 100) : 0,
+            activeList: activePartners
+        },
+        openPipeline: {
+            total: openPipelineTotal,
+            dealCount: openPipelineDeals,
+            partners: Object.values(openPipeByName).sort((a, b) => b.total - a.total)
+        },
+        openPipeByName,
+        tiers: {
+            p80: tierP80,
+            p20: tierP20,
+            producingCount: producingTcvs.length,
+            members: tierMembers
+        },
+        tierByName,
+        ownership: {
+            partners: ownershipPartners,
+            hasColumns: !!(plTechKey || plSalesKey)
+        }
     };
 }
 
@@ -1501,55 +1671,183 @@ export function getProjectStats(data, filters = {}, pocSheetData = [], orderShee
    ═══════════════════════════════════════════════════════════════ */
 
 /**
- * @param {Object[]} eventData
+ * Customer-journey funnel stages, mapped to CONVERSION LOG "Conversion Type".
+ * Order matters: rendered sequentially (MQL → SQL → Opportunity → Customer).
+ */
+export const EVENT_FUNNEL_STAGES = [
+    { stage: 'MQL',         type: 'Interest Expressed', match: s => s.includes('interest') },
+    { stage: 'SQL',         type: 'Meeting/Demo',       match: s => s.includes('meeting') || s.includes('demo') },
+    { stage: 'Opportunity', type: 'POC Started',        match: s => s.includes('poc') },
+    { stage: 'Customer',    type: 'Deal Won',           match: s => s.includes('won') }
+];
+
+/** Normalize a raw Conversion Type cell into one of the canonical funnel types (or null). */
+function _normalizeConversionType(raw) {
+    const s = String(raw || '').trim().toLowerCase();
+    if (!s) return null;
+    const hit = EVENT_FUNNEL_STAGES.find(f => f.match(s));
+    return hit ? hit.type : null;
+}
+
+/**
+ * EVENT + CONVERSION LOG combined stats.
+ *
+ * CONVERSION LOG holds one row per lead touch, tagged with a Conversion Type
+ * funnel stage. Revenue from closed deals is pre-split in the sheet across
+ * every touch that helped close it (Credit Weight → Weighted Generated
+ * Amount), so revenue attribution here is a straight SUM of that column.
+ *
+ * The country filter applies to EVENT rows directly; conversion rows are
+ * filtered through their Campaign/Source → EVENT country lookup (rows whose
+ * source is not an EVENT row only appear under "All").
+ *
+ * @param {Object[]} eventData - EVENT sheet rows
+ * @param {Object[]} conversionData - CONVERSION LOG sheet rows
  * @param {string|null} filterCountry
  * @returns {Object|null}
  */
-export function getEventStats(eventData, filterCountry) {
-    const filteredEvents = eventData.filter(row => {
-        // 국가 필터가 적용된 경우에만 필터링하고, 빈 행은 제외합니다.
-        if (filterCountry && !isCountryMatch(row, filterCountry)) return false;
-        if (Object.values(row).every(v => v === null || v === "")) return false;
-        return true;
+export function getEventStats(eventData, conversionData, filterCountry) {
+    conversionData = conversionData || [];
+    const nonEmpty = (eventData || []).filter(row => !Object.values(row).every(v => v === null || v === ""));
+    if (nonEmpty.length === 0 && conversionData.length === 0) return null;
+
+    /* ── EVENT sheet parsing ── */
+    const evKeys = nonEmpty.length ? Object.keys(nonEmpty[0]) : [];
+    const lk = k => k.trim().toLowerCase();
+    const evSpendKey = findKey(evKeys, k => lk(k).includes('spending') && lk(k).includes('usd'), k => lk(k).includes('spending'), k => lk(k).includes('usd'));
+    const evCatKey   = findKey(evKeys, k => lk(k).includes('categor'));
+    const evDateKey  = findKey(evKeys, k => lk(k).includes('event date'), k => lk(k).includes('date'));
+    const evNameKey  = findKey(evKeys, k => lk(k) === 'event name', k => lk(k).includes('event name'), k => lk(k).includes('name'));
+
+    const allEvents = nonEmpty.map(row => {
+        const dateObj = evDateKey ? parseExcelDateSafe(row[evDateKey]) : null;
+        return {
+            name: evNameKey ? String(row[evNameKey] || 'Unnamed').trim() : 'Unnamed',
+            category: evCatKey ? (String(row[evCatKey] || '').trim() || 'Uncategorized') : 'Uncategorized',
+            date: dateObj,
+            dateStr: dateObj ? dateObj.toISOString().split('T')[0] : String(row[evDateKey] || ''),
+            monthKey: dateObj ? dateObj.toISOString().substring(0, 7) : 'Unknown',
+            spend: evSpendKey ? parseCurrency(row[evSpendKey]) : 0,
+            country: normalizeCountry(row['Country'] || row['country']),
+            inFilter: isCountryMatch(row, filterCountry)
+        };
+    });
+    const events = allEvents.filter(e => e.inFilter);
+
+    // Source lookup for conversion rows (built from ALL events so country
+    // filtering of conversions goes through the event's own country).
+    const eventByName = {};
+    allEvents.forEach(e => { if (e.name) eventByName[e.name.toLowerCase()] = e; });
+
+    /* ── CONVERSION LOG parsing (headers may carry stray padding) ── */
+    const clKeys = conversionData.length ? Object.keys(conversionData[0]) : [];
+    const ck = pred => findKey(clKeys, k => pred(lk(k)));
+    const cSourceKey  = ck(s => s.includes('campaign') || s.includes('source'));
+    const cLeadKey    = ck(s => s.includes('lead person')) || ck(s => s.includes('lead'));
+    const cTypeKey    = ck(s => s.includes('conversion type'));
+    const cCrmKey     = ck(s => s.includes('crm deal')) || ck(s => s.includes('deal name'));
+    const cEndUserKey = ck(s => s.includes('end user'));
+    const cDealAmtKey = ck(s => s.includes('deal amount'));
+    const cStageKey   = ck(s => s.includes('stage date')) || ck(s => s.includes('date'));
+    const cWeightKey  = ck(s => s.includes('weighted'));
+    const cEvSpendKey = ck(s => s.includes('event spending'));
+
+    const touches = conversionData.map(row => {
+        const source = cSourceKey ? String(row[cSourceKey] || '').trim() : '';
+        const type = _normalizeConversionType(cTypeKey ? row[cTypeKey] : '');
+        if (!source && !type) return null;
+        const dateObj = cStageKey ? parseExcelDateSafe(row[cStageKey]) : null;
+        return {
+            source,
+            leadPerson: cLeadKey ? String(row[cLeadKey] || '').trim() : '',
+            type,
+            crmDeal: cCrmKey ? String(row[cCrmKey] || '').trim() : '',
+            endUser: cEndUserKey ? String(row[cEndUserKey] || '').trim() : '',
+            dealAmount: cDealAmtKey ? parseCurrency(row[cDealAmtKey]) : 0,
+            weighted: cWeightKey ? parseCurrency(row[cWeightKey]) : 0,
+            eventSpending: cEvSpendKey ? parseCurrency(row[cEvSpendKey]) : 0,
+            date: dateObj,
+            dateStr: dateObj ? dateObj.toISOString().split('T')[0] : String((cStageKey && row[cStageKey]) || ''),
+            event: eventByName[source.toLowerCase()] || null
+        };
+    }).filter(t => t && (!filterCountry || filterCountry === 'All' || (t.event && t.event.inFilter)));
+
+    if (events.length === 0 && touches.length === 0) return null;
+
+    /* ── VIEW 1: headline tiles ── */
+    const totalSpend = events.reduce((s, e) => s + e.spend, 0);
+    const wonTouches = touches.filter(t => t.type === 'Deal Won');
+    const revenueGenerated = wonTouches.reduce((s, t) => s + t.weighted, 0);
+    const totalWeighted = touches.reduce((s, t) => s + t.weighted, 0);
+    const pocTouches = touches.filter(t => t.type === 'POC Started');
+
+    /* ── VIEW 2: customer journey funnel ── */
+    const funnel = EVENT_FUNNEL_STAGES.map(f => {
+        const rows = touches.filter(t => t.type === f.type)
+            .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+        return { stage: f.stage, type: f.type, count: rows.length, rows };
     });
 
-    if (filteredEvents.length === 0) return null;
+    /* ── VIEW 3: source leaderboard ── */
+    const bySource = {};
+    touches.forEach(t => {
+        if (!t.source) return;
+        if (!bySource[t.source]) bySource[t.source] = { source: t.source, revenue: 0, clSpend: 0, touches: [] };
+        bySource[t.source].revenue += t.weighted;
+        bySource[t.source].clSpend = Math.max(bySource[t.source].clSpend, t.eventSpending);
+        bySource[t.source].touches.push(t);
+    });
+    const leaderboard = Object.values(bySource).map(g => {
+        const ev = eventByName[g.source.toLowerCase()];
+        const spend = ev && ev.spend > 0 ? ev.spend : g.clSpend;
+        g.touches.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+        return { source: g.source, spend, revenue: g.revenue, ret: spend > 0 ? g.revenue / spend : null, touches: g.touches };
+    }).sort((a, b) => b.revenue - a.revenue || b.spend - a.spend);
 
-    const sampleKeys = Object.keys(filteredEvents[0]);
-    const sKey = findKey(sampleKeys, k => k.toLowerCase().includes('spending') && k.toLowerCase().includes('usd'), k => k.toLowerCase().includes('spending')) || sampleKeys.find(k => k.toLowerCase().includes('usd'));
-    const pKey = findKey(sampleKeys, k => k.toLowerCase().includes('poc') && k.toLowerCase().includes('generated'));
-    const dKey = findKey(sampleKeys, k => k.toLowerCase().includes('deal') && (k.toLowerCase().includes('converted') || k.toLowerCase().includes('closed')));
+    /* ── VIEW 4: spend by category ── */
+    const byCategory = {};
+    events.forEach(e => {
+        if (!byCategory[e.category]) byCategory[e.category] = { category: e.category, spend: 0, events: [] };
+        byCategory[e.category].spend += e.spend;
+        byCategory[e.category].events.push(e);
+    });
+    const categories = Object.values(byCategory).sort((a, b) => b.spend - a.spend);
+    categories.forEach(c => c.events.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)));
 
-    const dateKey = findKey(sampleKeys, k => k.toLowerCase().includes('date')) || sampleKeys[0];
-    const nKey = findKey(sampleKeys, k => k.toLowerCase() === 'event name', k => k.toLowerCase().includes('name')) || findKey(sampleKeys, k => k.toLowerCase().includes('event')) || sampleKeys[1];
-
-    let totalSpending = 0, totalPOC = 0, totalDeals = 0;
-    const comparisonData = filteredEvents.reduce((acc, row) => {
-        const spend = sKey ? parseCurrency(row[sKey]) : 0;
-        if (spend <= 0) return acc;
-
-        const pocs = pKey ? (parseInt(row[pKey]) || 0) : 0;
-        const deals = dKey ? (parseInt(row[dKey]) || 0) : 0;
-
-        let eventName = nKey ? String(row[nKey] || 'Unnamed').trim() : 'Unnamed';
-        let dateVal = row[dateKey];
-        let dateObj = parseExcelDateSafe(dateVal);
-        let dateStr = dateObj ? dateObj.toISOString().split('T')[0].substring(0, 7) : String(dateVal || 'Unknown Date');
-
-        totalSpending += spend;
-        totalPOC += pocs;
-        totalDeals += deals;
-
-        acc.push({ name: dateStr, eventName, spend, pocs, deals });
-        return acc;
-    }, []);
+    /* ── VIEW 5: monthly spend trend ── */
+    const byMonth = {};
+    events.forEach(e => {
+        if (!byMonth[e.monthKey]) byMonth[e.monthKey] = { monthKey: e.monthKey, spend: 0, events: [] };
+        byMonth[e.monthKey].spend += e.spend;
+        byMonth[e.monthKey].events.push(e);
+    });
+    const months = Object.values(byMonth).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+    months.forEach(m => {
+        m.label = m.monthKey === 'Unknown' ? 'Unknown'
+            : new Date(m.monthKey + '-15T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+        m.events.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+    });
 
     return {
-        totalSpending, totalPOC, totalDeals,
-        eventCount: filteredEvents.length,
-        comparisonData,
-        costPerPOC: totalPOC > 0 ? (totalSpending / totalPOC) : 0,
-        costPerDeal: totalDeals > 0 ? (totalSpending / totalDeals) : 0
+        // headline tiles
+        totalSpend,
+        revenueGenerated,
+        returnPerDollar: totalSpend > 0 ? totalWeighted / totalSpend : null,
+        totalWeighted,
+        costPerPOC: pocTouches.length > 0 ? totalSpend / pocTouches.length : null,
+        pocCount: pocTouches.length,
+        eventCount: events.length,
+        touchCount: touches.length,
+        // funnel / leaderboard / charts
+        funnel,
+        leaderboard,
+        categories,
+        months,
+        // drill-down datasets
+        allEvents: [...events].sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)),
+        closedDeals: wonTouches.slice().sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)),
+        pocRows: pocTouches.slice().sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)),
+        hasConversions: touches.length > 0
     };
 }
 

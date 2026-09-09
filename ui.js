@@ -35,6 +35,28 @@ function renderStageBadge(stage, opts = {}) {
     return `<span style="display:inline-block; background:${t.bg}; color:${t.fg}; border:1px solid ${t.border}; font-size:${fontSize}; font-weight:800; padding:${padding}; border-radius:8px; text-transform:uppercase; letter-spacing:0.04em; line-height:1.2; white-space:nowrap;">${stage || 'Unknown'}</span>`;
 }
 
+/* Partner tier badges — Gold ≥ p80 / Silver ≥ p20 / Bronze > 0 of Accumulated TCV
+   among revenue-producing partners; Not Activated = no accumulated revenue. */
+const PARTNER_TIER_THEME = {
+    'Gold':          { bg: '#fef3c7', fg: '#92400e', border: '#fcd34d', icon: 'fa-medal' },
+    'Silver':        { bg: '#f1f5f9', fg: '#475569', border: '#cbd5e1', icon: 'fa-medal' },
+    'Bronze':        { bg: '#ffedd5', fg: '#9a3412', border: '#fdba74', icon: 'fa-medal' },
+    'Not Activated': { bg: '#f3f4f6', fg: '#9ca3af', border: '#e5e7eb', icon: 'fa-circle-pause' }
+};
+function renderPartnerTierBadge(tier, opts = {}) {
+    const t = PARTNER_TIER_THEME[tier];
+    if (!t) return '<span style="color:#d1d5db; font-size:0.7rem;">—</span>';
+    const fontSize = opts.fontSize || '0.62rem';
+    return `<span style="display:inline-flex; align-items:center; gap:4px; background:${t.bg}; color:${t.fg}; border:1px solid ${t.border}; font-size:${fontSize}; font-weight:800; padding:2px 8px; border-radius:999px; letter-spacing:0.03em; line-height:1.2; white-space:nowrap;"><i class="fa-solid ${t.icon}" style="font-size:0.58rem;"></i>${tier}</span>`;
+}
+
+/* Ownership split segments — fixed order and hues (never reassigned per row). */
+const OWNERSHIP_SEGMENTS = [
+    { key: 'Partner', label: 'Partner-led', color: '#1baf7a' },
+    { key: 'Shared',  label: 'Shared',      color: '#eda100' },
+    { key: 'WhaTap',  label: 'WhaTap-led',  color: '#2a78d6' }
+];
+
 // Globally expose tooltip functions
 window.showQuarterTooltip = function (event, element) {
     const tooltip = document.getElementById('pipeline-quarter-tooltip');
@@ -3721,6 +3743,190 @@ export function getCollectionChangeLogHTML(scope, history, rowDiffs = []) {
     `;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   Partner KPI drill-down modals (Active Partners / Open Pipeline /
+   Tier lists / Ownership deal lists). Reads window.__partnerStats,
+   stashed by views.js _renderPartner.
+   ══════════════════════════════════════════════════════════════════ */
+
+window.closePartnerKpiModal = function () {
+    const overlay = document.getElementById('partner-kpi-modal');
+    if (overlay) overlay.remove();
+    document.removeEventListener('keydown', window.__partnerKpiModalEsc);
+};
+
+function _openPartnerModal(cfg) {
+    window.closePartnerKpiModal();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'partner-kpi-modal';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:9990; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(2px);';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closePartnerKpiModal(); });
+
+    overlay.innerHTML = `
+        <div style="background:#ffffff; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.28); width:min(880px,100%); max-height:88vh; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid #eef2f7; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="width:34px; height:34px; flex-shrink:0; border-radius:10px; background:${cfg.accent}26; color:${cfg.accent}; display:flex; align-items:center; justify-content:center;"><i class="${cfg.icon}"></i></div>
+                    <div style="min-width:0;">
+                        <div style="font-size:0.62rem; color:${cfg.accent}; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">Partner · ${cfg.title}</div>
+                        <div style="font-size:1.15rem; font-weight:800; color:#111827; margin-top:2px;">${cfg.headline}</div>
+                    </div>
+                </div>
+                <button onclick="closePartnerKpiModal()" style="border:none; background:#eef2f7; color:#475569; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem; flex-shrink:0;" title="Close (Esc)"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="overflow:auto;">
+                <p style="margin:12px 20px 10px 20px; font-size:0.72rem; color:#94a3b8;">${cfg.desc}</p>
+                <div style="padding:0 20px 20px 20px;">
+                    ${!cfg.rows
+                        ? `<div style="padding:24px; text-align:center; color:#94a3b8; font-size:0.78rem; font-style:italic;">${cfg.empty}</div>`
+                        : `<table style="width:100%; border-collapse:collapse; min-width:620px;">
+                            <thead style="background:#f9fafb; position:sticky; top:0; z-index:1;"><tr>${cfg.head}</tr></thead>
+                            <tbody>${cfg.rows}</tbody>
+                            ${cfg.foot ? `<tfoot><tr style="border-top:2px solid #e5e7eb; background:#f8fafc;">${cfg.foot}</tr></tfoot>` : ''}
+                        </table>`}
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    window.__partnerKpiModalEsc = function (e) { if (e.key === 'Escape') window.closePartnerKpiModal(); };
+    document.addEventListener('keydown', window.__partnerKpiModalEsc);
+}
+
+const _pmTh = (label, align = 'left') => `<th style="padding:9px 12px; text-align:${align}; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap;">${label}</th>`;
+const _pmTd = (html, align = 'left', extra = '') => `<td style="padding:8px 12px; font-size:0.74rem; color:#475569; text-align:${align};${extra}">${html}</td>`;
+const _pmNoTd = (i) => _pmTd(String(i + 1), 'center', ' color:#94a3b8; font-weight:700; font-family:monospace;');
+const _pmFoot = (html, align = 'right') => `<td style="padding:9px 12px; font-size:0.76rem; font-weight:800; color:#111827; text-align:${align}; white-space:nowrap;">${html}</td>`;
+const _pmRowStyle = 'border-bottom:1px solid #f3f4f6;';
+
+window.showPartnerKpiDetail = function (kind) {
+    const stats = window.__partnerStats;
+    if (!stats) return;
+    const money = (v) => '$' + formatCurrency(v);
+    const openPipeByName = stats.openPipeByName || {};
+    const opCell = (name) => {
+        const op = openPipeByName[String(name).toLowerCase()];
+        return _pmTd(op && op.total > 0 ? money(op.total) : '—', 'right', ` font-weight:700; white-space:nowrap; color:${op && op.total > 0 ? '#0369a1' : '#d1d5db'};`);
+    };
+
+    let cfg;
+    if (kind === 'active') {
+        const act = stats.activation || { active: 0, total: 0, pct: 0, activeList: [] };
+        const list = act.activeList || [];
+        cfg = {
+            icon: 'fa-solid fa-bolt', accent: '#6366f1',
+            title: 'Active Partners', headline: `${act.active} of ${act.total} (${act.pct}%)`,
+            desc: 'Partners whose Activation Status is "Active" on the PARTNER sheet · sorted by Accumulated TCV · Open Pipeline = weighted KOR TCV (USD) in Discovery / Quotation / Negotiation / PoC',
+            head: _pmTh('No.', 'center') + _pmTh('Partner') + _pmTh('Country') + _pmTh('Tier', 'center') + _pmTh('Accumulated TCV', 'right') + _pmTh('Open Pipeline', 'right'),
+            rows: list.map((p, i) => `<tr style="${_pmRowStyle}">${
+                _pmNoTd(i) +
+                _pmTd(_escColl(p.name), 'left', ' font-weight:700; color:#1e293b;') +
+                _pmTd(_escColl(p.country || '—')) +
+                _pmTd(renderPartnerTierBadge((stats.tierByName || {})[String(p.name).toLowerCase()]), 'center') +
+                _pmTd(money(p.tcv), 'right', ' font-weight:700; color:#1e293b; white-space:nowrap;') +
+                opCell(p.name)
+            }</tr>`).join(''),
+            foot: _pmFoot('Total', 'left') + _pmFoot('', 'left') + _pmFoot('', 'left') + _pmFoot('', 'left') + _pmFoot(money(list.reduce((s, p) => s + p.tcv, 0))) + _pmFoot(''),
+            empty: 'No partners are marked "Active" yet.'
+        };
+    } else if (kind === 'openPipeline') {
+        const openPipe = stats.openPipeline || { total: 0, dealCount: 0, partners: [] };
+        const list = (openPipe.partners || []).filter(p => p.total > 0);
+        cfg = {
+            icon: 'fa-solid fa-filter-circle-dollar', accent: '#0ea5e9',
+            title: 'Total Open Pipeline', headline: `US$ ${formatCurrency(openPipe.total)}`,
+            desc: `Weighted KOR TCV (USD) of PIPELINE deals in Discovery / Quotation / Negotiation / PoC · ${openPipe.dealCount} open deals · grouped by partner, largest first`,
+            head: _pmTh('No.', 'center') + _pmTh('Partner') + _pmTh('Tier', 'center') + _pmTh('Open Deals', 'center') + _pmTh('Weighted Open Pipeline', 'right'),
+            rows: list.map((p, i) => `<tr style="${_pmRowStyle}">${
+                _pmNoTd(i) +
+                _pmTd(p.name.toLowerCase() === 'direct' ? 'Direct (no partner)' : _escColl(p.name), 'left', ' font-weight:700; color:#1e293b;') +
+                _pmTd(p.name.toLowerCase() === 'direct' ? '—' : renderPartnerTierBadge((stats.tierByName || {})[String(p.name).toLowerCase()]), 'center') +
+                _pmTd(String(p.count), 'center') +
+                _pmTd(money(p.total), 'right', ' font-weight:800; color:#0369a1; white-space:nowrap;')
+            }</tr>`).join(''),
+            foot: _pmFoot('Total', 'left') + _pmFoot('', 'left') + _pmFoot('', 'left') + _pmFoot(String(openPipe.dealCount), 'center') + _pmFoot(money(openPipe.total)),
+            empty: 'No open pipeline right now.'
+        };
+    } else if (kind.indexOf('tier:') === 0) {
+        const tier = kind.slice('tier:'.length);
+        const theme = PARTNER_TIER_THEME[tier];
+        const tiers = stats.tiers;
+        if (!theme || !tiers) return;
+        const list = tiers.members[tier] || [];
+        const descByTier = {
+            'Gold': `Accumulated TCV at or above the 80th percentile (≥ $${formatCurrency(tiers.p80)}) among revenue-producing partners`,
+            'Silver': `Accumulated TCV at or above the 20th percentile (≥ $${formatCurrency(tiers.p20)}) among revenue-producing partners`,
+            'Bronze': `Accumulated TCV below the 20th percentile ($${formatCurrency(tiers.p20)}) but greater than zero`,
+            'Not Activated': 'No accumulated revenue yet (Accumulated TCV = 0)'
+        };
+        cfg = {
+            icon: `fa-solid ${theme.icon}`, accent: theme.fg,
+            title: `${tier} Tier`, headline: `${list.length} partner${list.length === 1 ? '' : 's'}`,
+            desc: `${descByTier[tier]} · sorted by Accumulated TCV`,
+            head: _pmTh('No.', 'center') + _pmTh('Partner') + _pmTh('Country') + _pmTh('Status', 'center') + _pmTh('Accumulated TCV', 'right') + _pmTh('Open Pipeline', 'right'),
+            rows: list.map((p, i) => `<tr style="${_pmRowStyle}">${
+                _pmNoTd(i) +
+                _pmTd(_escColl(p.name), 'left', ' font-weight:700; color:#1e293b;') +
+                _pmTd(_escColl(p.country || '—')) +
+                _pmTd(_escColl(p.status || '—'), 'center', ` font-weight:600; color:${String(p.status).trim().toLowerCase() === 'active' ? '#059669' : '#94a3b8'};`) +
+                _pmTd(money(p.tcv), 'right', ' font-weight:700; color:#1e293b; white-space:nowrap;') +
+                opCell(p.name)
+            }</tr>`).join(''),
+            foot: _pmFoot('Total', 'left') + _pmFoot('', 'left') + _pmFoot('', 'left') + _pmFoot('', 'left') + _pmFoot(money(list.reduce((s, p) => s + p.tcv, 0))) + _pmFoot(''),
+            empty: `No partners in the ${tier} tier.`
+        };
+    } else {
+        return;
+    }
+    _openPartnerModal(cfg);
+};
+
+window.showPartnerOwnershipDetail = function (encodedName) {
+    const stats = window.__partnerStats;
+    if (!stats || !stats.ownership) return;
+    const name = decodeURIComponent(encodedName);
+    const entry = (stats.ownership.partners || []).find(p => p.name === name);
+    if (!entry) return;
+
+    const ownerChip = (raw) => {
+        const l = String(raw || '').trim().toLowerCase();
+        const seg = OWNERSHIP_SEGMENTS.find(s => l.includes(s.key.toLowerCase()));
+        if (!seg) return `<span style="color:#94a3b8;">${_escColl(raw || '—')}</span>`;
+        return `<span style="display:inline-flex; align-items:center; gap:5px; font-size:0.7rem; font-weight:700; color:#374151; white-space:nowrap;"><span style="width:8px; height:8px; border-radius:2px; background:${seg.color}; display:inline-block;"></span>${_escColl(raw)}</span>`;
+    };
+    const deals = [...entry.deals].sort((a, b) => b.weighted - a.weighted);
+
+    _openPartnerModal({
+        icon: 'fa-solid fa-people-arrows', accent: '#2a78d6',
+        title: 'Sales & Technical Ownership', headline: _escColl(entry.name),
+        desc: `${entry.taggedCount} pipeline deal${entry.taggedCount === 1 ? '' : 's'} with Technical or Sales/Prospect Ownership tagged · sorted by weighted TCV`,
+        head: _pmTh('No.', 'center') + _pmTh('Deal Name') + _pmTh('Stage', 'center') + _pmTh('Weighted TCV', 'right') + _pmTh('Close Date') + _pmTh('Technical Owner') + _pmTh('Sales Owner'),
+        rows: deals.map((d, i) => `<tr style="${_pmRowStyle}">${
+            _pmNoTd(i) +
+            _pmTd(_escColl(d.name), 'left', ' font-weight:600; color:#1e293b;') +
+            _pmTd(renderStageBadge(d.stage), 'center') +
+            _pmTd(d.weighted > 0 ? '$' + formatCurrency(d.weighted) : '—', 'right', ' font-weight:700; white-space:nowrap;') +
+            _pmTd(d.closeDate || '—', 'left', ' font-family:monospace; white-space:nowrap; color:#64748b;') +
+            _pmTd(ownerChip(d.tech)) +
+            _pmTd(ownerChip(d.sales))
+        }</tr>`).join(''),
+        foot: _pmFoot('Total', 'left') + _pmFoot('', 'left') + _pmFoot('', 'left') + _pmFoot('$' + formatCurrency(deals.reduce((s, d) => s + d.weighted, 0))) + _pmFoot('', 'left') + _pmFoot('', 'left') + _pmFoot('', 'left'),
+        empty: 'No tagged deals.'
+    });
+};
+
+window.togglePartnerOwnershipRows = function (btn) {
+    const more = document.getElementById('partner-ownership-more');
+    if (!more) return;
+    const isHidden = more.style.display === 'none';
+    more.style.display = isHidden ? '' : 'none';
+    btn.innerHTML = isHidden
+        ? '<i class="fa-solid fa-chevron-up" style="margin-right: 5px;"></i>Show less'
+        : `<i class="fa-solid fa-chevron-down" style="margin-right: 5px;"></i>Show ${more.children.length} more`;
+};
+
 export function getPartnerHTML(stats, filterCountry, tabName) {
     const displayCountries = CONFIG.COUNTRIES.filter(c => (!filterCountry || filterCountry === 'All') || c === filterCountry);
     const totalPartners = CONFIG.COUNTRIES.reduce((sum, c) => sum + (stats.counts[c] || 0), 0);
@@ -3758,6 +3964,48 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
         `;
     }).join('');
 
+    /* ── Active Partners + Total Open Pipeline tiles (click → drill-down) ── */
+    const act = stats.activation || { key: null, active: 0, total: 0, pct: 0, activeList: [] };
+    const openPipe = stats.openPipeline || { total: 0, dealCount: 0, partners: [] };
+
+    const activeTileHtml = act.key ? `
+        <div class="stat-card" onclick="showPartnerKpiDetail('active')" title="Click for the list of active partners"
+             style="margin:0; padding: 16px; background: #FFFFFF; border: 1px solid #6366f1; border-radius: 16px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 12px rgba(99,102,241,0.15); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;"
+             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px -4px rgba(99,102,241,0.3)';"
+             onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.15)';">
+            <div class="stat-icon" style="width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: #6366f1; display: flex; align-items: center; justify-content: center; color: white;">
+                <i class="fa-solid fa-bolt" style="font-size: 1.1rem;"></i>
+            </div>
+            <div>
+                <h4 style="margin: 0; font-size: 0.7rem; color: #6366f1; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800;">ACTIVE PARTNERS</h4>
+                <div style="display: flex; align-items: baseline; gap: 5px;">
+                    <span style="font-size: 1.5rem; font-weight: 800; color: #111827; line-height: 1;">${act.active}</span>
+                    <span style="font-size: 0.75rem; color: #9CA3AF; font-weight: 600;">of ${act.total} · ${act.pct}%</span>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="margin-left: auto; color: #c7d2fe; font-size: 0.7rem;"></i>
+        </div>
+    ` : '';
+
+    const openPipeTileHtml = (openPipe.partners.length > 0 || openPipe.total > 0) ? `
+        <div class="stat-card" onclick="showPartnerKpiDetail('openPipeline')" title="Weighted KOR TCV (USD) of deals in Discovery / Quotation / Negotiation / PoC — click for the per-partner breakdown"
+             style="margin:0; padding: 16px; background: #FFFFFF; border: 1px solid #0ea5e9; border-radius: 16px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 12px rgba(14,165,233,0.15); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;"
+             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px -4px rgba(14,165,233,0.3)';"
+             onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(14,165,233,0.15)';">
+            <div class="stat-icon" style="width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: #0ea5e9; display: flex; align-items: center; justify-content: center; color: white;">
+                <i class="fa-solid fa-filter-circle-dollar" style="font-size: 1.05rem;"></i>
+            </div>
+            <div style="min-width: 0;">
+                <h4 style="margin: 0; font-size: 0.7rem; color: #0ea5e9; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800;">TOTAL OPEN PIPELINE</h4>
+                <div style="display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;">
+                    <span style="font-size: 1.2rem; font-weight: 800; color: #111827; line-height: 1.1; white-space: nowrap;">$${formatCurrency(openPipe.total)}</span>
+                    <span style="font-size: 0.7rem; color: #9CA3AF; font-weight: 600; white-space: nowrap;">${openPipe.dealCount} deals</span>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="margin-left: auto; color: #bae6fd; font-size: 0.7rem;"></i>
+        </div>
+    ` : '';
+
     const yearFilter = stats.partnerYearFilter || 'all';
     const curY = stats.currentYear;
     const prevY = stats.previousYear;
@@ -3765,10 +4013,10 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
 
     const buildRankingRows = (list, valueCellFn) => list.slice(0, 10).map((p, idx) => `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-            <td style="padding: 8px 12px; font-weight: 800; color: ${idx < 3 ? '#fbbf24' : '#94a3b8'}; width: 40px;">
+            <td style="padding: 8px 8px 8px 12px; font-weight: 800; color: ${idx < 3 ? '#fbbf24' : '#94a3b8'}; width: 34px; white-space: nowrap;">
                 ${idx + 1}${idx < 3 ? ' <i class="fa-solid fa-crown" style="font-size: 0.65rem; margin-left: 2px;"></i>' : ''}
             </td>
-            <td style="padding: 8px 12px; color: #111827; font-weight: 600;">${p.name}</td>
+            <td style="padding: 8px 8px; color: #111827; font-weight: 600;">${p.name}</td>
             ${valueCellFn(p)}
         </tr>
     `).join('');
@@ -3780,12 +4028,20 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
         <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">$${formatCurrency(p.sumValue)}</td>
     `);
 
-    const revenueRankingRowsHtml = buildRankingRows(stats.sortedByRevenue || [], p => `
-        <td style="padding: 8px 12px; text-align: right; color: #34C759; font-weight: 700;">$${formatCurrency(p.wonValue)}</td>
-        <td style="padding: 8px 12px; text-align: center;">
-            <span style="background: rgba(52,199,89,0.12); color: #34C759; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.75rem;">${p.wonCount} Deal${p.wonCount === 1 ? '' : 's'}</span>
+    const tierByName = stats.tierByName || {};
+    const openPipeByName = stats.openPipeByName || {};
+    const revenueRankingRowsHtml = buildRankingRows(stats.sortedByRevenue || [], p => {
+        const tier = tierByName[String(p.name).toLowerCase()];
+        const op = openPipeByName[String(p.name).toLowerCase()];
+        return `
+        <td style="padding: 8px 6px; text-align: right; color: #34C759; font-weight: 700; white-space: nowrap;">$${formatCurrency(p.wonValue)}</td>
+        <td style="padding: 8px 6px; text-align: center; white-space: nowrap;">
+            <span style="background: rgba(52,199,89,0.12); color: #34C759; padding: 2px 7px; border-radius: 10px; font-weight: 700; font-size: 0.72rem;">${p.wonCount}</span>
         </td>
-    `);
+        <td style="padding: 8px 6px; text-align: center;">${renderPartnerTierBadge(tier, { fontSize: '0.56rem' })}</td>
+        <td style="padding: 8px 6px; text-align: right; font-weight: 700; white-space: nowrap; color: ${op && op.total > 0 ? '#0369a1' : '#d1d5db'};" title="${op ? `${op.count} open deal${op.count === 1 ? '' : 's'} (weighted)` : 'No open pipeline'}">${op && op.total > 0 ? '$' + formatCurrency(op.total) : '—'}</td>
+    `;
+    });
 
     const customerRankingRowsHtml = buildRankingRows(stats.sortedByCustomers || [], p => `
         <td style="padding: 8px 12px; text-align: center;">
@@ -3796,7 +4052,7 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
         </td>
     `);
 
-    const rankingCard = (title, iconBg, iconColor, icon, col1, col2, rowsHtml, isEmpty) => `
+    const rankingCard = (title, iconBg, iconColor, icon, cols, rowsHtml, isEmpty) => `
         <div class="stat-card highlight-card" style="padding: 16px; background: #FFFFFF; border: 1px solid #F3F4F6; display: flex; flex-direction: column; align-items: stretch;">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
                 <div class="stat-icon" style="background: ${iconBg}; color: ${iconColor}; width: 32px; height: 32px;"><i class="fa-solid ${icon}"></i></div>
@@ -3805,19 +4061,18 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
                     <span style="font-size: 0.68rem; color: #9CA3AF; font-weight: 600;">${yearLabel}</span>
                 </div>
             </div>
-            <div style="background: #FFFFFF; border-radius: 12px; overflow: hidden; border: 1px solid #F3F4F6;">
+            <div style="background: #FFFFFF; border-radius: 12px; overflow: hidden; border: 1px solid #F3F4F6; overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.78rem;">
                     <thead>
                         <tr style="background: #F9FAFB; border-bottom: 1px solid #E5E7EB;">
-                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600;">Rank</th>
-                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600;">Partner</th>
-                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600; text-align: ${col1.align || 'center'};">${col1.label}</th>
-                            <th style="padding: 8px 12px; color: #6B7280; font-weight: 600; text-align: ${col2.align || 'center'};">${col2.label}</th>
+                            <th style="padding: 8px 8px 8px 12px; color: #6B7280; font-weight: 600;">Rank</th>
+                            <th style="padding: 8px 8px; color: #6B7280; font-weight: 600;">Partner</th>
+                            ${cols.map(c => `<th style="padding: 8px 6px; color: #6B7280; font-weight: 600; text-align: ${c.align || 'center'}; white-space: nowrap;"${c.title ? ` title="${c.title}"` : ''}>${c.label}</th>`).join('')}
                         </tr>
                     </thead>
                     <tbody>
                         ${rowsHtml}
-                        ${isEmpty ? '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #9CA3AF;">No data</td></tr>' : ''}
+                        ${isEmpty ? `<tr><td colspan="${2 + cols.length}" style="padding: 20px; text-align: center; color: #9CA3AF;">No data</td></tr>` : ''}
                     </tbody>
                 </table>
             </div>
@@ -3826,9 +4081,113 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
 
     const rankingsEmpty = !stats.sortedP || stats.sortedP.length === 0;
 
+    /* ── Partner Tier distribution (Gold / Silver / Bronze / Not Activated) ── */
+    const tiers = stats.tiers;
+    const TIER_ORDER = ['Gold', 'Silver', 'Bronze', 'Not Activated'];
+    const tierScopeTotal = tiers ? TIER_ORDER.reduce((s, t) => s + (tiers.members[t] || []).length, 0) : 0;
+    const TIER_DESC = {
+        'Gold': '≥ 80th percentile',
+        'Silver': '≥ 20th percentile',
+        'Bronze': 'Below 20th, revenue > 0',
+        'Not Activated': 'No accumulated revenue'
+    };
+    const tierDistributionHtml = (tiers && tierScopeTotal > 0) ? `
+        <div style="grid-column: 1 / -1; margin-bottom: 20px;">
+            <div class="stat-card" style="padding: 16px; background: #FFFFFF; border: 1px solid #F3F4F6; display: flex; flex-direction: column; align-items: stretch;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <div class="stat-icon" style="background: rgba(245,158,11,0.12); color: #d97706; width: 32px; height: 32px;"><i class="fa-solid fa-ranking-star"></i></div>
+                    <div>
+                        <h3 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">Partner Tier Distribution</h3>
+                        <span style="font-size: 0.68rem; color: #9CA3AF; font-weight: 600;">By Accumulated TCV percentile among revenue-producing partners · click a tier for the partner list</span>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
+                    ${TIER_ORDER.map(t => {
+                        const th = PARTNER_TIER_THEME[t];
+                        const n = (tiers.members[t] || []).length;
+                        const pct = tierScopeTotal > 0 ? Math.round(n / tierScopeTotal * 100) : 0;
+                        return `
+                        <div onclick="showPartnerKpiDetail('tier:${t}')" title="Click for the list of ${t} partners"
+                             style="background: ${th.bg}; border: 1px solid ${th.border}; border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: transform 0.15s ease;"
+                             onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                                <span style="font-size: 0.68rem; font-weight: 800; color: ${th.fg}; text-transform: uppercase; letter-spacing: 0.05em;"><i class="fa-solid ${th.icon}" style="margin-right: 5px;"></i>${t}</span>
+                                <i class="fa-solid fa-chevron-right" style="color: ${th.fg}; opacity: 0.4; font-size: 0.6rem;"></i>
+                            </div>
+                            <div style="display: flex; align-items: baseline; gap: 5px; margin-top: 6px;">
+                                <span style="font-size: 1.4rem; font-weight: 800; color: #111827; line-height: 1;">${n}</span>
+                                <span style="font-size: 0.7rem; color: #6B7280; font-weight: 600;">partner${n === 1 ? '' : 's'} · ${pct}%</span>
+                            </div>
+                            <div style="font-size: 0.62rem; color: #6B7280; margin-top: 4px;">${TIER_DESC[t]}</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        </div>
+    ` : '';
+
+    /* ── Sales & Technical Ownership (from tagged PIPELINE deals) ── */
+    const ownPartners = (stats.ownership && stats.ownership.partners) || [];
+    const OWN_TOP = 6;
+    const ownSplitCell = (split) => {
+        if (!split.total) return '<div style="font-size: 0.66rem; color: #9CA3AF; font-style: italic; padding: 4px 0;">Not tagged</div>';
+        const parts = OWNERSHIP_SEGMENTS.map(s => ({ ...s, n: split[s.key], pct: split[s.key] / split.total * 100 }));
+        return `
+            <div style="display: flex; gap: 2px; height: 16px; border-radius: 5px; overflow: hidden; background: #F1F5F9;">
+                ${parts.map(p => p.n <= 0 ? '' : `<div title="${p.label}: ${Math.round(p.pct)}% (${p.n}/${split.total})" style="width: ${p.pct}%; background: ${p.color};"></div>`).join('')}
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap;">
+                ${parts.map(p => p.n <= 0 ? '' : `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.64rem; font-weight: 700; color: #6B7280; white-space: nowrap;"><span style="width: 7px; height: 7px; border-radius: 2px; background: ${p.color}; display: inline-block;"></span>${Math.round(p.pct)}%</span>`).join('')}
+            </div>`;
+    };
+    const OWN_ROW_GRID = 'display: grid; grid-template-columns: minmax(150px, 210px) 1fr 1fr; gap: 14px; align-items: center;';
+    const ownRow = (p) => `
+        <div onclick="showPartnerOwnershipDetail('${encodeURIComponent(p.name)}')" title="Click for ${_escColl(p.name)}'s tagged deals"
+             style="${OWN_ROW_GRID} padding: 10px 12px; border: 1px solid #F3F4F6; border-radius: 10px; margin-bottom: 8px; cursor: pointer; background: #FFFFFF; transition: background 0.15s;"
+             onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#FFFFFF'">
+            <div style="min-width: 0;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${_escColl(p.name)}</div>
+                <span style="display: inline-block; margin-top: 3px; background: rgba(99,102,241,0.1); color: #6366f1; font-size: 0.62rem; font-weight: 800; padding: 1px 7px; border-radius: 999px;">${p.taggedCount} deal${p.taggedCount === 1 ? '' : 's'} tagged</span>
+            </div>
+            <div>${ownSplitCell(p.tech)}</div>
+            <div>${ownSplitCell(p.sales)}</div>
+        </div>`;
+    const ownTopRows = ownPartners.slice(0, OWN_TOP).map(ownRow).join('');
+    const ownMoreRows = ownPartners.slice(OWN_TOP).map(ownRow).join('');
+    const ownershipHtml = ownPartners.length > 0 ? `
+        <div style="grid-column: 1 / -1; margin-bottom: 20px;">
+            <div class="stat-card" style="padding: 16px; background: #FFFFFF; border: 1px solid #F3F4F6; display: flex; flex-direction: column; align-items: stretch;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="stat-icon" style="background: rgba(42,120,214,0.12); color: #2a78d6; width: 32px; height: 32px;"><i class="fa-solid fa-people-arrows"></i></div>
+                        <div>
+                            <h3 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">Sales &amp; Technical Ownership</h3>
+                            <span style="font-size: 0.68rem; color: #9CA3AF; font-weight: 600;">Who runs the technical work and the selling on each partner's pipeline deals · click a partner for their tagged deals</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        ${OWNERSHIP_SEGMENTS.map(s => `<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.68rem; font-weight: 700; color: #6B7280;"><span style="width: 9px; height: 9px; border-radius: 2px; background: ${s.color}; display: inline-block;"></span>${s.label}</span>`).join('')}
+                    </div>
+                </div>
+                <div style="${OWN_ROW_GRID} padding: 0 12px 6px 12px;">
+                    <span style="font-size: 0.62rem; color: #6B7280; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Partner</span>
+                    <span style="font-size: 0.62rem; color: #6B7280; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Technical Ownership</span>
+                    <span style="font-size: 0.62rem; color: #6B7280; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">Sales Ownership</span>
+                </div>
+                ${ownTopRows}
+                ${ownMoreRows ? `
+                <div id="partner-ownership-more" style="display: none;">${ownMoreRows}</div>
+                <button onclick="togglePartnerOwnershipRows(this)" style="align-self: center; background: #F9FAFB; border: 1px solid #E5E7EB; color: #6B7280; padding: 7px 16px; border-radius: 8px; font-size: 0.72rem; font-weight: 700; cursor: pointer; margin-top: 2px;"><i class="fa-solid fa-chevron-down" style="margin-right: 5px;"></i>Show ${ownPartners.length - OWN_TOP} more</button>
+                ` : ''}
+            </div>
+        </div>
+    ` : '';
+
     return `
         <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px;">
             ${globalCardHtml}
+            ${activeTileHtml}
+            ${openPipeTileHtml}
             ${statsCardsHtml}
         </div>
 
@@ -3854,26 +4213,37 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
             ${rankingCard(
                 'Top 10 Partners — by POC',
                 'rgba(0,122,255,0.1)', '#007AFF', 'fa-flask',
-                { label: 'Running', align: 'center' },
-                { label: 'Value (USD)', align: 'right' },
+                [
+                    { label: 'Running', align: 'center' },
+                    { label: 'Value (USD)', align: 'right' }
+                ],
                 pocRankingRowsHtml, rankingsEmpty
             )}
             ${rankingCard(
                 'Top 10 Partners — by Revenue',
                 'rgba(52,199,89,0.12)', '#34C759', 'fa-dollar-sign',
-                { label: 'TCV (USD)', align: 'right' },
-                { label: 'Deals', align: 'center' },
+                [
+                    { label: 'TCV (USD)', align: 'right' },
+                    { label: 'Deals', align: 'center' },
+                    { label: 'Tier', align: 'center', title: 'Accumulated TCV percentile among revenue-producing partners: Gold ≥ 80th, Silver ≥ 20th, Bronze below, Not Activated = no revenue' },
+                    { label: 'Open Pipe.', align: 'right', title: 'Open Pipeline — weighted KOR TCV (USD) of this partner’s deals in Discovery / Quotation / Negotiation / PoC' }
+                ],
                 revenueRankingRowsHtml, rankingsEmpty
             )}
             ${rankingCard(
                 'Top 10 Partners — by Account (Customers WON)',
                 'rgba(168,85,247,0.12)', '#a855f7', 'fa-users',
-                { label: 'Accounts', align: 'center' },
-                { label: 'Won Deals', align: 'center' },
+                [
+                    { label: 'Accounts', align: 'center' },
+                    { label: 'Won Deals', align: 'center' }
+                ],
                 customerRankingRowsHtml, rankingsEmpty
             )}
         </div>
 
+        ${tierDistributionHtml}
+
+        ${ownershipHtml}
     `;
 }
 
@@ -5243,36 +5613,251 @@ export function getProjectHTML(stats, filters, uniqueValues) {
     `;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   EVENT — Conversion tracking dashboard (EVENT + CONVERSION LOG)
+   ═══════════════════════════════════════════════════════════════ */
+
+const EVENT_STAGE_THEME = {
+    'MQL':         { color: '#6366f1', bg: 'rgba(99,102,241,0.12)',  icon: 'fa-hand-pointer',       hint: 'Interest Expressed' },
+    'SQL':         { color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)',  icon: 'fa-people-arrows',      hint: 'Meeting/Demo' },
+    'Opportunity': { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  icon: 'fa-flask-vial',         hint: 'POC Started' },
+    'Customer':    { color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: 'fa-handshake',          hint: 'Deal Won' }
+};
+
+function _evtMoney(v) { return '$' + formatCurrency(v); }
+
+function _evtReturn(r) {
+    if (r === null || r === undefined || !isFinite(r)) return '—';
+    return '$' + (Math.round(r * 100) / 100).toFixed(2);
+}
+
 export function getEventHTML(stats) {
     if (!stats) return '';
     const currentYear = new Date().getFullYear();
+    const esc = _escColl;
+
+    const tile = (kind, label, value, sub, color, icon) => `
+        <div class="stat-card" style="background:#FFF; border-left:5px solid ${color}; padding:20px; cursor:pointer;"
+             onclick="showEventDetail('${kind}')" title="Click for detail">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <h3 style="color:#6B7280; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${label}</h3>
+                <i class="fa-solid ${icon}" style="color:${color}; opacity:0.7;"></i>
+            </div>
+            <h2 style="font-size:1.45rem; font-weight:800; margin:8px 0 4px 0; color:#111827;">${value}</h2>
+            <div style="font-size:0.72rem; color:${color}; font-weight:600;">${sub}</div>
+        </div>`;
+
+    const funnelBoxes = stats.funnel.map((f, i) => {
+        const t = EVENT_STAGE_THEME[f.stage];
+        const arrow = i < stats.funnel.length - 1
+            ? `<div style="flex-shrink:0; color:#cbd5e1; font-size:1.1rem; align-self:center;"><i class="fa-solid fa-chevron-right"></i></div>`
+            : '';
+        return `
+            <div style="flex:1; min-width:150px; background:#FFF; border:1px solid #e5e7eb; border-top:4px solid ${t.color}; border-radius:12px; padding:16px; cursor:pointer; text-align:center;"
+                 onclick="showEventDetail('stage:${esc(f.stage)}')" title="Click to list ${esc(f.type)} touches">
+                <div style="width:36px; height:36px; margin:0 auto 8px auto; border-radius:10px; background:${t.bg}; color:${t.color}; display:flex; align-items:center; justify-content:center;"><i class="fa-solid ${t.icon}"></i></div>
+                <div style="font-size:0.78rem; font-weight:800; color:#111827;">${f.stage}</div>
+                <div style="font-size:0.62rem; color:#94a3b8; font-weight:600; margin-top:1px;">${esc(f.type)}</div>
+                <div style="font-size:1.5rem; font-weight:800; color:${t.color}; margin-top:6px;">${f.count}</div>
+            </div>${arrow}`;
+    }).join('');
+
+    const lbRows = stats.leaderboard.map((r, i) => `
+        <tr style="border-bottom:1px solid #f3f4f6; cursor:pointer;" onclick="showEventDetail('source:${encodeURIComponent(r.source).replace(/'/g, '%27')}')"
+            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''" title="Click for the full touch list">
+            <td style="padding:9px 12px; font-size:0.72rem; color:#94a3b8; font-weight:700; text-align:center; font-family:monospace;">${i + 1}</td>
+            <td style="padding:9px 12px; font-size:0.78rem; color:#1e293b; font-weight:600;">${esc(r.source)}</td>
+            <td style="padding:9px 12px; font-size:0.76rem; text-align:right; color:#475569; white-space:nowrap;">${_evtMoney(r.spend)}</td>
+            <td style="padding:9px 12px; font-size:0.78rem; text-align:right; font-weight:800; color:${r.revenue > 0 ? '#10b981' : '#94a3b8'}; white-space:nowrap;">${_evtMoney(r.revenue)}</td>
+            <td style="padding:9px 12px; font-size:0.76rem; text-align:right; font-weight:700; color:${r.ret !== null && r.ret >= 1 ? '#10b981' : '#64748b'}; white-space:nowrap;">${_evtReturn(r.ret)}</td>
+        </tr>`).join('');
+
+    const noConvNote = stats.hasConversions ? '' : `
+        <div style="grid-column:1 / -1; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 14px; font-size:0.76rem; color:#92400e; margin-bottom:16px;">
+            <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>No CONVERSION LOG rows found for this filter — funnel and revenue views show spend data only.
+        </div>`;
+
     return `
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-            <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+            <div style="display:flex; align-items:center; gap:15px;">
                 <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; width: 48px; height: 48px; font-size: 1.3rem;"><i class="fa-solid fa-calendar-check"></i></div>
-                <div><h2 style="font-size: 1.6rem; font-weight: 700; color: #111827; margin: 0;">${currentYear} Event Performance Analytics</h2></div>
+                <div>
+                    <h2 style="font-size:1.6rem; font-weight:700; color:#111827; margin:0;">${currentYear} Event & Campaign Conversion Analytics</h2>
+                    <p style="color:#6B7280; font-size:0.8rem; margin:2px 0 0 0;">Every lead touch is tagged MQL → SQL → Opportunity → Customer; closed-deal revenue is credit-split across contributing touches.</p>
+                </div>
             </div>
         </div>
-        <div class="stat-card" style="background:#FFF; padding: 24px;"><canvas id="event-roi-chart" style="height: 350px;"></canvas></div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 24px;">
-            <div class="stat-card" style="background:#FFF; border-left: 5px solid #007AFF; padding:20px;">
-                <h3 style="color:#6B7280; font-size:0.75rem; font-weight:700;">TOTAL SPENDING</h3>
-                <h2 style="font-size:1.4rem; font-weight:800; margin: 8px 0;">$ ${formatCurrency(stats.totalSpending)}</h2>
-                <div style="font-size: 0.75rem; color: #007AFF;">Across ${stats.eventCount} Events</div>
+        ${noConvNote}
+
+        <!-- VIEW 1: headline tiles -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:16px; margin-bottom:24px;">
+            ${tile('spend', 'Total Spend', _evtMoney(stats.totalSpend), `Across ${stats.eventCount} events`, '#007AFF', 'fa-sack-dollar')}
+            ${tile('revenue', 'Revenue Generated', _evtMoney(stats.revenueGenerated), `${stats.closedDeals.length} deal-won touch${stats.closedDeals.length === 1 ? '' : 'es'} (weighted)`, '#10b981', 'fa-trophy')}
+            ${tile('return', 'Return per $1 Spent', _evtReturn(stats.returnPerDollar), `${_evtMoney(stats.totalWeighted)} weighted revenue`, '#8b5cf6', 'fa-scale-balanced')}
+            ${tile('costPoc', 'Cost per POC Reached', stats.costPerPOC !== null ? _evtMoney(stats.costPerPOC) : '—', `${stats.pocCount} POC${stats.pocCount === 1 ? '' : 's'} started`, '#f59e0b', 'fa-flask-vial')}
+        </div>
+
+        <!-- VIEW 2: customer journey funnel -->
+        <div class="stat-card" style="background:#FFF; padding:20px 24px; margin-bottom:24px;">
+            <h3 style="font-size:0.9rem; font-weight:800; color:#111827; margin:0 0 14px 0;"><i class="fa-solid fa-filter" style="color:#6366f1; margin-right:8px;"></i>Customer Journey Funnel</h3>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">${funnelBoxes}</div>
+        </div>
+
+        <!-- VIEW 3: source leaderboard -->
+        <div class="stat-card" style="background:#FFF; padding:20px 24px; margin-bottom:24px;">
+            <h3 style="font-size:0.9rem; font-weight:800; color:#111827; margin:0 0 14px 0;"><i class="fa-solid fa-ranking-star" style="color:#f59e0b; margin-right:8px;"></i>Source Leaderboard <span style="font-size:0.68rem; color:#94a3b8; font-weight:600;">sorted by revenue generated</span></h3>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; min-width:560px;">
+                    <thead style="background:#f9fafb;">
+                        <tr>
+                            <th style="padding:9px 12px; text-align:center; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase;">#</th>
+                            <th style="padding:9px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase;">Source</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase;">Spend</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#10b981; font-weight:800; text-transform:uppercase;">Revenue Generated</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#8b5cf6; font-weight:800; text-transform:uppercase;">Return / $1</th>
+                        </tr>
+                    </thead>
+                    <tbody>${lbRows || '<tr><td colspan="5" style="padding:20px; text-align:center; color:#9CA3AF; font-size:0.78rem;">No conversion touches logged yet.</td></tr>'}</tbody>
+                </table>
             </div>
-            <div class="stat-card" style="background:#FFF; border-left: 5px solid #10b981; padding:20px;">
-                <h3 style="color:#6B7280; font-size:0.75rem; font-weight:700;">TOTAL POC</h3>
-                <h2 style="font-size:1.4rem; font-weight:800; margin: 8px 0;">${stats.totalPOC}</h2>
-                <div style="font-size: 0.75rem; color: #10b981;">$${formatCurrency(stats.costPerPOC)} Per POC</div>
+        </div>
+
+        <!-- VIEW 4 + 5: spend charts -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:16px;">
+            <div class="stat-card" style="background:#FFF; padding:20px 24px;">
+                <h3 style="font-size:0.9rem; font-weight:800; color:#111827; margin:0 0 10px 0;"><i class="fa-solid fa-chart-simple" style="color:#0ea5e9; margin-right:8px;"></i>Spend by Category <span style="font-size:0.66rem; color:#94a3b8; font-weight:600;">click a bar for events</span></h3>
+                <div style="height:300px;"><canvas id="event-category-chart"></canvas></div>
             </div>
-            <div class="stat-card" style="background:#FFF; border-left: 5px solid #f59e0b; padding:20px;">
-                <h3 style="color:#6B7280; font-size:0.75rem; font-weight:700;">CONVERTED DEALS</h3>
-                <h2 style="font-size:1.4rem; font-weight:800; margin: 8px 0;">${stats.totalDeals}</h2>
-                <div style="font-size: 0.75rem; color: #f59e0b;">$${formatCurrency(stats.costPerDeal)} Per Deal</div>
+            <div class="stat-card" style="background:#FFF; padding:20px 24px;">
+                <h3 style="font-size:0.9rem; font-weight:800; color:#111827; margin:0 0 10px 0;"><i class="fa-solid fa-chart-column" style="color:#8b5cf6; margin-right:8px;"></i>Monthly Spend Trend <span style="font-size:0.66rem; color:#94a3b8; font-weight:600;">click a bar for events</span></h3>
+                <div style="height:300px;"><canvas id="event-monthly-chart"></canvas></div>
             </div>
         </div>
     `;
 }
+
+window.closeEventDetailModal = function () {
+    const el = document.getElementById('event-detail-modal');
+    if (el) el.remove();
+    if (window.__eventDetailModalEsc) {
+        document.removeEventListener('keydown', window.__eventDetailModalEsc);
+        window.__eventDetailModalEsc = null;
+    }
+};
+
+/**
+ * Drill-down modal for the EVENT conversion dashboard. Kinds:
+ *   'spend' | 'revenue' | 'return' | 'costPoc'
+ *   'stage:<MQL|SQL|Opportunity|Customer>'
+ *   'source:<encoded source>' | 'category:<encoded>' | 'month:<monthKey>'
+ * Reads window.__eventStats stashed by views.js.
+ */
+window.showEventDetail = function (kind) {
+    const stats = window.__eventStats;
+    if (!stats) return;
+    window.closeEventDetailModal();
+
+    const esc = _escColl;
+    const th = (label, align = 'left') => `<th style="padding:9px 12px; text-align:${align}; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap;">${label}</th>`;
+    const td = (html, align = 'left', extra = '') => `<td style="padding:8px 12px; font-size:0.74rem; color:#475569; text-align:${align};${extra}">${html}</td>`;
+    const money = (v) => `<span style="font-weight:700; color:#1e293b; white-space:nowrap;">${_evtMoney(v)}</span>`;
+    const dim = (s) => s ? esc(s) : '<span style="color:#cbd5e1;">—</span>';
+
+    const stagePill = (type) => {
+        const f = (stats.funnel || []).find(x => x.type === type);
+        const t = EVENT_STAGE_THEME[f ? f.stage : ''] || { color: '#6b7280', bg: '#f3f4f6' };
+        return `<span style="display:inline-block; background:${t.bg}; color:${t.color}; font-size:0.62rem; font-weight:800; padding:2px 8px; border-radius:8px; white-space:nowrap;">${esc(type || 'Untyped')}</span>`;
+    };
+
+    let title = '', subtitle = '', icon = 'fa-table-list', color = '#6366f1', headers = [], rows = [];
+
+    if (kind === 'spend') {
+        title = 'All Events'; subtitle = `Total spend ${_evtMoney(stats.totalSpend)} across ${stats.eventCount} events`; icon = 'fa-sack-dollar'; color = '#007AFF';
+        headers = [th('Source'), th('Category'), th('Date'), th('Spend', 'right')];
+        rows = stats.allEvents.map(e => [td(dim(e.name), 'left', ' font-weight:600; color:#1e293b;'), td(dim(e.category)), td(dim(e.dateStr)), td(money(e.spend), 'right')]);
+    } else if (kind === 'revenue') {
+        title = 'Closed Deals'; subtitle = `${_evtMoney(stats.revenueGenerated)} weighted revenue from Deal Won touches`; icon = 'fa-trophy'; color = '#10b981';
+        headers = [th('Source'), th('End User'), th('CRM Deal Name'), th('Deal Amount', 'right'), th('Stage Date')];
+        rows = stats.closedDeals.map(t => [td(dim(t.source), 'left', ' font-weight:600; color:#1e293b;'), td(dim(t.endUser)), td(dim(t.crmDeal)), td(money(t.dealAmount), 'right'), td(dim(t.dateStr))]);
+    } else if (kind === 'return') {
+        title = 'Return by Source'; subtitle = `${_evtReturn(stats.returnPerDollar)} weighted revenue per $1 spent overall`; icon = 'fa-scale-balanced'; color = '#8b5cf6';
+        headers = [th('Source'), th('Spend', 'right'), th('Revenue Generated', 'right'), th('Return / $1', 'right')];
+        rows = stats.leaderboard.map(r => [td(dim(r.source), 'left', ' font-weight:600; color:#1e293b;'), td(money(r.spend), 'right'), td(money(r.revenue), 'right'), td(`<span style="font-weight:800; color:${r.ret !== null && r.ret >= 1 ? '#10b981' : '#64748b'};">${_evtReturn(r.ret)}</span>`, 'right')]);
+    } else if (kind === 'costPoc') {
+        title = 'POC Started Touches'; subtitle = stats.costPerPOC !== null ? `${_evtMoney(stats.costPerPOC)} spend per POC reached (${stats.pocCount} POCs)` : 'No POC Started touches logged'; icon = 'fa-flask-vial'; color = '#f59e0b';
+        headers = [th('Source'), th('Lead Person'), th('Stage Date')];
+        rows = stats.pocRows.map(t => [td(dim(t.source), 'left', ' font-weight:600; color:#1e293b;'), td(dim(t.leadPerson)), td(dim(t.dateStr))]);
+    } else if (kind.startsWith('stage:')) {
+        const stage = kind.slice(6);
+        const f = stats.funnel.find(x => x.stage === stage);
+        if (!f) return;
+        const t = EVENT_STAGE_THEME[stage] || {};
+        title = `${stage} — ${f.type}`; subtitle = `${f.count} touch${f.count === 1 ? '' : 'es'} at this stage`; icon = t.icon || 'fa-filter'; color = t.color || '#6366f1';
+        headers = [th('Source'), th('Lead Person'), th('CRM Deal Name'), th('Stage Date')];
+        rows = f.rows.map(x => [td(dim(x.source), 'left', ' font-weight:600; color:#1e293b;'), td(dim(x.leadPerson)), td(dim(x.crmDeal)), td(dim(x.dateStr))]);
+    } else if (kind.startsWith('source:')) {
+        const source = decodeURIComponent(kind.slice(7));
+        const r = stats.leaderboard.find(x => x.source === source);
+        if (!r) return;
+        title = source; subtitle = `Spend ${_evtMoney(r.spend)} · Revenue ${_evtMoney(r.revenue)} · Return ${_evtReturn(r.ret)} per $1`; icon = 'fa-ranking-star'; color = '#f59e0b';
+        headers = [th('Lead Person'), th('Conversion Type'), th('Stage Date'), th('CRM Deal Name')];
+        rows = r.touches.map(x => [td(dim(x.leadPerson), 'left', ' font-weight:600; color:#1e293b;'), td(stagePill(x.type)), td(dim(x.dateStr)), td(dim(x.crmDeal))]);
+    } else if (kind.startsWith('category:')) {
+        const cat = decodeURIComponent(kind.slice(9));
+        const c = stats.categories.find(x => x.category === cat);
+        if (!c) return;
+        title = cat; subtitle = `${_evtMoney(c.spend)} spent across ${c.events.length} event${c.events.length === 1 ? '' : 's'}`; icon = 'fa-chart-simple'; color = '#0ea5e9';
+        headers = [th('Source'), th('Event Date'), th('Spend', 'right')];
+        rows = c.events.map(e => [td(dim(e.name), 'left', ' font-weight:600; color:#1e293b;'), td(dim(e.dateStr)), td(money(e.spend), 'right')]);
+    } else if (kind.startsWith('month:')) {
+        const mk = kind.slice(6);
+        const m = stats.months.find(x => x.monthKey === mk);
+        if (!m) return;
+        title = m.label; subtitle = `${_evtMoney(m.spend)} spent across ${m.events.length} event${m.events.length === 1 ? '' : 's'}`; icon = 'fa-chart-column'; color = '#8b5cf6';
+        headers = [th('Source'), th('Spend', 'right')];
+        rows = m.events.map(e => [td(dim(e.name), 'left', ' font-weight:600; color:#1e293b;'), td(money(e.spend), 'right')]);
+    } else {
+        return;
+    }
+
+    const bodyRows = rows.length
+        ? rows.map(cells => `<tr style="border-bottom:1px solid #f3f4f6;">${cells.join('')}</tr>`).join('')
+        : `<tr><td colspan="${headers.length}" style="padding:20px; text-align:center; color:#9CA3AF; font-size:0.78rem;">No rows.</td></tr>`;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'event-detail-modal';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center; padding:24px; backdrop-filter:blur(2px);';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closeEventDetailModal(); });
+
+    overlay.innerHTML = `
+        <div style="background:#ffffff; border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,0.28); width:min(880px,100%); max-height:85vh; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid #eef2f7; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                    <div style="width:34px; height:34px; flex-shrink:0; border-radius:10px; background:${color}22; color:${color}; display:flex; align-items:center; justify-content:center;"><i class="fa-solid ${icon}"></i></div>
+                    <div style="min-width:0;">
+                        <div style="font-size:0.62rem; color:${color}; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;">Event Conversion · Detail</div>
+                        <div style="font-size:0.9rem; font-weight:800; color:#111827; margin-top:2px; word-break:break-word;">${esc(title)}</div>
+                        <div style="font-size:0.7rem; color:#64748b; margin-top:1px;">${subtitle}</div>
+                    </div>
+                </div>
+                <button onclick="closeEventDetailModal()" style="border:none; background:#eef2f7; color:#475569; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem; flex-shrink:0;" title="Close (Esc)"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="overflow:auto; padding:0 20px 20px 20px;">
+                <table style="width:100%; border-collapse:collapse; min-width:520px;">
+                    <thead style="background:#f9fafb; position:sticky; top:0;"><tr>${headers.join('')}</tr></thead>
+                    <tbody>${bodyRows}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    window.__eventDetailModalEsc = function (e) {
+        if (e.key === 'Escape') window.closeEventDetailModal();
+    };
+    document.addEventListener('keydown', window.__eventDetailModalEsc);
+};
 
 export function getCountrySpecificHTML(stats, countryName) {
     const items = stats.sortedYears.map(y => `

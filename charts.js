@@ -1697,37 +1697,60 @@ export function initProjectCharts(stats) {
 }
 
 /* ═══ EVENT Charts ═══ */
+
+/**
+ * VIEW 4 (spend by category) and VIEW 5 (monthly spend trend) bar charts.
+ * Clicking a bar opens the matching drill-down modal (window.showEventDetail).
+ * @param {Object} stats - Output from getEventStats
+ */
 export function initEventCharts(stats) {
     if (!stats) return;
     chartRegistry.destroyTag('event');
-    const ctx = document.getElementById('event-roi-chart');
-    if (ctx) {
-        chartRegistry.register('event-roi', new Chart(ctx, {
+
+    const spendTooltip = {
+        callbacks: { label: ctx => ' Spend: $' + formatCurrency(ctx.parsed.y ?? ctx.parsed.x) }
+    };
+
+    const ctxCat = document.getElementById('event-category-chart');
+    if (ctxCat && stats.categories.length) {
+        chartRegistry.register('event-category', new Chart(ctxCat, {
             type: 'bar',
             data: {
-                labels: stats.comparisonData.map(d => d.name),
-                datasets: [
-                    { label: 'Spending (USD)', data: stats.comparisonData.map(d => d.spend), backgroundColor: 'rgba(0, 122, 255, 0.65)', yAxisID: 'ySpend' },
-                    { label: 'POCs', data: stats.comparisonData.map(d => d.pocs), backgroundColor: 'rgba(52, 199, 89, 0.65)', yAxisID: 'yPoc' }
-                ]
+                labels: stats.categories.map(c => c.category),
+                datasets: [{ label: 'Spend (USD)', data: stats.categories.map(c => c.spend), backgroundColor: 'rgba(14, 165, 233, 0.65)', borderRadius: 6 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            title: function(context) {
-                                const idx = context[0].dataIndex;
-                                const item = stats.comparisonData[idx];
-                                return [item.eventName, 'Date: ' + item.name];
-                            }
-                        }
-                    }
+                onClick: (evt, els) => {
+                    if (!els.length) return;
+                    const cat = stats.categories[els[0].index];
+                    if (cat && window.showEventDetail) window.showEventDetail('category:' + encodeURIComponent(cat.category));
                 },
-                scales: {
-                    ySpend: { position: 'left', ticks: { callback: v => '$' + formatCurrency(v) } },
-                    yPoc: { position: 'right', grid: { display: false } }
-                }
+                onHover: (evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+                plugins: { legend: { display: false }, tooltip: spendTooltip },
+                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + formatCurrency(v) } } }
+            }
+        }));
+    }
+
+    const ctxMonth = document.getElementById('event-monthly-chart');
+    if (ctxMonth && stats.months.length) {
+        chartRegistry.register('event-monthly', new Chart(ctxMonth, {
+            type: 'bar',
+            data: {
+                labels: stats.months.map(m => m.label),
+                datasets: [{ label: 'Spend (USD)', data: stats.months.map(m => m.spend), backgroundColor: 'rgba(139, 92, 246, 0.65)', borderRadius: 6 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                onClick: (evt, els) => {
+                    if (!els.length) return;
+                    const m = stats.months[els[0].index];
+                    if (m && window.showEventDetail) window.showEventDetail('month:' + m.monthKey);
+                },
+                onHover: (evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+                plugins: { legend: { display: false }, tooltip: spendTooltip },
+                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + formatCurrency(v) } } }
             }
         }));
     }
