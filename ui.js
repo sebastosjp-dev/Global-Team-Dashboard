@@ -3976,11 +3976,11 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
             <div class="stat-icon" style="width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: #6366f1; display: flex; align-items: center; justify-content: center; color: white;">
                 <i class="fa-solid fa-bolt" style="font-size: 1.1rem;"></i>
             </div>
-            <div>
+            <div style="min-width: 0; flex: 1; overflow-wrap: break-word;">
                 <h4 style="margin: 0; font-size: 0.7rem; color: #6366f1; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800;">ACTIVE PARTNERS</h4>
-                <div style="display: flex; align-items: baseline; gap: 5px;">
+                <div style="display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; min-width: 0;">
                     <span style="font-size: 1.5rem; font-weight: 800; color: #111827; line-height: 1;">${act.active}</span>
-                    <span style="font-size: 0.75rem; color: #9CA3AF; font-weight: 600;">of ${act.total} · ${act.pct}%</span>
+                    <span style="font-size: 0.75rem; color: #9CA3AF; font-weight: 600; white-space: normal; overflow-wrap: break-word;">of ${act.total} · ${act.pct}%</span>
                 </div>
             </div>
             <i class="fa-solid fa-chevron-right" style="margin-left: auto; color: #c7d2fe; font-size: 0.7rem;"></i>
@@ -3995,11 +3995,11 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
             <div class="stat-icon" style="width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: #0ea5e9; display: flex; align-items: center; justify-content: center; color: white;">
                 <i class="fa-solid fa-filter-circle-dollar" style="font-size: 1.05rem;"></i>
             </div>
-            <div style="min-width: 0;">
+            <div style="min-width: 0; flex: 1; overflow-wrap: break-word;">
                 <h4 style="margin: 0; font-size: 0.7rem; color: #0ea5e9; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800;">TOTAL OPEN PIPELINE</h4>
-                <div style="display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;">
-                    <span style="font-size: 1.2rem; font-weight: 800; color: #111827; line-height: 1.1; white-space: nowrap;">$${formatCurrency(openPipe.total)}</span>
-                    <span style="font-size: 0.7rem; color: #9CA3AF; font-weight: 600; white-space: nowrap;">${openPipe.dealCount} deals</span>
+                <div style="display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; min-width: 0;">
+                    <span style="font-size: 1.2rem; font-weight: 800; color: #111827; line-height: 1.1; overflow-wrap: break-word; min-width: 0;">$${formatCurrency(openPipe.total)}</span>
+                    <span style="font-size: 0.7rem; color: #9CA3AF; font-weight: 600; white-space: normal; overflow-wrap: break-word;">${openPipe.dealCount} deals</span>
                 </div>
             </div>
             <i class="fa-solid fa-chevron-right" style="margin-left: auto; color: #bae6fd; font-size: 0.7rem;"></i>
@@ -4183,11 +4183,15 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
         </div>
     ` : '';
 
+    const headlineTilesHtml = [globalCardHtml, activeTileHtml, openPipeTileHtml].filter(Boolean).join('');
+
     return `
+        ${headlineTilesHtml ? `
+        <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px;">
+            ${headlineTilesHtml}
+        </div>
+        ` : ''}
         <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px;">
-            ${globalCardHtml}
-            ${activeTileHtml}
-            ${openPipeTileHtml}
             ${statsCardsHtml}
         </div>
 
@@ -5637,14 +5641,14 @@ export function getEventHTML(stats) {
     const esc = _escColl;
 
     const tile = (kind, label, value, sub, color, icon) => `
-        <div class="stat-card" style="background:#FFF; border-left:5px solid ${color}; padding:20px; cursor:pointer;"
+        <div class="stat-card" style="background:#FFF; border-left:5px solid ${color}; padding:20px; cursor:pointer; display:flex; flex-direction:column; align-items:stretch; min-height:118px; min-width:0;"
              onclick="showEventDetail('${kind}')" title="Click for detail">
             <div style="display:flex; align-items:center; justify-content:space-between;">
                 <h3 style="color:#6B7280; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${label}</h3>
                 <i class="fa-solid ${icon}" style="color:${color}; opacity:0.7;"></i>
             </div>
-            <h2 style="font-size:1.45rem; font-weight:800; margin:8px 0 4px 0; color:#111827;">${value}</h2>
-            <div style="font-size:0.72rem; color:${color}; font-weight:600;">${sub}</div>
+            <h2 style="font-size:1.45rem; font-weight:800; margin:8px 0 4px 0; color:#111827; overflow-wrap:break-word;">${value}</h2>
+            <div style="font-size:0.72rem; color:${color}; font-weight:600; white-space:normal; overflow-wrap:break-word;">${sub}</div>
         </div>`;
 
     const funnelBoxes = stats.funnel.map((f, i) => {
@@ -5692,8 +5696,8 @@ export function getEventHTML(stats) {
         <!-- VIEW 1: headline tiles -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:16px; margin-bottom:24px;">
             ${tile('spend', 'Total Spend', _evtMoney(stats.totalSpend), `Across ${stats.eventCount} events`, '#007AFF', 'fa-sack-dollar')}
-            ${tile('revenue', 'Revenue Generated', _evtMoney(stats.revenueGenerated), `${stats.closedDeals.length} deal-won touch${stats.closedDeals.length === 1 ? '' : 'es'} (weighted)`, '#10b981', 'fa-trophy')}
-            ${tile('return', 'Return per $1 Spent', _evtReturn(stats.returnPerDollar), `${_evtMoney(stats.totalWeighted)} weighted revenue`, '#8b5cf6', 'fa-scale-balanced')}
+            ${tile('revenue', 'Revenue Generated', _evtMoney(stats.revenueGenerated), `${stats.closedDeals.length} deal${stats.closedDeals.length === 1 ? '' : 's'} · weighted`, '#10b981', 'fa-trophy')}
+            ${tile('return', 'Return per $1 Spent', _evtReturn(stats.returnPerDollar), `${_evtMoney(stats.totalWeighted)} weighted`, '#8b5cf6', 'fa-scale-balanced')}
             ${tile('costPoc', 'Cost per POC Reached', stats.costPerPOC !== null ? _evtMoney(stats.costPerPOC) : '—', `${stats.pocCount} POC${stats.pocCount === 1 ? '' : 's'} started`, '#f59e0b', 'fa-flask-vial')}
         </div>
 
