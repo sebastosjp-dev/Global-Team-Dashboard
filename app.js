@@ -8,6 +8,7 @@ import { selectTrainingView } from './training.js';
 import { renderTabMetrics } from './views.js';
 import { DATA_SOURCES, AUTH } from './config.js';
 import { selectWeeklyReportView, checkWeeklyReportBadge } from './weeklyReport.js';
+import { recordLogin, renderRecentVisitors } from './loginLog.js';
 
 function sheetsExportUrl(sheetId) {
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
@@ -314,9 +315,13 @@ function initAuth() {
     };
 
     try {
+        // Reuse this tab's session only while its ID token is still valid (~1h);
+        // after that, GSI auto-select signs the user back in (and logs a new visit).
         const saved = JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY) || 'null');
-        if (saved && String(saved.email).toLowerCase().endsWith('@' + AUTH.ALLOWED_DOMAIN)) {
+        if (saved && String(saved.email).toLowerCase().endsWith('@' + AUTH.ALLOWED_DOMAIN)
+            && isAllowedAccount(decodeJwtPayload(saved.idToken || ''))) {
             enterDashboard(saved);
+            renderRecentVisitors(saved.idToken);
             return;
         }
     } catch { /* fall through to sign-in */ }
@@ -329,9 +334,10 @@ function initAuth() {
                 (claims?.email ? ` (${claims.email} is not allowed)` : ''));
             return;
         }
-        const user = { email: claims.email, name: claims.name || '' };
+        const user = { email: claims.email, name: claims.name || '', idToken: response.credential };
         sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
         enterDashboard(user);
+        recordLogin(response.credential).then(() => renderRecentVisitors(response.credential));
     };
 
     // The GSI script loads async; wait until it is ready.

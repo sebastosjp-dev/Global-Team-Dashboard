@@ -469,6 +469,42 @@ p {
     letter-spacing: 0.02em;
 }
 
+#recent-visitors.hidden {
+    display: none;
+}
+
+.visitor-list {
+    list-style: none;
+    margin: 2px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.visitor-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.68rem;
+    line-height: 1.3;
+}
+
+.visitor-email {
+    color: var(--sidebar-text);
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.visitor-time {
+    color: var(--sidebar-text);
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
 #sidebar-nav {
     display: flex;
     flex-direction: column;

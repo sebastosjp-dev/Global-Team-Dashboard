@@ -9,6 +9,8 @@
 export const AUTH = {
     GOOGLE_CLIENT_ID: '7266197012-iog9olr657n7p8b9v30vo285lnlprebg.apps.googleusercontent.com',
     ALLOWED_DOMAIN: 'whatap.io',
+    // Login log web app (/exec URL from apps-script/login-log.gs). Empty = feature off.
+    LOGIN_LOG_URL: '',
 };
 
 // Google Sheets spreadsheet IDs
