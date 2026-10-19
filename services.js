@@ -558,10 +558,16 @@ export function getQuarterlyForecastStats(workbookData, filterCountry) {
         });
     });
 
-    /* ── Sort each list (largest first) and trim deals to N for display ── */
+    /* ── Sort each list and trim deals to N for display ──
+       Forecast: closest-to-close stage first (Negotiation → Quotation → PoC → Discovery), then largest KTCV. */
+    const FORECAST_STAGE_RANK = { negotiation: 0, quotation: 1, poc: 2, discovery: 3 };
+    const stageRank = s => {
+        const r = FORECAST_STAGE_RANK[String(s || '').trim().toLowerCase()];
+        return r === undefined ? 99 : r;
+    };
     ['Q1', 'Q2', 'Q3', 'Q4'].forEach(q => {
         quarters[q].booked.deals.sort((a, b) => (b.arr || b.tcv) - (a.arr || a.tcv));
-        quarters[q].forecast.deals.sort((a, b) => b.tcv - a.tcv);
+        quarters[q].forecast.deals.sort((a, b) => (stageRank(a.stage) - stageRank(b.stage)) || (b.tcv - a.tcv));
         quarters[q].renewal.deals.sort((a, b) => b.currentArr - a.currentArr);
     });
 
