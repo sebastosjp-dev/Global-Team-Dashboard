@@ -255,124 +255,73 @@ p {
     margin-bottom: 20px;
 }
 
-/* ---------- Spinning Globe Loader ---------- */
-.globe-loader {
-    position: relative;
-    width: 110px;
-    height: 110px;
-    margin: 0 auto 28px;
-    display: grid;
-    place-items: center;
+/* ---------- WhaTap Logo Loader ----------
+   The logo PNG is used as a mask, so its shape can be filled with any color:
+   a muted base plus a brand-gradient sweep running through the letters. */
+.wt-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+    animation: wtLoaderIn 0.5s ease-out both;
 }
 
-.globe {
-    position: relative;
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    transform-style: preserve-3d;
+.wt-loader-logo {
+    width: 240px;
+    height: 46px;                       /* visible band of the 1024x455 PNG */
+    background: linear-gradient(100deg,
+        #CBD3DF 0%, #CBD3DF 38%,
+        var(--accent-primary) 47%, var(--accent-secondary) 53%,
+        #CBD3DF 62%, #CBD3DF 100%) 0 0 / 300% 100%;
+    -webkit-mask: url('whatap-logo.png') center / 240px auto no-repeat;
+            mask: url('whatap-logo.png') center / 240px auto no-repeat;
+    animation: wtLogoSweep 1.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
 }
 
-/* The earth sphere with continents-like gradient */
-.globe-sphere {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background:
-        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 45%),
-        radial-gradient(circle at 70% 75%, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0) 50%),
-        linear-gradient(135deg, #2f9bff 0%, #007AFF 45%, #0050b3 100%);
-    box-shadow:
-        inset -8px -10px 22px rgba(0, 0, 0, 0.35),
-        inset 6px 6px 14px rgba(255, 255, 255, 0.35),
-        0 0 26px rgba(0, 122, 255, 0.45);
+@keyframes wtLogoSweep {
+    from { background-position: 100% 0; }
+    to   { background-position: 0% 0; }
+}
+
+.wt-loader-track {
+    position: relative;
+    width: 160px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--bg-secondary);
     overflow: hidden;
 }
 
-/* Moving land masses / texture sweeping across the globe */
-.globe-sphere::before {
-    content: "";
+.wt-loader-bar {
     position: absolute;
-    top: -10%;
-    left: -50%;
-    width: 200%;
-    height: 120%;
-    background:
-        radial-gradient(ellipse 22% 14% at 20% 35%, rgba(46, 204, 113, 0.85), transparent 60%),
-        radial-gradient(ellipse 16% 20% at 45% 60%, rgba(46, 204, 113, 0.7), transparent 60%),
-        radial-gradient(ellipse 14% 10% at 70% 30%, rgba(39, 174, 96, 0.8), transparent 60%),
-        radial-gradient(ellipse 20% 16% at 85% 70%, rgba(46, 204, 113, 0.65), transparent 60%);
-    animation: globeSpin 6s linear infinite;
+    inset: 0 auto 0 0;
+    width: 40%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    animation: wtTrack 1.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
 }
 
-@keyframes globeSpin {
-    from { transform: translateX(0); }
-    to   { transform: translateX(50%); }
+@keyframes wtTrack {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(250%); }
 }
 
-/* Meridians and equator give a wireframe-globe feel */
-.globe-meridian,
-.globe-equator {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 1.5px solid rgba(255, 255, 255, 0.35);
-    pointer-events: none;
+.wt-loader-text {
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-light);
 }
 
-.globe-meridian {
-    border-radius: 50%;
-    width: 36%;
-    left: 32%;
-    border-color: rgba(255, 255, 255, 0.3);
-    animation: meridianSpin 6s linear infinite;
+@keyframes wtLoaderIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
 }
 
-.globe-meridian-2 {
-    width: 70%;
-    left: 15%;
-    animation-delay: -3s;
-    opacity: 0.6;
-}
-
-@keyframes meridianSpin {
-    0%   { transform: scaleX(1); }
-    50%  { transform: scaleX(0.1); }
-    100% { transform: scaleX(1); }
-}
-
-.globe-equator {
-    top: 50%;
-    height: 0;
-    border-radius: 50%;
-    transform: translateY(-50%);
-    border-width: 1.5px 0 0 0;
-}
-
-/* Orbiting dot circling the planet */
-.globe-orbit {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    animation: orbitSpin 2.8s linear infinite;
-}
-
-.globe-orbit::after {
-    content: "";
-    position: absolute;
-    top: -3px;
-    left: 50%;
-    width: 8px;
-    height: 8px;
-    margin-left: -4px;
-    border-radius: 50%;
-    background: var(--accent-primary, #007AFF);
-    box-shadow: 0 0 10px 2px rgba(0, 122, 255, 0.7);
-}
-
-@keyframes orbitSpin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+@media (prefers-reduced-motion: reduce) {
+    .wt-loader, .wt-loader-logo, .wt-loader-bar { animation: none; }
+    .wt-loader-logo { background: var(--accent-primary); }
 }
 
 #drop-zone input[type="file"] {
@@ -2074,4 +2023,220 @@ select:focus {
 .kpi-q-row:hover {
     background: #F8FAFC;
     box-shadow: inset 0 0 0 1px #E2E8F0;
+}
+
+/* ================================================================
+   Popups (popup.js) — shared window + drag handle
+   ================================================================ */
+.dash-popup {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.dash-popup-panel {
+    background: #FFFFFF;
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: dashPopupIn 0.16s ease-out;
+}
+
+@keyframes dashPopupIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+}
+
+.dash-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #EEF2F7;
+    background: #F8FAFC;
+}
+
+.dash-popup-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+
+.dash-popup-eyebrow {
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.dash-popup-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #111827;
+    margin-top: 2px;
+    word-break: break-word;
+}
+
+.dash-popup-badge {
+    font-size: 0.8rem;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid;
+    white-space: nowrap;
+}
+
+.dash-popup-close {
+    border: none;
+    background: #EEF2F7;
+    color: #475569;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.dash-popup-close:hover { background: #E2E8F0; }
+
+.dash-popup-body {
+    overflow: auto;
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.dash-popup-chips {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.dash-popup-chip {
+    flex: 1;
+    min-width: 120px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 12px 16px;
+}
+
+.dash-popup-chip-label {
+    font-size: 0.6rem;
+    color: #94A3B8;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.dash-popup-chip-value {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-top: 3px;
+    line-height: 1.2;
+}
+
+.dash-popup-chip-sub {
+    font-size: 0.66rem;
+    color: #94A3B8;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.dash-popup-section-title {
+    font-size: 0.62rem;
+    color: #6B7280;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+
+.dash-popup-table-wrap { overflow-x: auto; }
+
+.dash-popup-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.76rem;
+}
+
+.dash-popup-table th {
+    background: #F9FAFB;
+    padding: 7px 10px;
+    font-size: 0.6rem;
+    color: #6B7280;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.dash-popup-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #F3F4F6;
+    color: #374151;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-popup-rownum { color: #9CA3AF !important; }
+
+.dash-popup-empty {
+    padding: 18px;
+    text-align: center;
+    color: #9CA3AF;
+    font-size: 0.8rem;
+    background: #F9FAFB;
+    border-radius: 10px;
+}
+
+/* Drag handle: the header of any popup panel (see popup.js initDraggablePopups) */
+.dash-popup-header,
+[id$="-modal"] > div > div:first-child,
+[id$="-modal-body"] > div:first-child {
+    cursor: move;
+}
+
+.dash-popup-header button,
+[id$="-modal"] > div > div:first-child button {
+    cursor: pointer;
+}
+
+body.popup-dragging,
+body.popup-dragging * {
+    user-select: none !important;
+    cursor: move !important;
+}
+
+/* Tiles / cells that open a popup */
+.popup-trigger {
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+}
+
+.popup-trigger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+}
+
+tr.popup-trigger:hover,
+td.popup-trigger:hover {
+    transform: none;
+    box-shadow: none;
+    filter: brightness(0.96);
+    background: #F1F5F9;
 }

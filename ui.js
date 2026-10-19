@@ -3,6 +3,7 @@
  */
 import { formatCurrency, parseCurrency, sortCountriesByAmount, sortCountriesByCount } from './utils.js';
 import { CONFIG } from './config.js';
+import { openPopup, statChipsHTML, tableHTML, sectionHTML, escapeHtml, fmtUsd } from './popup.js';
 /**
  * @deprecated Styles now live in styles.css. Kept as no-op for backward compat.
  */
@@ -6097,6 +6098,100 @@ window.showKPIQuarterDetail = function (rowEl) {
     document.addEventListener('keydown', window.__kpiQuarterModalEsc);
 };
 
+/* ── KPI hero / revenue-mix drill-down popups ─────────────────── */
+
+const KPI_MIX_LABEL = { New: 'New KTCV', Upsell: 'Up/Cross Sell', Recurring: 'Recurring (Renewal)', Unspecified: 'Unspecified', ALL: 'All Types' };
+
+const _kpiDealCols = [
+    { label: 'Account', render: r => `<strong style="color:#111827;">${escapeHtml(r.account)}</strong>` },
+    { label: 'Country', key: 'country' },
+    { label: 'Type', render: r => escapeHtml(KPI_MIX_LABEL[r.type] || r.type) },
+    { label: 'Quarter', key: 'quarter', align: 'center' },
+    { label: 'Contract Start', key: 'startDate', date: true, align: 'center' },
+    { label: 'KTCV (USD)', key: 'tcv', money: true },
+];
+
+const _kpiDealsNote = (mix) => mix
+    ? '<div style="font-size:0.7rem; color:#94A3B8;">Won contracts from the ORDER SHEET, by contract start date. KPI achievement figures come from the KPI sheet and can differ.</div>'
+    : '<div class="dash-popup-empty">ORDER SHEET not loaded — deal list unavailable.</div>';
+
+/**
+ * @param {'quarter'|'ktcv'|'mix'} kind
+ * @param {number|string} [a] quarter index (quarter) or revenue type (mix)
+ * @param {string} [b] quarter id 'Q1'..'Q4' (mix)
+ */
+window.openKpiPopup = function (kind, a, b) {
+    const d = window.__kpiPopupData;
+    if (!d) return;
+    const mix = d.mix;
+    const deals = mix?.entries || [];
+    const money = (v, currency = true) => _kpiFmtVal(v, currency);
+
+    if (kind === 'quarter') {
+        const qi = Number(a);
+        const q = `Q${qi + 1}`;
+        const r = d.quarterRates[qi];
+        const objCols = [
+            { label: 'Category', render: o => `<span style="color:${o.color}; font-weight:700;">${escapeHtml(o.category)}</span>` },
+            { label: 'Objective', render: o => `<strong style="color:#111827;">${escapeHtml(o.name)}</strong>` },
+            { label: 'Weight', render: o => `${o.weight}%`, align: 'right' },
+            { label: `${q} Target`, render: o => money(o.targets[qi], o.currency), align: 'right' },
+            { label: `${q} Achieved`, render: o => money(o.ach[qi], o.currency), align: 'right' },
+            { label: 'Rate', render: o => `<strong style="color:${_kpiRateColor(o.quarterRates[qi])};">${o.quarterRates[qi]}%</strong>`, align: 'right' },
+        ];
+        const qDeals = deals.filter(x => x.quarter === q);
+        openPopup({
+            eyebrow: `${d.year} Global KPI`, title: `${q} Progress`, icon: 'fa-chart-simple', color: _kpiRateColor(r),
+            badge: `${r}%`,
+            bodyHtml: statChipsHTML([
+                { label: 'Weighted achievement', value: `${r}%`, color: _kpiRateColor(r) },
+                ...(d.hasTcv ? [
+                    { label: `${q} KTCV achieved`, value: money(d.tcvAch[qi]), sub: `of ${money(d.tcvTgt[qi])} target` },
+                    { label: 'Remaining', value: money(Math.max(0, d.tcvTgt[qi] - d.tcvAch[qi])), color: d.tcvAch[qi] >= d.tcvTgt[qi] ? '#10B981' : '#EF4444' },
+                ] : []),
+            ]) + sectionHTML('Objectives', tableHTML(d.objectives, objCols))
+              + sectionHTML(`Won deals · ${q} (${qDeals.length})`, (mix ? tableHTML(qDeals, _kpiDealCols, `No won deals in ${q}.`) : '') + _kpiDealsNote(mix)),
+        });
+    } else if (kind === 'ktcv') {
+        const qCols = [
+            { label: 'Quarter', key: 'q' },
+            { label: 'Target', render: x => money(x.t), align: 'right' },
+            { label: 'Achieved', render: x => money(x.a), align: 'right' },
+            { label: 'Rate', render: x => `<strong style="color:${_kpiRateColor(x.r)};">${x.r}%</strong>`, align: 'right' },
+        ];
+        const qRows = [0, 1, 2, 3].map(i => ({
+            q: `Q${i + 1}`, t: d.tcvTgt[i], a: d.tcvAch[i],
+            r: d.tcvTgt[i] ? Math.round(d.tcvAch[i] / d.tcvTgt[i] * 100) : (d.tcvAch[i] ? 100 : 0),
+        }));
+        openPopup({
+            eyebrow: `${d.year} Global KPI`, title: 'Total KTCV Achieved', icon: 'fa-sack-dollar', color: _kpiRateColor(d.tcvTotalRate),
+            badge: `${d.tcvTotalRate}%`,
+            bodyHtml: statChipsHTML([
+                { label: 'Achieved', value: money(d.tcvTotalAch), color: _kpiRateColor(d.tcvTotalRate) },
+                { label: 'Annual target', value: money(d.tcvTotalTgt) },
+                { label: 'Remaining', value: money(Math.max(0, d.tcvTotalTgt - d.tcvTotalAch)), color: '#EF4444' },
+            ]) + sectionHTML('By quarter', tableHTML(qRows, qCols))
+              + sectionHTML(`Won deals · ${d.year} (${deals.length})`, (mix ? tableHTML(deals, _kpiDealCols, 'No won deals this year.') : '') + _kpiDealsNote(mix)),
+        });
+    } else if (kind === 'mix') {
+        const type = String(a || 'ALL');
+        const q = b || null;
+        const rows = deals.filter(x => (type === 'ALL' || x.type === type) && (!q || x.quarter === q));
+        const total = rows.reduce((s, x) => s + x.tcv, 0);
+        const label = KPI_MIX_LABEL[type] || type;
+        const color = { New: '#16a34a', Upsell: '#2563eb', Recurring: '#9333ea' }[type] || '#0F766E';
+        openPopup({
+            eyebrow: `Revenue Type Mix · ${mix?.year || d.year}${q ? ' · ' + q : ''}`, title: label, icon: 'fa-layer-group', color,
+            badge: money(total),
+            bodyHtml: statChipsHTML([
+                { label: 'KTCV', value: money(total), color },
+                { label: 'Deals', value: String(rows.length) },
+                { label: 'Avg deal', value: money(rows.length ? total / rows.length : 0) },
+            ]) + tableHTML(rows, _kpiDealCols, 'No deals.'),
+        });
+    }
+};
+
 export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFullYear(), isAdmin = true, currentUser = 'admin', availableUsers = [], opts = {}) {
     const readOnly = !!opts.readOnly;
     if (!kpiData || !kpiData.categories) {
@@ -6174,6 +6269,18 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
     const tcvTotalRate = tcvTotalTgt > 0 ? Math.round((tcvTotalAch / tcvTotalTgt) * 100) : (tcvTotalAch > 0 ? 100 : 0);
     const hasTcv = tcvTotalTgt > 0 || tcvTotalAch > 0;
 
+    // Data behind the clickable hero tiles / revenue-mix cells (read by window.openKpiPopup).
+    window.__kpiPopupData = {
+        year: currentKPIYear,
+        quarterRates: quarterWeightedRate.map(Math.round),
+        tcvAch, tcvTgt, tcvTotalAch, tcvTotalTgt, tcvTotalRate, hasTcv,
+        mix: opts.revenueMix || null,
+        objectives: kpiData.categories.flatMap(cat => (cat.objectives || []).map(obj => ({
+            category: cat.name || '', color: cat.color || '#6366f1', name: obj.name || '—',
+            weight: obj.weight || 0, currency: isCurrencyCat(cat.name), ...objectiveStats(obj),
+        }))),
+    };
+
     const overallRate = Math.round(totalWeightedRate);
     const overallColor = overallRate >= 100 ? '#10B981' : (overallRate >= 70 ? '#F59E0B' : (overallRate >= 40 ? '#F97316' : '#EF4444'));
 
@@ -6241,7 +6348,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                             const qr = Math.round(r);
                             const c = qr >= 100 ? '#6ee7b7' : (qr >= 70 ? '#fcd34d' : (qr >= 40 ? '#fdba74' : '#fca5a5'));
                             return `
-                                <div style="background:rgba(255,255,255,0.05); padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.10);">
+                                <div class="popup-trigger" onclick="window.openKpiPopup('quarter', ${qi})" title="Click to see Q${qi+1} details" style="background:rgba(255,255,255,0.05); padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.10);">
                                     <div style="font-size:0.66rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe;">Q${qi+1}</div>
                                     <div style="font-size:1.45rem; font-weight:800; color:${c}; margin-top:2px; line-height:1;">${qr}%</div>
                                     ${hasTcv ? `
@@ -6259,7 +6366,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
             </div>
 
             ${hasTcv ? `
-                <div style="margin-top:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); border-radius:12px; padding:14px 20px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative;">
+                <div class="popup-trigger" onclick="window.openKpiPopup('ktcv')" title="Click to see KTCV by quarter and won deals" style="margin-top:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); border-radius:12px; padding:14px 20px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative;">
                     <div style="flex-shrink:0;">
                         <div style="font-size:0.66rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe; text-transform:uppercase;">Total KTCV Achieved</div>
                         <div style="font-size:1.6rem; font-weight:800; color:#ffffff; line-height:1.2;">${formatVal(tcvTotalAch, true)}
@@ -6430,19 +6537,23 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
 
         const th = (label, right = true) => `<th style="padding:7px 10px; font-weight:700; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.05em; color:#475569; ${right ? 'text-align:right;' : 'text-align:left;'}">${label}</th>`;
         const td = (v, extra = '') => `<td style="padding:7px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric:tabular-nums; ${extra}">${v}</td>`;
+        // Quarter cell that opens the deals behind it (type + quarter)
+        const qTd = (t, q, v) => v
+            ? `<td class="popup-trigger" onclick="event.stopPropagation(); window.openKpiPopup('mix', '${t}', '${q}')" title="Click to see ${q} deals" style="padding:7px 10px; border-bottom:1px solid #F1F5F9; text-align:right; font-variant-numeric:tabular-nums;">$${formatCurrency(v)}</td>`
+            : td('<span style="color:#CBD5E1;">—</span>');
 
         const bodyRows = ordered.map(t => {
             const b = mix.types[t];
             const c = MIX_COLORS[t] || MIX_COLORS.Unspecified;
             const share = mix.annualTotal > 0 ? (b.annual / mix.annualTotal * 100).toFixed(1) + '%' : '—';
             return `
-                <tr>
+                <tr class="popup-trigger" onclick="window.openKpiPopup('mix', '${t}')" title="Click to see all ${MIX_LABEL[t] || t} deals">
                     <td style="padding:7px 10px; border-bottom:1px solid #F1F5F9;">
                         <span style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:${c.fg}; background:${c.bg}; padding:3px 9px; border-radius:999px; font-size:0.7rem;">
                             <span style="width:6px; height:6px; border-radius:50%; background:${c.fg};"></span>${MIX_LABEL[t] || t}
                         </span>
                     </td>
-                    ${['Q1','Q2','Q3','Q4'].map(q => td(b[q] ? '$' + formatCurrency(b[q]) : '<span style="color:#CBD5E1;">—</span>')).join('')}
+                    ${['Q1','Q2','Q3','Q4'].map(q => qTd(t, q, b[q])).join('')}
                     ${td('<b>$' + formatCurrency(b.annual) + '</b>', `color:${c.fg};`)}
                     ${td(b.deals)}
                     ${td(share, 'color:#475569;')}
@@ -6461,9 +6572,9 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                     </thead>
                     <tbody>
                         ${bodyRows}
-                        <tr style="background:#F8FAFC; font-weight:800;">
+                        <tr class="popup-trigger" onclick="window.openKpiPopup('mix', 'ALL')" title="Click to see all won deals" style="background:#F8FAFC; font-weight:800;">
                             <td style="padding:8px 10px;">Total</td>
-                            ${['Q1','Q2','Q3','Q4'].map(q => `<td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">$${formatCurrency(mix.qTotals[q])}</td>`).join('')}
+                            ${['Q1','Q2','Q3','Q4'].map(q => `<td class="popup-trigger" onclick="event.stopPropagation(); window.openKpiPopup('mix', 'ALL', '${q}')" title="Click to see ${q} deals" style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">$${formatCurrency(mix.qTotals[q])}</td>`).join('')}
                             <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">$${formatCurrency(mix.annualTotal)}</td>
                             <td style="padding:8px 10px; text-align:right; font-variant-numeric:tabular-nums;">${mix.dealTotal}</td>
                             <td style="padding:8px 10px; text-align:right; color:#475569;">100%</td>
@@ -7360,21 +7471,21 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
         ${filterBar}
 
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:20px; margin-bottom:30px;">
-            <div class="stat-card highlight-card" style="background:#FEF2F2; border:1px solid rgba(239,68,68,0.2); padding:24px; border-left:5px solid #EF4444;">
+            <div class="stat-card highlight-card popup-trigger" data-deallost-tile="deals" title="Click to see all lost deals" style="background:#FEF2F2; border:1px solid rgba(239,68,68,0.2); padding:24px; border-left:5px solid #EF4444;">
                 <div class="stat-icon" style="background:rgba(239,68,68,0.15); color:#EF4444; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-circle-xmark"></i></div>
                 <div>
                     <h3 style="color:#DC2626; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Lost Deals</h3>
                     <h2 style="color:#111827; font-size:2.2rem; font-weight:800; margin:0;">${stats.totalDeals} <span style="font-size:1rem; font-weight:400; opacity:0.7;">Deals</span></h2>
                 </div>
             </div>
-            <div class="stat-card highlight-card" style="background:#FFF7ED; border:1px solid rgba(249,115,22,0.25); padding:24px; border-left:5px solid #F97316;">
+            <div class="stat-card highlight-card popup-trigger" data-deallost-tile="value" title="Click to see lost value by deal and country" style="background:#FFF7ED; border:1px solid rgba(249,115,22,0.25); padding:24px; border-left:5px solid #F97316;">
                 <div class="stat-icon" style="background:rgba(249,115,22,0.15); color:#F97316; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-money-bill-trend-up"></i></div>
                 <div>
                     <h3 style="color:#C2410C; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Lost Value (USD)</h3>
                     <h2 style="color:#111827; font-size:2.2rem; font-weight:800; margin:0;">$ ${formatCurrency(stats.totalAmount)}</h2>
                 </div>
             </div>
-            <div class="stat-card highlight-card" style="background:#EFF6FF; border:1px solid rgba(0,122,255,0.2); padding:24px; border-left:5px solid #007AFF;">
+            <div class="stat-card highlight-card popup-trigger" data-deallost-tile="avg" title="Click to see deal size distribution" style="background:#EFF6FF; border:1px solid rgba(0,122,255,0.2); padding:24px; border-left:5px solid #007AFF;">
                 <div class="stat-icon" style="background:rgba(0,122,255,0.15); color:#007AFF; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-coins"></i></div>
                 <div>
                     <h3 style="color:#007AFF; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Avg Deal Size</h3>
@@ -7382,7 +7493,7 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
                     ${stats.avgDaysInPipeline !== null ? `<p style="color:#2563EB; font-size:0.72rem; margin:4px 0 0; font-weight:500;">avg ${stats.avgDaysInPipeline} days in pipeline</p>` : ''}
                 </div>
             </div>
-            <div class="stat-card highlight-card" style="background:#FDF2FF; border:1px solid rgba(168,85,247,0.25); padding:24px; border-left:5px solid #A855F7;">
+            <div class="stat-card highlight-card popup-trigger" data-deallost-tile="reason" title="Click to see lost reasons" style="background:#FDF2FF; border:1px solid rgba(168,85,247,0.25); padding:24px; border-left:5px solid #A855F7;">
                 <div class="stat-icon" style="background:rgba(168,85,247,0.15); color:#A855F7; width:56px; height:56px; font-size:1.5rem;"><i class="fa-solid fa-flag"></i></div>
                 <div>
                     <h3 style="color:#A855F7; font-size:0.8rem; text-transform:uppercase; font-weight:700;">Top Lost Reason</h3>
@@ -7448,6 +7559,75 @@ export function getDealLostHTML(stats, filterCountry, uniqueValues) {
             </div>
         </div>
     `;
+}
+
+/**
+ * Popup behind one of the four DEAL LOST summary tiles.
+ * @param {'deals'|'value'|'avg'|'reason'} kind
+ * @param {Object} stats - from getDealLostStats
+ * @param {string} country - current country filter
+ */
+export function openDealLostPopup(kind, stats, country) {
+    const entries = stats.entries || [];
+    const scope = country && country !== 'All' ? country : 'All countries';
+    const dealCols = [
+        { label: 'Country', key: 'country' },
+        { label: 'Account', render: r => `<strong style="color:#111827;">${escapeHtml(r.account)}</strong>` },
+        { label: 'Partner', key: 'partner' },
+        { label: 'Reason', key: 'reason' },
+        { label: 'Lost Date', key: 'lostDate', date: true, align: 'center' },
+        { label: 'Amount (USD)', key: 'amount', money: true },
+    ];
+    const groupCols = (label) => [
+        { label, render: r => `<strong style="color:#111827;">${escapeHtml(r.name)}</strong>` },
+        { label: 'Deals', key: 'count', align: 'right' },
+        { label: 'Share', render: r => `${Math.round(r.count / (stats.totalDeals || 1) * 100)}%`, align: 'right' },
+        { label: 'Lost Value (USD)', key: 'amount', money: true },
+    ];
+
+    if (kind === 'deals') {
+        openPopup({
+            eyebrow: `Deal Lost · ${scope}`, title: 'All Lost Deals', icon: 'fa-circle-xmark', color: '#EF4444',
+            badge: `${stats.totalDeals} deals`,
+            bodyHtml: tableHTML(entries, dealCols, 'No lost deals.'),
+        });
+    } else if (kind === 'value') {
+        const byAmount = [...entries].sort((a, b) => b.amount - a.amount);
+        const missing = entries.filter(e => !e.amount).length;
+        openPopup({
+            eyebrow: `Deal Lost · ${scope}`, title: 'Lost Value (USD)', icon: 'fa-money-bill-trend-up', color: '#F97316',
+            badge: fmtUsd(stats.totalAmount),
+            bodyHtml: statChipsHTML([
+                { label: 'Total lost value', value: fmtUsd(stats.totalAmount), color: '#C2410C' },
+                { label: 'Deals with amount', value: `${entries.length - missing} / ${entries.length}`, sub: missing ? `${missing} deals have no KTCV amount` : '' },
+            ]) + sectionHTML('By country', tableHTML(stats.sortedCountries || [], groupCols('Country'), 'No country data.'))
+              + sectionHTML('Deals by amount', tableHTML(byAmount, dealCols)),
+        });
+    } else if (kind === 'avg') {
+        const amounts = entries.map(e => e.amount).filter(v => v > 0).sort((a, b) => a - b);
+        const median = amounts.length ? (amounts.length % 2 ? amounts[(amounts.length - 1) / 2]
+            : (amounts[amounts.length / 2 - 1] + amounts[amounts.length / 2]) / 2) : 0;
+        openPopup({
+            eyebrow: `Deal Lost · ${scope}`, title: 'Average Deal Size', icon: 'fa-coins', color: '#007AFF',
+            badge: fmtUsd(stats.avgDealSize),
+            bodyHtml: statChipsHTML([
+                { label: 'Average', value: fmtUsd(stats.avgDealSize), color: '#007AFF', sub: `over ${stats.totalDeals} deals` },
+                { label: 'Median', value: fmtUsd(median), sub: `${amounts.length} deals with amount` },
+                { label: 'Largest', value: fmtUsd(amounts[amounts.length - 1] || 0) },
+                { label: 'Smallest', value: fmtUsd(amounts[0] || 0) },
+            ]) + (stats.avgDaysInPipeline !== null ? statChipsHTML([{ label: 'Avg days in pipeline', value: `${stats.avgDaysInPipeline} days` }]) : '')
+              + sectionHTML('Deals by amount', tableHTML([...entries].sort((a, b) => b.amount - a.amount), dealCols)),
+        });
+    } else if (kind === 'reason') {
+        const top = stats.topReason;
+        const topDeals = top ? entries.filter(e => e.reason === top.name) : [];
+        openPopup({
+            eyebrow: `Deal Lost · ${scope}`, title: 'Lost Reasons', icon: 'fa-flag', color: '#A855F7',
+            badge: top ? top.name : '-',
+            bodyHtml: sectionHTML('All reasons', tableHTML(stats.sortedReasons || [], groupCols('Reason'), 'No lost-reason data in Pipeline.'))
+              + (top ? sectionHTML(`Deals lost to "${top.name}"`, tableHTML(topDeals, dealCols)) : ''),
+        });
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════

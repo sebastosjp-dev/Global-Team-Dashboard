@@ -197,7 +197,8 @@ export function getRevenueTypeQuarterlyMix(orderRows, filterCountry = null) {
     const result = {
         year: currentYear, hasRevenueType: false,
         types: {}, qTotals: { Q1: 0, Q2: 0, Q3: 0, Q4: 0 },
-        annualTotal: 0, dealTotal: 0
+        annualTotal: 0, dealTotal: 0,
+        entries: []   // one per contract, for drill-down popups
     };
     const rows = Array.isArray(orderRows) ? orderRows : [];
     if (!rows.length) return result;
@@ -206,6 +207,8 @@ export function getRevenueTypeQuarterlyMix(orderRows, filterCountry = null) {
     const tcvKey = findKorTcvKey(keys);
     const startKey = findContractStartKey(keys);
     const revKey = findRevenueTypeKey(keys);
+    const nameKey = findDealNameKey(keys);
+    const countryKey = findCountryKey(keys);
     result.hasRevenueType = !!revKey;
 
     rows.filter(r => isCountryMatch(r, filterCountry)).forEach(row => {
@@ -223,7 +226,13 @@ export function getRevenueTypeQuarterlyMix(orderRows, filterCountry = null) {
         result.qTotals[qId] += tcv;
         result.annualTotal += tcv;
         result.dealTotal += 1;
+        result.entries.push({
+            account: nameKey ? String(row[nameKey] || '').trim() || '(No name)' : '(No name)',
+            country: countryKey ? normalizeCountry(row[countryKey]) || '' : '',
+            startDate: d, quarter: qId, type: rType, tcv
+        });
     });
+    result.entries.sort((a, b) => b.tcv - a.tcv);
 
     return result;
 }

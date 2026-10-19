@@ -35,7 +35,7 @@ import {
     getPartnerROIHTML, getPipelineCoverageHTML,
     getPipelineChangeLogHTML, getCurrentPipelineListHTML,
     getCollectionChangeLogHTML,
-    getProjectHTML, getDealLostHTML,
+    getProjectHTML, getDealLostHTML, openDealLostPopup,
     getQuarterlyForecastHTML, getCsmTasksByClientHTML,
     getCsmViewHTML, getTaskDashboardHTML,
     getMaterialsHTML
@@ -641,6 +641,8 @@ function _renderDealLost(data, metricsGrid) {
             window.dealLostFilters.country = e.target.value;
             window.renderDealLostUI();
         });
+        el.querySelectorAll('[data-deallost-tile]').forEach(tile => tile.addEventListener('click', () =>
+            openDealLostPopup(tile.dataset.deallostTile, stats, window.dealLostFilters.country)));
         setTimeout(() => initDealLostCharts(stats), 50);
     };
 

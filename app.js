@@ -9,6 +9,7 @@ import { renderTabMetrics } from './views.js';
 import { DATA_SOURCES, AUTH } from './config.js';
 import { selectWeeklyReportView, checkWeeklyReportBadge } from './weeklyReport.js';
 import { recordLogin, renderRecentVisitors } from './loginLog.js';
+import { initDraggablePopups } from './popup.js';
 
 function sheetsExportUrl(sheetId) {
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
@@ -366,6 +367,7 @@ function initAuth() {
 }
 
 window.addEventListener('load', () => {
+    initDraggablePopups();
     initAuth();
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) refreshBtn.addEventListener('click', loadLocalExcel);
