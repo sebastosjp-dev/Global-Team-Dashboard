@@ -119,7 +119,7 @@ function _buildSimpleNav(container, name, onSelect) {
 function _buildTcvArrNav(container, onSelectTcvArr) {
     const tcvArrItem = document.createElement('div');
     tcvArrItem.className = 'nav-item tcv-arr-tab';
-    tcvArrItem.innerHTML = `<i class="fa-solid fa-chart-column" style="color: #f59e0b;"></i> <span style="font-weight: 700;">TCV vs ARR</span>`;
+    tcvArrItem.innerHTML = `<i class="fa-solid fa-chart-column" style="color: #f59e0b;"></i> <span style="font-weight: 700;">KTCV vs ARR</span>`;
     tcvArrItem.onclick = () => onSelectTcvArr();
     container.appendChild(tcvArrItem);
 }

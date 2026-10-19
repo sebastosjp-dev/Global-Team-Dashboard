@@ -1322,7 +1322,7 @@ function _renderCollectionChangeLog(stats, filterCountry, container) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TCV vs ARR
+   KTCV vs ARR
    ═══════════════════════════════════════════════════════════════ */
 
 /**

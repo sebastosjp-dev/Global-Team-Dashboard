@@ -275,7 +275,7 @@ function renderQuarterPanelHtml() {
                     <span style="font-size:0.6rem; font-weight:800; padding:1px 7px; border-radius:8px; background:${active ? 'rgba(255,255,255,0.25)' : 'rgba(16,185,129,0.12)'}; color:${active ? '#FFFFFF' : '#059669'};">${m.count}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-top:6px; gap:6px; font-size:0.65rem;">
-                    <span style="opacity:0.7;">TCV</span>
+                    <span style="opacity:0.7;">KTCV</span>
                     <span style="font-weight:800; color:${active ? '#FFFFFF' : '#EF4444'};">$${formatCurrency(m.tcv)}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-top:2px; gap:6px; font-size:0.65rem;">
@@ -372,7 +372,7 @@ function renderQuarterPanelHtml() {
                             <th style="padding: 16px 24px; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">CRM DEAL NAME</th>
                             <th style="padding: 16px 24px; text-align: center; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 90px;">MONTH</th>
                             <th style="padding: 16px 24px; text-align: center; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; width: 140px;">DEAL STAGE</th>
-                            <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">TCV (USD)</th>
+                            <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">KTCV (USD)</th>
                             <th style="padding: 16px 24px; text-align: right; color: #64748B; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em;">WEIGHTED PIPELINE VALUE (USD)</th>
                         </tr>
                     </thead>
@@ -455,7 +455,7 @@ window.showPipelineStageDeals = function (element) {
                 <button onclick="closePipelineStageModal()" style="border:none; background:#eef2f7; color:#475569; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem;" title="Close (Esc)"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div style="display:flex; gap:18px; padding:12px 20px; border-bottom:1px solid #f1f5f9; flex-wrap:wrap; font-size:0.72rem; color:#374151;">
-                <span>Pipeline TCV <strong style="color:#b91c1c; font-size:0.95rem;">$${fmt(totalTcv)}</strong></span>
+                <span>Pipeline KTCV <strong style="color:#b91c1c; font-size:0.95rem;">$${fmt(totalTcv)}</strong></span>
                 <span>Weighted <strong style="color:#0369a1; font-size:0.95rem;">$${fmt(totalWeighted)}</strong></span>
                 <span>ARR <strong style="color:#4338ca; font-size:0.95rem;">$${fmt(totalArr)}</strong></span>
             </div>
@@ -467,7 +467,7 @@ window.showPipelineStageDeals = function (element) {
                             <th style="padding:9px 12px; text-align:left; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Deal</th>
                             <th style="padding:9px 12px; text-align:center; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Q</th>
                             <th style="padding:9px 12px; text-align:center; font-size:0.6rem; color:#6b7280; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Type</th>
-                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#b91c1c; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Pipeline TCV</th>
+                            <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#b91c1c; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Pipeline KTCV</th>
                             <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#0369a1; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Weighted</th>
                             <th style="padding:9px 12px; text-align:right; font-size:0.6rem; color:#4338ca; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">ARR</th>
                         </tr>
@@ -721,7 +721,7 @@ export function getServiceAnalysisHTML(stats, filterCountry = 'All') {
                         <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Status</th>
                         <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">End Date</th>
                         <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">D-Day</th>
-                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">TCV</th>
+                        <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">KTCV</th>
                         <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">ARR</th>
                         <th style="padding:9px 12px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Services</th>
                     </tr></thead>
@@ -764,7 +764,7 @@ export function getServiceAnalysisHTML(stats, filterCountry = 'All') {
             <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid #10b981; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                 <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Expansion Opportunity</div>
                 <div style="font-size:2rem; font-weight:800; color:#059669;">$${formatCurrency(stats.expansionOpportunity)}</div>
-                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">TCV from upsell targets</div>
+                <div style="font-size:0.72rem; color:#9ca3af; margin-top:4px;">KTCV from upsell targets</div>
             </div>
             <div class="stat-card" style="background:#FFF; padding:16px; border-top:3px solid #6366f1; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                 <div style="font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Multi-Service Rate</div>
@@ -783,7 +783,7 @@ export function getServiceAnalysisHTML(stats, filterCountry = 'All') {
                     <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Customer</th>
                     <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Country</th>
                     <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase;">Current Service</th>
-                    <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">TCV</th>
+                    <th style="padding:8px 10px; font-size:0.68rem; color:#9ca3af; font-weight:700; text-transform:uppercase; text-align:right;">KTCV</th>
                 </tr></thead>
                 <tbody>${expansionRows}</tbody>
             </table>` : '<p style="color:#9ca3af; text-align:center; padding:16px; font-size:0.85rem;">No single-service customers found.</p>'}
@@ -1126,7 +1126,7 @@ export function getRenewalHTML(filtered) {
         return '<div style="padding:40px; text-align:center; color:#6B7280; grid-column:1/-1;">No renewals found in the next 6 months.</div>';
     }
 
-    const headers = ['End User', 'Country', 'Status', 'End License Date', 'D-Day', 'TCV Amount', 'ARR Amount', 'Probability'];
+    const headers = ['End User', 'Country', 'Status', 'End License Date', 'D-Day', 'KTCV Amount', 'ARR Amount', 'Probability'];
     let tableHtml = `<div class="stat-card" style="grid-column:1/-1; padding:16px; background:#FFF; border: 1px solid #F3F4F6; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch;">
         <h2 style="font-size:1.1rem; font-weight:800; color:#111827; margin-bottom:12px; display:flex; align-items:center; gap:10px;">
             <i class="fa-solid fa-calendar-check" style="color:#ef4444;"></i> License Renewal Schedule (Next 6 Months)
@@ -1187,7 +1187,7 @@ export function getQuarterlyForecastHTML(stats) {
 
     const quarterlyTcvChart = `
         <div style="background:#fff; border-radius:12px; padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,0.04); border-left:4px solid #f59e0b; margin-bottom:18px;">
-            <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#f59e0b; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; margin:0;">Quarterly TCV (${currentYear})</h3><span class="metric-info" data-tooltip="Total Contract Value broken down by quarter for the current year, showing seasonal revenue distribution.">i</span></div>
+            <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#f59e0b; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; margin:0;">Quarterly KTCV (${currentYear})</h3><span class="metric-info" data-tooltip="Total Contract Value broken down by quarter for the current year, showing seasonal revenue distribution.">i</span></div>
             <div style="height:160px; position:relative;"><canvas id="quarterly-tcv-bar"></canvas></div>
         </div>
     `;
@@ -1198,7 +1198,7 @@ export function getQuarterlyForecastHTML(stats) {
             <span style="height:1px; flex:1; background:#E5E7EB;"></span>
         </div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px;">
-            ${kpiCard('Booked TCV', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4 · Click for logo breakdown', 'bookedTcv')}
+            ${kpiCard('Booked KTCV', kpiTotals.bookedTcv, '#0ea5e9', 'Closed-won, Q1–Q4 · Click for logo breakdown', 'bookedTcv')}
             ${kpiCard('Booked ARR', kpiTotals.bookedArr, '#10b981', 'Closed-won, Q1–Q4 · Click for logo breakdown', 'bookedArr')}
             ${kpiCard('Weighted Pipeline ARR', kpiTotals.weightedArr, '#f59e0b', 'Stage-prob × ARR/yr · Click for logo breakdown', 'weightedArr')}
             ${kpiCard('Renewal Target ARR', kpiTotals.renewalArr, '#a855f7', 'Contracts ending in ' + currentYear + ' · Click for details', 'renewalArr')}
@@ -1279,10 +1279,10 @@ export function getQuarterlyForecastHTML(stats) {
                         <i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.6rem; color:#6366f1;" title="Click to expand"></i>
                     </span>
                 </div>
-                ${miniKpiRow('Booked TCV', data.booked.tcv, '#0ea5e9')}
+                ${miniKpiRow('Booked KTCV', data.booked.tcv, '#0ea5e9')}
                 ${miniKpiRow('Booked ARR', data.booked.arr, '#10b981')}
                 ${renderBookedByTypeBlock(data.booked.byType)}
-                ${miniKpiRow('wPipeline TCV', data.forecast.wTcv, '#f59e0b')}
+                ${miniKpiRow('wPipeline KTCV', data.forecast.wTcv, '#f59e0b')}
                 ${miniKpiRow('wPipeline ARR', data.forecast.wArr, '#f59e0b')}
                 ${miniKpiRow('Renewal ARR', data.renewal.arr, '#a855f7')}
                 <div style="text-align:center; padding-top:6px; margin-top:4px; border-top:1px dashed ${borderColor}; font-size:0.55rem; font-weight:700; color:#6366f1; letter-spacing:0.05em;">
@@ -1371,7 +1371,7 @@ window.openQuarterlyForecastModal = function (qId) {
                 <td style="padding:9px 12px; color:#111827; font-weight:600;">${renderCountryTag(d.country)}${d.name}</td>
                 <td style="padding:9px 12px;">${renderRevTypeBadge(d.revenueType)}</td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
-                    <span style="color:#0EA5E9; font-weight:800;">TCV $${fmt(d.tcv)}</span>
+                    <span style="color:#0EA5E9; font-weight:800;">KTCV $${fmt(d.tcv)}</span>
                     <span style="color:#10B981; font-weight:700; margin-left:10px;">ARR $${fmt(d.arr)}</span>
                 </td>
             </tr>
@@ -1393,7 +1393,7 @@ window.openQuarterlyForecastModal = function (qId) {
                     <div style="display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid ${c.br}; background:${c.bg}; border-radius:10px;">
                         <span style="font-size:0.62rem; font-weight:800; color:${c.fg}; text-transform:uppercase; letter-spacing:0.04em;">${label}</span>
                         <span style="font-size:0.72rem; color:#374151; font-weight:700; font-variant-numeric:tabular-nums;">
-                            <span style="color:#0EA5E9;">TCV</span> $${fmt(b.tcv)}
+                            <span style="color:#0EA5E9;">KTCV</span> $${fmt(b.tcv)}
                             <span style="color:#10B981; margin-left:6px;">ARR</span> $${fmt(b.arr)}
                             <span style="color:#9CA3AF; margin-left:6px; font-weight:600;">· ${b.deals} deal${b.deals === 1 ? '' : 's'}</span>
                         </span>
@@ -1412,7 +1412,7 @@ window.openQuarterlyForecastModal = function (qId) {
                 <td style="padding:9px 12px;">${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.62rem', padding: '2px 8px' })}</td>
                 <td style="padding:9px 12px; text-align:right; white-space:nowrap;">
                     <div>
-                        <span style="color:#0EA5E9; font-weight:700;">TCV $${fmt(d.tcv)}</span>
+                        <span style="color:#0EA5E9; font-weight:700;">KTCV $${fmt(d.tcv)}</span>
                         <span style="color:#10B981; font-weight:700; margin-left:10px;">ARR $${fmt(d.arr)}</span>
                     </div>
                     <div style="margin-top:3px;">
@@ -1475,11 +1475,11 @@ window.openQuarterlyForecastModal = function (qId) {
         <div style="padding:22px 26px 26px;">
             ${bookedTypeStrip}
             ${sectionWrap('NEW · Booked',  '#10b981',
-                `TCV $${fmt(q.booked.tcv)} · ARR $${fmt(q.booked.arr)} · ${q.booked.deals.length} deals`,
+                `KTCV $${fmt(q.booked.tcv)} · ARR $${fmt(q.booked.arr)} · ${q.booked.deals.length} deals`,
                 [{label:'#'},{label:'Deal Name'},{label:'Type'},{label:'Value', right:true}],
                 fullBookedRows)}
             ${sectionWrap('NEW · Forecast (Stage-Weighted)', '#f59e0b',
-                `TCV $${fmt(q.forecast.tcv)} · ARR $${fmt(q.forecast.arr)} · wTCV $${fmt(q.forecast.wTcv)} · wARR $${fmt(q.forecast.wArr)} · ${q.forecast.deals.length} deals`,
+                `KTCV $${fmt(q.forecast.tcv)} · ARR $${fmt(q.forecast.arr)} · wTCV $${fmt(q.forecast.wTcv)} · wARR $${fmt(q.forecast.wArr)} · ${q.forecast.deals.length} deals`,
                 [{label:'#'},{label:'Deal Name'},{label:'Stage'},{label:'Weighted Value', right:true}],
                 fullForecastRows)}
             ${sectionWrap('Renewal Target', '#a855f7',
@@ -1505,7 +1505,7 @@ window.openAnnualKpiModal = function (kpiKey) {
     const qOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
 
     const KPI_META = {
-        bookedTcv:   { label: 'Booked TCV',           color: '#0ea5e9', source: 'booked',   icon: 'fa-file-signature',  desc: `Closed-won contracts · Q1–Q4 ${stats.currentYear}` },
+        bookedTcv:   { label: 'Booked KTCV',           color: '#0ea5e9', source: 'booked',   icon: 'fa-file-signature',  desc: `Closed-won contracts · Q1–Q4 ${stats.currentYear}` },
         bookedArr:   { label: 'Booked ARR',           color: '#10b981', source: 'booked',   icon: 'fa-file-signature',  desc: `Closed-won contracts · Q1–Q4 ${stats.currentYear}` },
         weightedArr: { label: 'Weighted Pipeline ARR', color: '#f59e0b', source: 'forecast', icon: 'fa-filter',          desc: `Stage-probability weighted ARR · ${stats.currentYear} pipeline` },
         renewalArr:  { label: 'Renewal Target ARR',    color: '#a855f7', source: 'renewal',  icon: 'fa-rotate',          desc: `Contracts ending in ${stats.currentYear}` }
@@ -1582,11 +1582,11 @@ window.openAnnualKpiModal = function (kpiKey) {
 
     const valueCell = d => {
         if (kpiKey === 'bookedTcv') return `
-            <span style="color:#0EA5E9; font-weight:800;">TCV $${fmt(d.tcv)}</span>
+            <span style="color:#0EA5E9; font-weight:800;">KTCV $${fmt(d.tcv)}</span>
             <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">ARR $${fmt(d.arr)}</span>`;
         if (kpiKey === 'bookedArr') return `
             <span style="color:#10B981; font-weight:800;">ARR $${fmt(d.arr)}</span>
-            <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">TCV $${fmt(d.tcv)}</span>`;
+            <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">KTCV $${fmt(d.tcv)}</span>`;
         if (kpiKey === 'weightedArr') return `
             <span style="color:#F59E0B; font-weight:800;">wARR $${fmt(d.wArr)}</span>
             <span style="color:#9CA3AF; font-weight:600; margin-left:10px;">ARR $${fmt(d.arr)}</span>`;
@@ -1763,7 +1763,7 @@ function _getRevenueTypeBreakdownHTML(stats) {
                         <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">Accum. ARR</th>
                         <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">${currentYear} KTCV</th>
                         <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">${currentYear} ARR</th>
-                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">Share (TCV)</th>
+                        <th style="padding:8px 10px; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; text-align:right;">Share (KTCV)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1783,17 +1783,42 @@ function _getRevenueTypeBreakdownHTML(stats) {
     `);
 }
 
+/**
+ * Local TCV is only meaningful within one country's currency. When the data spans
+ * several countries, list each country's local total instead of adding currencies together.
+ * Returns null when a single country is in scope (the normal headline + yearly chart apply).
+ */
+function _localTcvByCountryHTML(stats) {
+    const entries = Object.entries(stats.localTcvByCountry || {})
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => b[1] - a[1]);
+    if (entries.length <= 1) return null;
+    const rows = entries.map(([country, v]) => `
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:6px 0; border-bottom:1px solid #F1F5F9;">
+            <span style="font-size:0.8rem; font-weight:700; color:#374151;">${country}</span>
+            <span style="font-size:1.05rem; font-weight:800; color:#111827;">${formatCurrency(v)} <span style="font-size:0.65rem; font-weight:600; color:#94a3b8;">local</span></span>
+        </div>`).join('');
+    return `
+        <div style="margin-top:6px;">${rows}</div>
+        <div style="font-size:0.68rem; color:#94a3b8; margin-top:8px;">Countries use different local currencies, so they are not added together. Select a country for its yearly TCV chart, or use ACCUMULATED KTCV for a global total.</div>`;
+}
+
 export function getOrderSheetHTML(stats, filterCountry = null) {
     const currentYear = new Date().getFullYear();
+    const localByCountryHtml = _localTcvByCountryHTML(stats);
+    const localCountryLabel = Object.keys(stats.localTcvByCountry || {}).find(c => stats.localTcvByCountry[c] > 0) || '';
     return `
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
             <div class="stat-card" style="border-left: 5px solid #0ea5e9; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px;">
-                <div class="metric-title-row"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED TCV</h3><span class="metric-globe" data-tooltip="Local currency basis — this card sums contracts in each country's original currency. All other cards on this page are on Korea (USD) basis."><i class="fa-solid fa-globe"></i></span><span class="metric-info" data-tooltip="Total Contract Value of all closed-won deals, summed across all countries in local currency.">i</span></div>
+                <div class="metric-title-row"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED TCV</h3><span class="metric-globe" data-tooltip="Local currency basis — each country's contracts in its own original currency. All other cards on this page are KTCV / Korea (USD) basis."><i class="fa-solid fa-globe"></i></span><span class="metric-info" data-tooltip="Total Contract Value of closed-won deals in the country's local currency (ORDER SHEET 'Local TCV'). Different currencies are never added together.">i</span></div>
+                ${localByCountryHtml ? `
+                <div style="font-size: 0.75rem; color: #6B7280;">${stats.dealCount} Deals Total · by country, local currency</div>
+                ${localByCountryHtml}` : `
                 <h2 style="font-size:1.6rem; font-weight:800; margin: 4px 0;">${formatCurrency(stats.sumLocalTcv)}</h2>
-                <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">${stats.dealCount} Deals Total</div>
+                <div style="font-size: 0.75rem; color: #6B7280; margin-bottom: 8px;">${stats.dealCount} Deals Total${localCountryLabel ? ` · ${localCountryLabel} local currency` : ''}</div>
                 <div style="flex: 1; position: relative; min-height: 70px;">
                     <canvas id="tcv-yearly-bar"></canvas>
-                </div>
+                </div>`}
             </div>
             <div class="stat-card" onclick="window.openAccumulatedTcvModal()" style="border-left: 5px solid #6366f1; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: stretch; min-height: 140px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px -4px rgba(99,102,241,0.25)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.1)';">
                 <div class="metric-title-row"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV</h3><span class="metric-info" data-tooltip="Total Contract Value converted to USD (Korea headquarters currency), aggregating global revenue in a single comparable unit.">i</span><span style="margin-left:auto; font-size:0.6rem; font-weight:700; color:#6366f1; background:rgba(99,102,241,0.1); padding:2px 8px; border-radius:10px; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-up-right-and-down-left-from-center" style="font-size:0.55rem;"></i>Compare vs Local TCV</span></div>
@@ -1841,7 +1866,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
             </div>
             ${_getRevenueTypeBreakdownHTML(stats)}
             <div class="stat-card" style="grid-column: span 2; background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #0ea5e9; display: flex; flex-direction: column; align-items: stretch;">
-                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">TCV CAGR</h3><span class="metric-info" data-tooltip="Compound Annual Growth Rate — the smoothed annual growth rate from the baseline year to each subsequent year. Top number shows the full-period CAGR.">i</span></div>
+                <div class="metric-title-row" style="margin-bottom:8px;"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">KTCV CAGR</h3><span class="metric-info" data-tooltip="Compound Annual Growth Rate — the smoothed annual growth rate from the baseline year to each subsequent year. Top number shows the full-period CAGR.">i</span></div>
                 <div style="display:flex; gap:20px; align-items:stretch;">
                     <div style="flex:1.2; display:flex; flex-direction:column; min-width:0;">
                         <div id="tcv-cagr-headline" style="font-size:1.6rem; font-weight:800; margin: 0 0 4px;">—</div>
@@ -1853,7 +1878,7 @@ export function getOrderSheetHTML(stats, filterCountry = null) {
             </div>
             ${(!filterCountry || filterCountry === 'All') ? `
             <div class="stat-card" style="background:#FFF; padding:16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-left: 5px solid #6366f1; display:flex; flex-direction:column;">
-                <div class="metric-title-row" style="margin-bottom:12px;"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV / COUNTRY</h3><span class="metric-info" data-tooltip="Geographic breakdown of total USD TCV, showing each country's share of global revenue.">i</span></div>
+                <div class="metric-title-row" style="margin-bottom:12px;"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV / COUNTRY</h3><span class="metric-info" data-tooltip="Geographic breakdown of total USD KTCV, showing each country's share of global revenue.">i</span></div>
                 <div style="display: flex; gap: 20px; align-items: center; flex: 1; min-height: 220px;">
                     <div style="position: relative; width: 180px; height: 180px; flex-shrink: 0;">
                         <canvas id="country-tcv-donut"></canvas>
@@ -1887,6 +1912,7 @@ window.openAccumulatedTcvModal = function () {
     const years = Object.keys(stats.yearlyTcv || {}).sort();
     const localYearly = years.map(y => stats.yearlyTcv[y].local || 0);
     const koreaYearly = years.map(y => stats.yearlyTcv[y].korea || 0);
+    const localByCountryHtml = _localTcvByCountryHTML(stats);
 
     body.innerHTML = `
         <div style="position:sticky; top:0; background:#fff; padding:20px 26px 16px; border-bottom:1px solid #F3F4F6; z-index:1; display:flex; align-items:center; gap:14px;">
@@ -1910,10 +1936,11 @@ window.openAccumulatedTcvModal = function () {
                 <div class="stat-card" style="border-left:5px solid #0ea5e9; background:#FFF; padding:18px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:stretch; min-height:340px;">
                     <div class="metric-title-row"><h3 style="color:#0ea5e9; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED TCV</h3><span class="metric-globe" data-tooltip="Local currency basis"><i class="fa-solid fa-globe"></i></span></div>
                     <div style="font-size:0.65rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;">Local currency · ${stats.dealCount} deals</div>
+                    ${localByCountryHtml || `
                     <h2 style="font-size:1.8rem; font-weight:800; margin:6px 0 4px;">${formatCurrency(stats.sumLocalTcv)}</h2>
                     <div style="flex:1; position:relative; min-height:240px; margin-top:8px;">
                         <canvas id="tcv-yearly-bar-modal"></canvas>
-                    </div>
+                    </div>`}
                 </div>
                 <div class="stat-card" style="border-left:5px solid #6366f1; background:#FFF; padding:18px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:stretch; min-height:340px;">
                     <div class="metric-title-row"><h3 style="color:#6366f1; font-size:0.75rem; font-weight:700; margin:0;">ACCUMULATED KTCV</h3></div>
@@ -2116,7 +2143,7 @@ export function computeQuarterlyRollover(stats, kpiTargets) {
     const rolloverByQ = {};
     if (!kpiTargets || !stats || !Array.isArray(stats.sortedQuarterly)) return rolloverByQ;
     let prevBalance = 0;   // + = behind (owed), − = ahead (surplus), carried from prior quarters
-    let cumulativeWon = 0; // running sum of WON TCV across quarters
+    let cumulativeWon = 0; // running sum of WON KTCV across quarters
     stats.sortedQuarterly.forEach(([q, qData]) => {
         const baseTarget = Number(kpiTargets[q]) || 0;
         const won = Object.values(qData.countries).reduce((acc, v) => acc + (v.tcv || 0), 0);
@@ -2140,8 +2167,8 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
         arr: 'Annual Recurring Revenue portion of the current pipeline for this quarter.',
         deals: 'Number of open deals counted in this group.',
         target: 'Set KPI Target — the quarterly revenue target originally configured on the KPI tab.',
-        rollover: 'Roll Over Target — the running balance still owed against target: (balance carried from the previous quarter) + (Set KPI Target − WON TCV). Positive = behind by that much; negative = ahead (surplus). Example: Q1 beats $100k by $70,806 → carries −$70,806 into Q2 → Q2 = −$70,806 + ($400k − $126,482) = $202,712.',
-        achievement: 'WON TCV ÷ Roll Over Target — percent of the (rolled-over) quarterly goal achieved.',
+        rollover: 'Roll Over Target — the running balance still owed against target: (balance carried from the previous quarter) + (Set KPI Target − WON KTCV). Positive = behind by that much; negative = ahead (surplus). Example: Q1 beats $100k by $70,806 → carries −$70,806 into Q2 → Q2 = −$70,806 + ($400k − $126,482) = $202,712.',
+        achievement: 'WON KTCV ÷ Roll Over Target — percent of the (rolled-over) quarterly goal achieved.',
         coverage: 'Pipeline Coverage — open Pipeline ÷ Roll Over Target. How many times the current pipeline covers the goal (3x+ is healthy).',
         stage: 'Sales stage of the deal (Discovery, PoC, Quotation, Negotiation, Won, Lost).'
     };
@@ -2154,7 +2181,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 <span style="display:inline-flex; align-items:center; background: rgba(16,185,129,0.12); color: #059669; font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 10px;">${values.count || 0} deals${infoIcon('deals')}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 2px;">
-                <span style="display:inline-flex; align-items:center; color: #ef4444; opacity: 0.8;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
+                <span style="display:inline-flex; align-items:center; color: #ef4444; opacity: 0.8;">WON KTCV (${currentYear})${infoIcon('wonTcv')}</span>
                 <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 2px;">
@@ -2195,7 +2222,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         <span style="display:inline-flex; align-items:center; background: rgba(99,102,241,0.1); color: #6366f1; font-size: 0.6rem; font-weight: 700; padding: 1px 6px; border-radius: 8px;">${values.count || 0}${infoIcon('deals')}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; margin-bottom: 2px;">
-                        <span style="display:inline-flex; align-items:center; color: #ef4444; opacity: 0.8;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
+                        <span style="display:inline-flex; align-items:center; color: #ef4444; opacity: 0.8;">WON KTCV (${currentYear})${infoIcon('wonTcv')}</span>
                         <span style="color: #ef4444; font-weight: 600;">$${formatCurrency(values.tcv || 0)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; margin-bottom: 2px;">
@@ -2223,7 +2250,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
         // WON TCV row — placed between Set KPI Target and Roll Over Target in the header.
         const wonTcvRow = `
                                 <div style="display: flex; justify-content: flex-end; align-items: center; gap: 6px;">
-                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">WON TCV (${currentYear})${infoIcon('wonTcv')}</span>
+                                    <span style="display:inline-flex; align-items:center; font-size: 0.6rem; color: #ef4444; text-transform: uppercase;">WON KTCV (${currentYear})${infoIcon('wonTcv')}</span>
                                     <span style="font-size: 0.85rem; color: #ef4444; font-weight: 800;">$${formatCurrency(qTotalTcv)}</span>
                                 </div>`;
 
@@ -2320,7 +2347,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             <span style="color: #1F2937; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${String(d.name).replace(/"/g, '&quot;')}">${d.name}</span>
                             ${renderStageBadge(d.stage || 'Unknown', { fontSize: '0.55rem', padding: '1px 6px' })}
                             <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex-shrink:0; line-height:1;">
-                                <span style="color: #2563eb; font-weight: 800; font-size:0.7rem;" title="TCV (total contract value)">TCV $${formatCurrency(d.amount || 0)}</span>
+                                <span style="color: #2563eb; font-weight: 800; font-size:0.7rem;" title="KTCV (total contract value)">KTCV $${formatCurrency(d.amount || 0)}</span>
                                 <span style="color: #10B981; font-weight: 700; font-size:0.6rem;" title="Weighted">W $${formatCurrency(d.weighted)}</span>
                                 <span style="color: #a855f7; font-weight: 700; font-size:0.6rem;" title="ARR">ARR $${formatCurrency(d.arr || 0)}</span>
                             </span>
@@ -2364,7 +2391,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                                             <span style="font-size: 0.55rem; font-weight: 800; color: ${g.fg}; background: rgba(255,255,255,0.6); padding: 1px 6px; border-radius: 8px;">${list.length}</span>
                                         </span>
                                         <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; line-height:1; flex-shrink:0;">
-                                            <span style="font-size: 0.66rem; font-weight: 800; color: #2563eb;" title="TCV subtotal (total contract value)">TCV $${formatCurrency(sumT(list))}</span>
+                                            <span style="font-size: 0.66rem; font-weight: 800; color: #2563eb;" title="KTCV subtotal (total contract value)">KTCV $${formatCurrency(sumT(list))}</span>
                                             <span style="font-size: 0.56rem; font-weight: 700; color: ${g.fg};" title="Weighted subtotal">W $${formatCurrency(sumW(list))}</span>
                                             <span style="font-size: 0.56rem; font-weight: 700; color: #a855f7;" title="ARR subtotal">ARR $${formatCurrency(sumA(list))}</span>
                                         </span>
@@ -2379,7 +2406,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         <span style="font-size: 0.6rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">All Deals · Total</span>
                         <span style="display:flex; align-items:center; gap:6px;">
                             <span style="font-size: 0.6rem; color: #6b7280; font-weight: 700; background: rgba(99,102,241,0.1); padding: 1px 6px; border-radius: 8px;">${qData.deals.length} deals</span>
-                            <span style="font-size: 0.66rem; color: #2563eb; font-weight: 800;" title="Total TCV (total contract value)">TCV $${formatCurrency(totalT)}</span>
+                            <span style="font-size: 0.66rem; color: #2563eb; font-weight: 800;" title="Total KTCV (total contract value)">KTCV $${formatCurrency(totalT)}</span>
                             <span style="font-size: 0.6rem; color: #10B981; font-weight: 700;" title="Total weighted">W $${formatCurrency(totalW)}</span>
                             <span style="font-size: 0.6rem; color: #a855f7; font-weight: 700;" title="Total ARR">ARR $${formatCurrency(totalA)}</span>
                         </span>
@@ -2391,7 +2418,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             <span style="font-size: 0.55rem; font-weight: 800; color: #475569; background: rgba(255,255,255,0.7); padding: 1px 6px; border-radius: 8px;">${comboList.length}</span>
                         </span>
                         <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px; line-height:1; flex-shrink:0;">
-                            <span style="font-size: 0.66rem; font-weight: 800; color: #2563eb;" title="POC + Trial TCV (total contract value)">TCV $${formatCurrency(comboT)}</span>
+                            <span style="font-size: 0.66rem; font-weight: 800; color: #2563eb;" title="POC + Trial KTCV (total contract value)">KTCV $${formatCurrency(comboT)}</span>
                             <span style="font-size: 0.56rem; font-weight: 700; color: #0f766e;" title="POC + Trial weighted">W $${formatCurrency(comboW)}</span>
                             <span style="font-size: 0.56rem; font-weight: 700; color: #a855f7;" title="POC + Trial ARR">ARR $${formatCurrency(comboA)}</span>
                         </span>
@@ -2531,7 +2558,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
     const matrixSubHeaderHtml = matrixQuarters.map((q) => {
         const t = QUARTER_THEME[q];
         return `
-            <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #b91c1c; background: ${t.cellBg}; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 1px solid ${t.divider};">Pipeline TCV</th>
+            <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #b91c1c; background: ${t.cellBg}; border-left: ${Q_DIVIDER} ${t.divider}; border-bottom: 1px solid ${t.divider};">Pipeline KTCV</th>
             <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #0369a1; background: ${t.cellBg}; border-bottom: 1px solid ${t.divider};">Weighted</th>
             <th style="padding: 6px 8px; text-align: right; font-size: 0.62rem; font-weight: 800; color: #4338ca; background: ${t.cellBg}; border-bottom: 1px solid ${t.divider};">ARR</th>
         `;
@@ -2772,9 +2799,9 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                 <div style="background: #FFFFFF; padding: 16px 20px 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 14px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 8px;">
                         <h3 style="font-size: 0.9rem; font-weight: 700; color: #111827; margin: 0;">Quarterly Objective <span style="color:#9CA3AF; font-weight:600;">·</span> Target Composition vs Achieved</h3>
-                        <span style="font-size: 0.62rem; color: #6B7280; background: #F3F4F6; padding: 3px 9px; border-radius: 10px; font-weight: 700;">FY ${currentYear} · USD (TCV)</span>
+                        <span style="font-size: 0.62rem; color: #6B7280; background: #F3F4F6; padding: 3px 9px; border-radius: 10px; font-weight: 700;">FY ${currentYear} · USD (KTCV)</span>
                     </div>
-                    <p style="font-size: 0.68rem; color: #6B7280; margin: 0 0 12px;">Each bar = that quarter's <b>total objective</b>, stacked as <span style="color:#4F46E5; font-weight:700;">Original KPI Target</span> + <span style="color:#B45309; font-weight:700;">Rolled-over carried in</span>. The <span style="color:#059669; font-weight:700;">solid green</span> bar inside shows Achieved (WON TCV); the % is how much of the total objective was reached.</p>
+                    <p style="font-size: 0.68rem; color: #6B7280; margin: 0 0 12px;">Each bar = that quarter's <b>total objective</b>, stacked as <span style="color:#4F46E5; font-weight:700;">Original KPI Target</span> + <span style="color:#B45309; font-weight:700;">Rolled-over carried in</span>. The <span style="color:#059669; font-weight:700;">solid green</span> bar inside shows Achieved (WON KTCV); the % is how much of the total objective was reached.</p>
                     <div style="position: relative; width: 100%; height: 440px;">
                         <canvas id="pipeline-target-chart"></canvas>
                     </div>
@@ -2807,11 +2834,11 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                         <div class="stat-icon" style="width: 32px; height: 32px; font-size: 0.9rem; background: rgba(99, 102, 241, 0.15); color: #6366f1;"><i class="fa-solid fa-table-cells"></i></div>
                         <div>
                             <h2 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">New Pipeline Volume by Country (${currentYear})</h2>
-                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly pipeline — Pipeline TCV · Weighted TCV · ARR side by side. Weighted TCV = Weighted KOR TCV from the PIPELINE sheet. ARR = TCV ÷ Contract Yr.</p>
+                            <p style="font-size: 0.7rem; color: #6b7280; margin: 2px 0 0;">Quarterly pipeline — Pipeline KTCV · Weighted KTCV · ARR side by side. Weighted KTCV = Weighted KOR TCV from the PIPELINE sheet. ARR = KTCV ÷ Contract Yr.</p>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; font-size: 0.65rem; font-weight: 700;">
-                        <span style="background:#fef2f2; color:#ef4444; padding: 3px 10px; border-radius: 10px; border:1px solid #fecaca;">Pipeline TCV</span>
+                        <span style="background:#fef2f2; color:#ef4444; padding: 3px 10px; border-radius: 10px; border:1px solid #fecaca;">Pipeline KTCV</span>
                         <span style="background:#f0f9ff; color:#0369a1; padding: 3px 10px; border-radius: 10px; border:1px solid #bae6fd;">Weighted</span>
                         <span style="background:#eef2ff; color:#6366f1; padding: 3px 10px; border-radius: 10px; border:1px solid #c7d2fe;">ARR</span>
                     </div>
@@ -2840,7 +2867,7 @@ export function getPipelineHTML(stats, filterCountry, tabName, kpiTargets = null
                             </tr>
                             <tr>
                                 ${matrixSubHeaderHtml}
-                                <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #b91c1c; background: #fee2e2; border-bottom: 1px solid #fca5a5; border-left: ${TOTAL_DIVIDER};">Pipeline TCV</th>
+                                <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #b91c1c; background: #fee2e2; border-bottom: 1px solid #fca5a5; border-left: ${TOTAL_DIVIDER};">Pipeline KTCV</th>
                                 <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #0369a1; background: #bae6fd; border-bottom: 1px solid #7dd3fc;">Weighted</th>
                                 <th style="padding: 6px 10px; text-align: right; font-size: 0.62rem; font-weight: 900; color: #4338ca; background: #c7d2fe; border-bottom: 1px solid #a5b4fc;">ARR</th>
                             </tr>
@@ -3818,8 +3845,8 @@ window.showPartnerKpiDetail = function (kind) {
         cfg = {
             icon: 'fa-solid fa-bolt', accent: '#6366f1',
             title: 'Active Partners', headline: `${act.active} of ${act.total} (${act.pct}%)`,
-            desc: 'Partners whose Activation Status is "Active" on the PARTNER sheet · sorted by Accumulated TCV · Open Pipeline = weighted KOR TCV (USD) in Discovery / Quotation / Negotiation / PoC',
-            head: _pmTh('No.', 'center') + _pmTh('Partner') + _pmTh('Country') + _pmTh('Tier', 'center') + _pmTh('Accumulated TCV', 'right') + _pmTh('Open Pipeline', 'right'),
+            desc: 'Partners whose Activation Status is "Active" on the PARTNER sheet · sorted by Accumulated KTCV · Open Pipeline = weighted KOR TCV (USD) in Discovery / Quotation / Negotiation / PoC',
+            head: _pmTh('No.', 'center') + _pmTh('Partner') + _pmTh('Country') + _pmTh('Tier', 'center') + _pmTh('Accumulated KTCV', 'right') + _pmTh('Open Pipeline', 'right'),
             rows: list.map((p, i) => `<tr style="${_pmRowStyle}">${
                 _pmNoTd(i) +
                 _pmTd(_escColl(p.name), 'left', ' font-weight:700; color:#1e293b;') +
@@ -3856,16 +3883,16 @@ window.showPartnerKpiDetail = function (kind) {
         if (!theme || !tiers) return;
         const list = tiers.members[tier] || [];
         const descByTier = {
-            'Gold': `Accumulated TCV at or above the 80th percentile (≥ $${formatCurrency(tiers.p80)}) among revenue-producing partners`,
-            'Silver': `Accumulated TCV at or above the 20th percentile (≥ $${formatCurrency(tiers.p20)}) among revenue-producing partners`,
-            'Bronze': `Accumulated TCV below the 20th percentile ($${formatCurrency(tiers.p20)}) but greater than zero`,
-            'Not Activated': 'No accumulated revenue yet (Accumulated TCV = 0)'
+            'Gold': `Accumulated KTCV at or above the 80th percentile (≥ $${formatCurrency(tiers.p80)}) among revenue-producing partners`,
+            'Silver': `Accumulated KTCV at or above the 20th percentile (≥ $${formatCurrency(tiers.p20)}) among revenue-producing partners`,
+            'Bronze': `Accumulated KTCV below the 20th percentile ($${formatCurrency(tiers.p20)}) but greater than zero`,
+            'Not Activated': 'No accumulated revenue yet (Accumulated KTCV = 0)'
         };
         cfg = {
             icon: `fa-solid ${theme.icon}`, accent: theme.fg,
             title: `${tier} Tier`, headline: `${list.length} partner${list.length === 1 ? '' : 's'}`,
-            desc: `${descByTier[tier]} · sorted by Accumulated TCV`,
-            head: _pmTh('No.', 'center') + _pmTh('Partner') + _pmTh('Country') + _pmTh('Status', 'center') + _pmTh('Accumulated TCV', 'right') + _pmTh('Open Pipeline', 'right'),
+            desc: `${descByTier[tier]} · sorted by Accumulated KTCV`,
+            head: _pmTh('No.', 'center') + _pmTh('Partner') + _pmTh('Country') + _pmTh('Status', 'center') + _pmTh('Accumulated KTCV', 'right') + _pmTh('Open Pipeline', 'right'),
             rows: list.map((p, i) => `<tr style="${_pmRowStyle}">${
                 _pmNoTd(i) +
                 _pmTd(_escColl(p.name), 'left', ' font-weight:700; color:#1e293b;') +
@@ -3901,8 +3928,8 @@ window.showPartnerOwnershipDetail = function (encodedName) {
     _openPartnerModal({
         icon: 'fa-solid fa-people-arrows', accent: '#2a78d6',
         title: 'Sales & Technical Ownership', headline: _escColl(entry.name),
-        desc: `${entry.taggedCount} pipeline deal${entry.taggedCount === 1 ? '' : 's'} with Technical or Sales/Prospect Ownership tagged · sorted by weighted TCV`,
-        head: _pmTh('No.', 'center') + _pmTh('Deal Name') + _pmTh('Stage', 'center') + _pmTh('Weighted TCV', 'right') + _pmTh('Close Date') + _pmTh('Technical Owner') + _pmTh('Sales Owner'),
+        desc: `${entry.taggedCount} pipeline deal${entry.taggedCount === 1 ? '' : 's'} with Technical or Sales/Prospect Ownership tagged · sorted by weighted KTCV`,
+        head: _pmTh('No.', 'center') + _pmTh('Deal Name') + _pmTh('Stage', 'center') + _pmTh('Weighted KTCV', 'right') + _pmTh('Close Date') + _pmTh('Technical Owner') + _pmTh('Sales Owner'),
         rows: deals.map((d, i) => `<tr style="${_pmRowStyle}">${
             _pmNoTd(i) +
             _pmTd(_escColl(d.name), 'left', ' font-weight:600; color:#1e293b;') +
@@ -4098,7 +4125,7 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
                     <div class="stat-icon" style="background: rgba(245,158,11,0.12); color: #d97706; width: 32px; height: 32px;"><i class="fa-solid fa-ranking-star"></i></div>
                     <div>
                         <h3 style="font-size: 0.95rem; font-weight: 700; color: #111827; margin: 0;">Partner Tier Distribution</h3>
-                        <span style="font-size: 0.68rem; color: #9CA3AF; font-weight: 600;">By Accumulated TCV percentile among revenue-producing partners · click a tier for the partner list</span>
+                        <span style="font-size: 0.68rem; color: #9CA3AF; font-weight: 600;">By Accumulated KTCV percentile among revenue-producing partners · click a tier for the partner list</span>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
@@ -4227,9 +4254,9 @@ export function getPartnerHTML(stats, filterCountry, tabName) {
                 'Top 10 Partners — by Revenue',
                 'rgba(52,199,89,0.12)', '#34C759', 'fa-dollar-sign',
                 [
-                    { label: 'TCV (USD)', align: 'right' },
+                    { label: 'KTCV (USD)', align: 'right' },
                     { label: 'Deals', align: 'center' },
-                    { label: 'Tier', align: 'center', title: 'Accumulated TCV percentile among revenue-producing partners: Gold ≥ 80th, Silver ≥ 20th, Bronze below, Not Activated = no revenue' },
+                    { label: 'Tier', align: 'center', title: 'Accumulated KTCV percentile among revenue-producing partners: Gold ≥ 80th, Silver ≥ 20th, Bronze below, Not Activated = no revenue' },
                     { label: 'Open Pipe.', align: 'right', title: 'Open Pipeline — weighted KOR TCV (USD) of this partner’s deals in Discovery / Quotation / Negotiation / PoC' }
                 ],
                 revenueRankingRowsHtml, rankingsEmpty
@@ -4671,7 +4698,7 @@ export function getPipelineCoverageHTML(stats) {
                 ${quarterCards}
             </div>
             <div style="padding:10px 14px; background:#f5f3ff; border-radius:8px; font-size:0.7rem; color:#6b7280; display:flex; flex-wrap:wrap; gap:16px;">
-                <span><i class="fa-solid fa-circle" style="color:#10b981; font-size:0.5rem;"></i> <strong>Booked TCV</strong> = closed deals this quarter</span>
+                <span><i class="fa-solid fa-circle" style="color:#10b981; font-size:0.5rem;"></i> <strong>Booked KTCV</strong> = closed deals this quarter</span>
                 <span><i class="fa-solid fa-circle" style="color:#6366f1; font-size:0.5rem;"></i> <strong>Pipeline</strong> = weighted pipeline in PIPELINE sheet</span>
                 <span><i class="fa-solid fa-circle" style="color:#9ca3af; font-size:0.5rem;"></i> <strong>Target</strong> = same quarter last year (YoY baseline)</span>
                 <span><strong style="color:#059669;">≥150%</strong> Strong &nbsp;·&nbsp; <strong style="color:#10b981;">≥100%</strong> On track &nbsp;·&nbsp; <strong style="color:#f59e0b;">≥70%</strong> Watch &nbsp;·&nbsp; <strong style="color:#ef4444;">&lt;70%</strong> At Risk</span>
@@ -4729,7 +4756,7 @@ export function getPipelineChangeLogHTML(filterCountry, history, dealDiffs = [])
             <span style="font-size:0.72rem; color:#374151; white-space:nowrap;"><strong style="color:#111827;">${initial.count || 0}</strong> deals</span>
             <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Pipeline <strong style="color:#10b981;">$${formatCurrency(initial.amount || 0)}</strong></span>
             <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">Weighted <strong style="color:#007AFF;">$${formatCurrency(initial.weighted || 0)}</strong></span>
-            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">TCV <strong style="color:#ef4444;">$${formatCurrency(initial.tcv || 0)}</strong></span>
+            <span style="font-size:0.72rem; color:#374151; white-space:nowrap;">KTCV <strong style="color:#ef4444;">$${formatCurrency(initial.tcv || 0)}</strong></span>
             <span style="display:flex; gap:5px; flex-wrap:wrap; margin-left:auto;">${initialQuarterPills}</span>
         </div>`;
 
@@ -4790,7 +4817,7 @@ export function getPipelineChangeLogHTML(filterCountry, history, dealDiffs = [])
             const secondaryChips = [
                 secondaryChip('Deals', '#6B7280', ev.before.count, ev.after.count, false),
                 secondaryChip('Weighted', '#007AFF', ev.before.weighted, ev.after.weighted, true),
-                secondaryChip('TCV', '#ef4444', ev.before.tcv, ev.after.tcv, true)
+                secondaryChip('KTCV', '#ef4444', ev.before.tcv, ev.after.tcv, true)
             ].filter(Boolean).join(' ');
 
             const quarterChips = ev.quartersChanged.length === 0
@@ -4998,7 +5025,7 @@ export function getPartnerPerformanceHTML() {
                 <div class="stat-icon" style="background: rgba(0,122,255,0.1); color: #007AFF; width: 36px; height: 36px;"><i class="fa-solid fa-ranking-star"></i></div>
                 <div>
                     <h3 style="font-size: 1.1rem; font-weight: 700; color: #111827; margin: 0;">Partner Performance Summary (Top 10)</h3>
-                    <p style="font-size: 0.75rem; color: #6B7280; margin-top: 2px;">Ranked by Accumulated TCV</p>
+                    <p style="font-size: 0.75rem; color: #6B7280; margin-top: 2px;">Ranked by Accumulated KTCV</p>
                 </div>
             </div>
             <div style="position: relative; height: 400px;"><canvas id="partner-top-performer-chart"></canvas></div>
@@ -5868,7 +5895,7 @@ export function getCountrySpecificHTML(stats, countryName) {
         <div class="stat-card" style="padding:20px; background:#F9FAFB; border-top:4px solid #6366f1; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
             <h3 style="font-size:0.9rem; font-weight:800; color:#4B5563; border-bottom:1px solid #E5E7EB; padding-bottom:10px; margin-bottom:15px;">${y} Performance</h3>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-                <span style="font-size:0.8rem; color:#6B7280;">KOR TCV</span><span style="font-weight:800; color:#111827;">$${formatCurrency(stats.summary[y].kTcv)}</span>
+                <span style="font-size:0.8rem; color:#6B7280;">KTCV</span><span style="font-weight:800; color:#111827;">$${formatCurrency(stats.summary[y].kTcv)}</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
                 <span style="font-size:0.8rem; color:#6B7280;">Local ARR</span><span style="font-weight:800; color:#111827;">$${formatCurrency(stats.summary[y].lArr)}</span>
@@ -6194,7 +6221,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                 </div>
             </div>
 
-            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:18px; margin-top:22px; position:relative;">
+            <div class="kpi-hero-grid">
                 <div style="background: rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.18); border-radius:14px; padding:18px 22px;">
                     <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe; text-transform:uppercase;">Overall Weighted Achievement</div>
                     <div style="font-size:3.2rem; font-weight:800; margin:6px 0 4px; line-height:1; color:${overallColor === '#10B981' ? '#6ee7b7' : (overallColor === '#F59E0B' ? '#fcd34d' : (overallColor === '#F97316' ? '#fdba74' : '#fca5a5'))};">${overallRate}<span style="font-size:1.4rem; opacity:0.7;">%</span></div>
@@ -6219,7 +6246,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                                     <div style="font-size:1.45rem; font-weight:800; color:${c}; margin-top:2px; line-height:1;">${qr}%</div>
                                     ${hasTcv ? `
                                         <div style="font-size:0.82rem; font-weight:800; color:#ffffff; margin-top:6px; line-height:1.2;">${formatVal(tcvAch[qi], true)}</div>
-                                        <div style="font-size:0.64rem; font-weight:600; color:#a5b4fc;">of ${formatVal(tcvTgt[qi], true)} TCV</div>
+                                        <div style="font-size:0.64rem; font-weight:600; color:#a5b4fc;">of ${formatVal(tcvTgt[qi], true)} KTCV</div>
                                     ` : ''}
                                     <div style="height:5px; background:rgba(255,255,255,0.10); border-radius:5px; margin-top:8px; overflow:hidden;">
                                         <div style="height:100%; width:${Math.min(100, qr)}%; background:${c};"></div>
@@ -6234,7 +6261,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
             ${hasTcv ? `
                 <div style="margin-top:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); border-radius:12px; padding:14px 20px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative;">
                     <div style="flex-shrink:0;">
-                        <div style="font-size:0.66rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe; text-transform:uppercase;">Total TCV Achieved</div>
+                        <div style="font-size:0.66rem; font-weight:700; letter-spacing:0.14em; color:#c7d2fe; text-transform:uppercase;">Total KTCV Achieved</div>
                         <div style="font-size:1.6rem; font-weight:800; color:#ffffff; line-height:1.2;">${formatVal(tcvTotalAch, true)}
                             <span style="font-size:0.85rem; font-weight:600; color:#a5b4fc;">/ ${formatVal(tcvTotalTgt, true)} target</span>
                         </div>
@@ -6249,7 +6276,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                     </div>
                     <div style="flex-shrink:0; text-align:right;">
                         <div style="font-size:1.45rem; font-weight:800; color:${tcvTotalRate >= 100 ? '#6ee7b7' : (tcvTotalRate >= 70 ? '#fcd34d' : (tcvTotalRate >= 40 ? '#fdba74' : '#fca5a5'))};">${tcvTotalRate}%</div>
-                        <div style="font-size:0.64rem; color:#a5b4fc; font-weight:600;">of annual TCV</div>
+                        <div style="font-size:0.64rem; color:#a5b4fc; font-weight:600;">of annual KTCV</div>
                     </div>
                 </div>
             ` : ''}
@@ -6352,7 +6379,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
         if (!mix) return '';
 
         const MIX_LABEL = {
-            New: 'New TCV',
+            New: 'New KTCV',
             Upsell: 'Up/Cross Sell',
             Recurring: 'Recurring (Renewal)',
             Unspecified: 'Unspecified'
@@ -6367,9 +6394,9 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
             <div style="background:white; border:1px solid #E2E8F0; border-left:4px solid #14b8a6; border-radius:14px; padding:16px 20px; box-shadow:0 2px 6px rgba(15,23,42,0.04);">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
                     <div style="font-size:0.75rem; font-weight:800; color:#0F766E; letter-spacing:0.08em; text-transform:uppercase;">
-                        <i class="fa-solid fa-layer-group" style="margin-right:6px;"></i>Revenue Type Mix — ${mix.year} Won TCV
+                        <i class="fa-solid fa-layer-group" style="margin-right:6px;"></i>Revenue Type Mix — ${mix.year} Won KTCV
                     </div>
-                    <span class="metric-info" data-tooltip="Quarterly breakdown of this year's won contracts (WON TCV) into New TCV / Up·Cross Sell / Recurring (renewal/extension), based on the ORDER SHEET's Revenue Type.">i</span>
+                    <span class="metric-info" data-tooltip="Quarterly breakdown of this year's won contracts (WON KTCV) into New KTCV / Up·Cross Sell / Recurring (renewal/extension), based on the ORDER SHEET's Revenue Type.">i</span>
                 </div>
                 ${inner}
             </div>`;
@@ -6476,8 +6503,8 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
                         </div>
                     </div>
                 </div>
-                <div style="display:grid; grid-template-columns: 1fr; gap:14px;">
-                    ${isCurrencyCat(cat.name) ? revenueMixPanel : ''}
+                ${isCurrencyCat(cat.name) && revenueMixPanel ? `<div style="margin-bottom:14px;">${revenueMixPanel}</div>` : ''}
+                <div class="kpi-obj-grid">
                     ${objectives}
                 </div>
             </div>
@@ -6486,7 +6513,7 @@ export function getKPIDashboardHTML(kpiData, currentKPIYear = new Date().getFull
 
     // ── Container ──────────────────────────────────────────────
     return `
-        <div class="kpi-dashboard-container" style="max-width:1400px; margin:0 auto;">
+        <div class="kpi-dashboard-container">
             ${hero}
             ${categoryBlocks}
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:6px;">
@@ -6694,7 +6721,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TCV vs ARR Dashboard
+   KTCV vs ARR Dashboard
    ═══════════════════════════════════════════════════════════════ */
 
 /**
@@ -6705,7 +6732,7 @@ export function getKPIHTML(kpiData, currentKPIYear = new Date().getFullYear(), i
  */
 export function getTcvArrHTML(stats, filters = {}) {
     if (!stats) {
-        return '<p style="padding:40px; text-align:center; color:#6B7280;">No TCV/ARR data found. Ensure the ORDER SHEET contains KOR TCV and End User columns.</p>';
+        return '<p style="padding:40px; text-align:center; color:#6B7280;">No KTCV/ARR data found. Ensure the ORDER SHEET contains KOR TCV and End User columns.</p>';
     }
 
     const gapPct = stats.totalTcv > 0 ? ((stats.totalGap / stats.totalTcv) * 100).toFixed(1) : '0.0';
@@ -6737,7 +6764,7 @@ export function getTcvArrHTML(stats, filters = {}) {
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                     <div style="width:38px; height:38px; background:rgba(255,255,255,0.18); border-radius:10px; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-file-invoice-dollar" style="font-size:1rem;"></i></div>
-                    <h3 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ffffff; margin:0;">Total KOR TCV</h3>
+                    <h3 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ffffff; margin:0;">Total KTCV</h3>
                 </div>
                 <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em; color:#ffffff;">$${formatCurrency(stats.totalTcv)}</h2>
                 <div style="font-size:0.78rem; margin-top:8px; color:#dbeafe; font-weight:600;">${stats.accountCount} accounts</div>
@@ -6749,7 +6776,7 @@ export function getTcvArrHTML(stats, filters = {}) {
                     <h3 style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ffffff; margin:0;">Total KOR ARR</h3>
                 </div>
                 <h2 style="font-size:1.8rem; font-weight:800; margin:0; line-height:1; letter-spacing:-0.02em; color:#ffffff;">$${formatCurrency(stats.totalArr)}</h2>
-                <div style="font-size:0.78rem; margin-top:8px; color:#dbeafe; font-weight:600;">${arrPct}% of TCV is recurring</div>
+                <div style="font-size:0.78rem; margin-top:8px; color:#dbeafe; font-weight:600;">${arrPct}% of KTCV is recurring</div>
             </div>
             <div class="stat-card" style="background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); padding:18px; border-radius:14px; color:white; position:relative; overflow:hidden; box-shadow: 0 8px 20px rgba(37,99,235,0.25);">
                 <div style="position:absolute; top:-15px; right:-15px; width:80px; height:80px; background:rgba(255,255,255,0.06); border-radius:50%;"></div>
@@ -6780,7 +6807,7 @@ export function getTcvArrHTML(stats, filters = {}) {
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
                 <h3 style="font-size:1.05rem; font-weight:800; color:#111827; margin:0; display:flex; align-items:center; gap:10px;">
                     <i class="fa-solid fa-circle-half-stroke" style="color:#1e40af;"></i> ARR Recurring Rate by Account
-                    <span style="background:#eff6ff; color:#1e40af; font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:12px;">${stats.items.length > 15 ? 'Top 15 by TCV' : stats.items.length + ' accounts'}</span>
+                    <span style="background:#eff6ff; color:#1e40af; font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:12px;">${stats.items.length > 15 ? 'Top 15 by KTCV' : stats.items.length + ' accounts'}</span>
                 </h3>
                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                     <span style="display:flex; align-items:center; gap:4px; font-size:0.7rem; color:#64748b;"><span style="width:10px; height:10px; background:#059669; border-radius:2px; display:inline-block;"></span>≥80% Healthy</span>
@@ -6825,7 +6852,7 @@ export function getTcvArrHTML(stats, filters = {}) {
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
                 <h3 style="font-size:1rem; font-weight:800; color:#111827; margin:0; display:flex; align-items:center; gap:8px;">
                     <i class="fa-solid fa-table-list" style="color:#1e40af;"></i> Revenue Mix Detail
-                    <span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:700; padding:2px 10px; border-radius:12px;">Sorted by TCV ↓</span>
+                    <span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:700; padding:2px 10px; border-radius:12px;">Sorted by KTCV ↓</span>
                 </h3>
                 <button id="tcvarr-table-toggle" onclick="(function(){const el=document.getElementById('tcvarr-table-body');const btn=document.getElementById('tcvarr-table-toggle');const hidden=el.style.display==='none';el.style.display=hidden?'block':'none';btn.textContent=hidden?'Hide Details':'Show Details';})()" style="background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; padding:5px 14px; border-radius:8px; font-size:0.75rem; font-weight:600; cursor:pointer;">Hide Details</button>
             </div>
@@ -6837,7 +6864,7 @@ export function getTcvArrHTML(stats, filters = {}) {
                                 <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; width:40px;">#</th>
                                 <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">End User</th>
                                 <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Country</th>
-                                <th style="padding:10px 12px; font-size:0.68rem; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">KOR TCV (USD)</th>
+                                <th style="padding:10px 12px; font-size:0.68rem; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">KTCV (USD)</th>
                                 <th style="padding:10px 12px; font-size:0.68rem; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">KOR ARR (USD)</th>
                                 <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:right;">GAP</th>
                                 <th style="padding:10px 12px; font-size:0.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:center;">ARR RATIO</th>
@@ -6905,7 +6932,7 @@ function _buildStrategicInsightsHTML(stats, arrPct, gapPct) {
                 </div>
                 <p style="margin:0 0 8px 0; font-size:0.78rem; color:#475569; line-height:1.5;">${healthDesc}</p>
                 <div style="display:flex; gap:20px; font-size:0.72rem; color:#64748b;">
-                    <span><strong style="color:#1e40af;">TCV:</strong> $${formatCurrency(stats.totalTcv)}</span>
+                    <span><strong style="color:#1e40af;">KTCV:</strong> $${formatCurrency(stats.totalTcv)}</span>
                     <span><strong style="color:#16a34a;">ARR:</strong> $${formatCurrency(stats.totalArr)}</span>
                     <span><strong style="color:#7c3aed;">Gap:</strong> $${formatCurrency(stats.totalGap)} (${gapPct}%)</span>
                 </div>
@@ -6929,7 +6956,7 @@ function _buildStrategicInsightsHTML(stats, arrPct, gapPct) {
         <div style="margin-top:18px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
                 <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626; font-size:1rem;"></i>
-                <h4 style="margin:0; font-size:0.88rem; font-weight:800; color:#1e293b;">Top Risk Accounts <span style="font-weight:500; color:#94a3b8; font-size:0.72rem;">(Wide Gap — High TCV, Low ARR)</span></h4>
+                <h4 style="margin:0; font-size:0.88rem; font-weight:800; color:#1e293b;">Top Risk Accounts <span style="font-weight:500; color:#94a3b8; font-size:0.72rem;">(Wide Gap — High KTCV, Low ARR)</span></h4>
             </div>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:10px;">
                 ${wideGapAccounts.map((acc, i) => {
@@ -6940,7 +6967,7 @@ function _buildStrategicInsightsHTML(stats, arrPct, gapPct) {
                             <span style="background:#fee2e2; color:#b91c1c; font-size:0.6rem; font-weight:700; padding:2px 8px; border-radius:8px;">${acc.isPerpetual ? 'PERPETUAL' : 'LOW RECURRING'}</span>
                         </div>
                         <div style="display:flex; gap:12px; font-size:0.7rem; color:#64748b; margin-bottom:8px;">
-                            <span>TCV: <strong style="color:#1e40af;">$${formatCurrency(acc.tcv)}</strong></span>
+                            <span>KTCV: <strong style="color:#1e40af;">$${formatCurrency(acc.tcv)}</strong></span>
                             <span>ARR: <strong style="color:#16a34a;">$${formatCurrency(acc.arr)}</strong></span>
                             <span>Gap: <strong style="color:#dc2626;">$${formatCurrency(acc.gap)}</strong></span>
                         </div>
@@ -6984,7 +7011,7 @@ function _buildStrategicInsightsHTML(stats, arrPct, gapPct) {
                             <span style="background:#d1fae5; color:#047857; font-size:0.6rem; font-weight:700; padding:2px 8px; border-radius:8px;">${arrRatio}% RECURRING</span>
                         </div>
                         <div style="display:flex; gap:12px; font-size:0.7rem; color:#64748b; margin-bottom:8px;">
-                            <span>TCV: <strong style="color:#1e40af;">$${formatCurrency(acc.tcv)}</strong></span>
+                            <span>KTCV: <strong style="color:#1e40af;">$${formatCurrency(acc.tcv)}</strong></span>
                             <span>ARR: <strong style="color:#16a34a;">$${formatCurrency(acc.arr)}</strong></span>
                             <span>Gap: <strong style="color:#059669;">$${formatCurrency(acc.gap)}</strong> only</span>
                         </div>
@@ -7031,7 +7058,7 @@ function _buildStrategicInsightsHTML(stats, arrPct, gapPct) {
                         </div>
                     </div>
                     <ul style="margin:0; padding:0 0 0 16px; font-size:0.72rem; color:#475569; line-height:1.7;">
-                        <li><strong style="color:#dc2626;">$${formatCurrency(revenueCliff)}</strong> one-time revenue at risk (${cliffPct}% of current TCV)</li>
+                        <li><strong style="color:#dc2626;">$${formatCurrency(revenueCliff)}</strong> one-time revenue at risk (${cliffPct}% of current KTCV)</li>
                         <li><strong style="color:#7c3aed;">${stats.perpetualCount}</strong> perpetual-only accounts contribute $0 to next year's recurring floor</li>
                         <li>Need ~<strong style="color:#1e40af;">${neededNewDeals}</strong> new deals of average size to maintain current revenue level</li>
                     </ul>
@@ -7149,7 +7176,7 @@ function _buildAccountSegmentationHTML(stats) {
             <div style="padding:12px 14px;">
                 <div style="max-height:210px; overflow-y:auto; margin-bottom:10px;">
                     <div style="display:flex; justify-content:flex-end; gap:20px; padding:0 10px 4px 0; font-size:0.6rem; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">
-                        <span style="min-width:52px; text-align:right;">TCV</span>
+                        <span style="min-width:52px; text-align:right;">KTCV</span>
                         <span style="min-width:52px; text-align:right;">ARR</span>
                         <span style="min-width:34px; text-align:right;">Ratio</span>
                     </div>
@@ -7170,7 +7197,7 @@ function _buildAccountSegmentationHTML(stats) {
     const multiYearCard = segmentCard(
         'fa-anchor',
         'Multi-Year Anchors',
-        'TCV/ARR ≥ 1.8x — long-term contracts locked in',
+        'KTCV/ARR ≥ 1.8x — long-term contracts locked in',
         '#1e40af', '#eff6ff', '#bfdbfe',
         multiYear.length,
         `Low near-term churn risk. However, renewals arrive in bulk at contract end — map expiry dates now and initiate re-engagement at least 6 months in advance.`,
@@ -7183,7 +7210,7 @@ function _buildAccountSegmentationHTML(stats) {
     const annualCard = segmentCard(
         'fa-rotate',
         'Annual Renewers',
-        'TCV/ARR < 1.8x — 1-year contracts, renews each year',
+        'KTCV/ARR < 1.8x — 1-year contracts, renews each year',
         '#d97706', '#fffbeb', '#fde68a',
         annualRenewal.length,
         `Highest churn exposure — every account needs a renewal decision this cycle. Prioritize QBRs and multi-year migration offers for any account with ARR > $20K.`,
@@ -7199,9 +7226,9 @@ function _buildAccountSegmentationHTML(stats) {
         'ARR = $0 — no recurring revenue contribution',
         '#7c3aed', '#f5f3ff', '#c4b5fd',
         perpetual.length,
-        `These accounts contribute $0 to next year's ARR floor. Introduce a SaaS upgrade path or annual maintenance plan to convert even 30% of TCV into recurring revenue.`,
+        `These accounts contribute $0 to next year's ARR floor. Introduce a SaaS upgrade path or annual maintenance plan to convert even 30% of KTCV into recurring revenue.`,
         perpetual,
-        perpetual.length > 0 ? `<div style="background:#ede9fe; border-radius:8px; padding:6px 10px; margin-bottom:8px; font-size:0.68rem; color:#6d28d9; font-weight:600;">One-time TCV at risk: <strong>$${formatCurrency(perpetualTcv)}</strong> — must be re-won next period</div>` : ''
+        perpetual.length > 0 ? `<div style="background:#ede9fe; border-radius:8px; padding:6px 10px; margin-bottom:8px; font-size:0.68rem; color:#6d28d9; font-weight:600;">One-time KTCV at risk: <strong>$${formatCurrency(perpetualTcv)}</strong> — must be re-won next period</div>` : ''
     );
 
     /* ── Concentration Risk ── */

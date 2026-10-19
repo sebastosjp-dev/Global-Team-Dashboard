@@ -248,32 +248,115 @@ function renderTableData(searchTerm = "", filterCountry = null) {
    Event Listeners
    ═══════════════════════════════════════════════════════════════ */
 
+const AUTH_SESSION_KEY = 'auth_user';
+
+/**
+ * Decode the payload of a Google ID token (JWT). Signature is verified by Google's
+ * GSI library delivering it; we only read the claims.
+ * @param {string} token
+ * @returns {Object|null}
+ */
+function decodeJwtPayload(token) {
+    try {
+        const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * True only for a verified, unexpired token issued to this app for an ALLOWED_DOMAIN account.
+ * @param {Object|null} claims
+ */
+function isAllowedAccount(claims) {
+    if (!claims) return false;
+    const email = String(claims.email || '').toLowerCase();
+    return claims.aud === AUTH.GOOGLE_CLIENT_ID
+        && claims.email_verified === true
+        && claims.hd === AUTH.ALLOWED_DOMAIN
+        && email.endsWith('@' + AUTH.ALLOWED_DOMAIN)
+        && claims.exp * 1000 > Date.now();
+}
+
+/** Show the signed-in user's initials in the header; click to sign out. */
+function showSignedInUser(user) {
+    const pic = document.querySelector('.profile-pic');
+    if (!pic) return;
+    const initials = String(user.name || user.email)
+        .split(/[\s@.]+/).filter(Boolean).slice(0, 2)
+        .map(s => s[0].toUpperCase()).join('');
+    pic.innerText = initials;
+    pic.title = `${user.email} (click to sign out)`;
+    pic.classList.add('signed-in');
+    pic.addEventListener('click', () => {
+        if (!confirm(`Sign out ${user.email}?`)) return;
+        sessionStorage.removeItem(AUTH_SESSION_KEY);
+        if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+        location.reload();
+    });
+}
+
 function initAuth() {
     const overlay = document.getElementById('login-overlay');
-    const input = document.getElementById('password-input');
-    const btn = document.getElementById('login-btn');
     const error = document.getElementById('login-error');
 
-    if (sessionStorage.getItem('auth') === AUTH.PASSWORD_ENCODED) {
+    const enterDashboard = (user) => {
         overlay.classList.add('hidden');
+        showSignedInUser(user);
         loadLocalExcel();
-        return;
-    }
-
-    const tryLogin = () => {
-        if (btoa(input.value) === AUTH.PASSWORD_ENCODED) {
-            sessionStorage.setItem('auth', AUTH.PASSWORD_ENCODED);
-            overlay.classList.add('hidden');
-            loadLocalExcel();
-        } else {
-            error.style.display = 'block';
-            input.value = '';
-            input.focus();
-        }
     };
 
-    btn.addEventListener('click', tryLogin);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+    const showError = (msg) => {
+        error.innerText = msg;
+        error.style.display = 'block';
+    };
+
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY) || 'null');
+        if (saved && String(saved.email).toLowerCase().endsWith('@' + AUTH.ALLOWED_DOMAIN)) {
+            enterDashboard(saved);
+            return;
+        }
+    } catch { /* fall through to sign-in */ }
+
+    const handleCredential = (response) => {
+        const claims = decodeJwtPayload(response.credential);
+        if (!isAllowedAccount(claims)) {
+            if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+            showError(`Access is limited to @${AUTH.ALLOWED_DOMAIN} accounts.` +
+                (claims?.email ? ` (${claims.email} is not allowed)` : ''));
+            return;
+        }
+        const user = { email: claims.email, name: claims.name || '' };
+        sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
+        enterDashboard(user);
+    };
+
+    // The GSI script loads async; wait until it is ready.
+    const startedAt = Date.now();
+    const initGoogle = () => {
+        if (!window.google?.accounts?.id) {
+            if (Date.now() - startedAt > 10000) {
+                showError('Could not load Google Sign-In. Check your network and refresh.');
+                return;
+            }
+            setTimeout(initGoogle, 100);
+            return;
+        }
+        google.accounts.id.initialize({
+            client_id: AUTH.GOOGLE_CLIENT_ID,
+            callback: handleCredential,
+            hd: AUTH.ALLOWED_DOMAIN,
+            auto_select: true,
+        });
+        google.accounts.id.renderButton(document.getElementById('google-signin-btn'), {
+            theme: 'outline', size: 'large', text: 'signin_with', shape: 'rectangular', width: 280,
+        });
+        google.accounts.id.prompt();
+    };
+    initGoogle();
 }
 
 window.addEventListener('load', () => {

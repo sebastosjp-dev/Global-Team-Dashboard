@@ -112,59 +112,21 @@
     margin-bottom: 8px;
 }
 
-.login-input-wrap {
-    position: relative;
-    width: 100%;
-}
-
-.login-input-wrap i {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-light);
-    font-size: 0.85rem;
-}
-
-.login-input-wrap input {
-    width: 100%;
-    padding: 12px 14px 12px 38px;
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-sm);
-    font-size: 0.95rem;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.login-input-wrap input:focus {
-    border-color: var(--accent-primary);
-    background: #fff;
-}
-
-#login-btn {
-    width: 100%;
-    padding: 12px;
-    background: var(--accent-primary);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
-    margin-top: 4px;
-}
-
-#login-btn:hover {
-    opacity: 0.88;
+#google-signin-btn {
+    min-height: 44px;
+    display: flex;
+    justify-content: center;
 }
 
 #login-error {
     font-size: 0.82rem;
     color: var(--accent-red);
+    text-align: center;
     display: none;
+}
+
+.profile-pic.signed-in {
+    cursor: pointer;
 }
 
 /* ================================================================
@@ -981,6 +943,21 @@ select:focus {
 /* ================================================================
    KPI Dashboard
    ================================================================ */
+/* Read-only KPI dashboard: fill the content area; objective cards flow into
+   as many columns as the width allows (1 on laptops, 2-3 on wide monitors). */
+.kpi-dashboard-container { width: 100%; }
+.kpi-hero-grid {
+    display: grid; grid-template-columns: minmax(260px, 1fr) 2fr;
+    gap: 18px; margin-top: 22px; position: relative;
+}
+.kpi-obj-grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+}
+@media (max-width: 900px) {
+    .kpi-hero-grid { grid-template-columns: 1fr; }
+}
+
 .kpi-container {
     padding: 24px; background: #F8FAFC;
     border-radius: 20px; border: 1px solid #E2E8F0;

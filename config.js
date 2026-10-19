@@ -2,8 +2,13 @@
  * config.js — Global configuration constants
  */
 
+// Google Sign-In: only accounts in ALLOWED_DOMAIN may enter.
+// Client ID comes from Google Cloud Console → APIs & Services → Credentials
+// (OAuth client ID, type "Web application"). Authorized JavaScript origins must
+// include every URL the dashboard is served from (GitHub Pages + localhost).
 export const AUTH = {
-    PASSWORD_ENCODED: 'MDEyNA==',  // btoa('0124')
+    GOOGLE_CLIENT_ID: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+    ALLOWED_DOMAIN: 'whatap.io',
 };
 
 // Google Sheets spreadsheet IDs

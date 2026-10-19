@@ -87,6 +87,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     const qDeals = { Q1: [], Q2: [], Q3: [], Q4: [] };
     const lastYearQSums = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
     const tcvByCountry = {};
+    const localTcvByCountry = {}; // Local TCV per country — currencies differ, so never summed across countries
     const tcvByCountryYear = {};
     /**
      * Revenue Type breakdown — keyed by normalized type.
@@ -117,6 +118,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
 
         const countryName = countryKey ? (normalizeCountry(row[countryKey]) || 'Other') : 'Other';
         tcvByCountry[countryName] = (tcvByCountry[countryName] || 0) + kTcv;
+        localTcvByCountry[countryName] = (localTcvByCountry[countryName] || 0) + lTcv;
 
         const rType = _normalizeRevenueType(revenueTypeKey ? row[revenueTypeKey] : null);
         if (!revenueTypeBreakdown[rType]) {
@@ -176,7 +178,7 @@ export function getOrderSheetStats(data, filterCountry, tabName, workbookData) {
     return {
         sumLocalTcv, sumKorTcv, sumArr, sumMrr, dealCount,
         yearlyTcv, yearlyArr, yearlyMrr,
-        qSums, qDeals, lastYearQSums, tcvByCountry, tcvByCountryYear,
+        qSums, qDeals, lastYearQSums, tcvByCountry, localTcvByCountry, tcvByCountryYear,
         revenueTypeBreakdown, hasRevenueType: !!revenueTypeKey
     };
 }

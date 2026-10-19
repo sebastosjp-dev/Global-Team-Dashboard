@@ -70,16 +70,16 @@ function buildCagrInsights(years, values) {
     const cautions = [];
 
     if (fullCagr !== null) {
-        reading.push(`Across <b>${years[0]}–${years[lastIdx]}</b>, TCV moved from <b>$${formatCurrency(baseline)}</b> to <b>$${formatCurrency(latest)}</b>, a <b>${fmtPct(fullCagr)}</b> compound annual rate over ${lastIdx} year${lastIdx > 1 ? 's' : ''}.`);
+        reading.push(`Across <b>${years[0]}–${years[lastIdx]}</b>, KTCV moved from <b>$${formatCurrency(baseline)}</b> to <b>$${formatCurrency(latest)}</b>, a <b>${fmtPct(fullCagr)}</b> compound annual rate over ${lastIdx} year${lastIdx > 1 ? 's' : ''}.`);
     }
 
     if (latestYoy !== null && isFinite(latestYoy)) {
         if (latestYoy < 0 && peakIdx < lastIdx) {
             reading.push(`The most recent year (<b>${years[lastIdx]}</b>) fell <b>${fmtPct(latestYoy, false)}</b> YoY, so the rolling CAGR is dragged down by the post-peak step.`);
         } else if (peakIdx === lastIdx) {
-            reading.push(`<b>${years[lastIdx]}</b> sets a new TCV high — the long-run CAGR still reflects expansion.`);
+            reading.push(`<b>${years[lastIdx]}</b> sets a new KTCV high — the long-run CAGR still reflects expansion.`);
         } else {
-            reading.push(`Peak TCV was reached in <b>${years[peakIdx]}</b> ($${formatCurrency(peak)}); subsequent years have softened the rolling rate.`);
+            reading.push(`Peak KTCV was reached in <b>${years[peakIdx]}</b> ($${formatCurrency(peak)}); subsequent years have softened the rolling rate.`);
         }
     }
 
@@ -101,7 +101,7 @@ function buildCagrInsights(years, values) {
 
     if (peakIdx < lastIdx && peak > 0) {
         const declineFromPeak = ((latest / peak - 1) * 100);
-        cautions.push(`Latest TCV is <b>${fmtPct(declineFromPeak, false)}</b> below the ${years[peakIdx]} peak — CAGR will keep compressing unless TCV recovers above <b>$${formatCurrency(peak)}</b>.`);
+        cautions.push(`Latest KTCV is <b>${fmtPct(declineFromPeak, false)}</b> below the ${years[peakIdx]} peak — CAGR will keep compressing unless KTCV recovers above <b>$${formatCurrency(peak)}</b>.`);
     }
 
     const currentYear = new Date().getFullYear();
@@ -1166,7 +1166,7 @@ export function initPipelineCharts(stats, kpiTargets = null) {
         const baseTargets = tLabels.map(q => rollover[q]?.baseTarget || 0);
         const prevBalances = tLabels.map(q => rollover[q]?.prevBalance || 0);      // roll-over carried in
         const objectiveVals = tLabels.map(q => rollover[q]?.targetToHit || 0);      // KPI target + roll-over
-        const wonVals = tLabels.map(q => rollover[q]?.won || 0);                    // achieved (WON TCV)
+        const wonVals = tLabels.map(q => rollover[q]?.won || 0);                    // achieved (WON KTCV)
         // Objective composition — the bar background splits into two bands that stack
         // to the total objective (targetToHit): the ORIGINAL KPI target at the bottom
         // and the ROLLED-OVER shortfall carried in from prior quarters on top. When a
@@ -1257,7 +1257,7 @@ export function initPipelineCharts(stats, kpiTargets = null) {
                             generateLabels: function (chart) {
                                 const base = Chart.defaults.plugins.legend.labels.generateLabels(chart);
                                 base.push({
-                                    text: 'Achieved (WON TCV)',
+                                    text: 'Achieved (WON KTCV)',
                                     fillStyle: '#10B981',
                                     strokeStyle: '#10B981',
                                     lineWidth: 0,
@@ -1420,7 +1420,7 @@ export function initPartnerPerformanceCharts(stats) {
             type: 'bar',
             data: {
                 labels: stats.map(p => `${p.name} (${p.country})`),
-                datasets: [{ label: 'TCV (USD)', data: stats.map(p => p.tcv), backgroundColor: 'rgba(0,122,255,0.7)', borderRadius: 4 }]
+                datasets: [{ label: 'KTCV (USD)', data: stats.map(p => p.tcv), backgroundColor: 'rgba(0,122,255,0.7)', borderRadius: 4 }]
             },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
@@ -1883,7 +1883,7 @@ export function initTcvArrChart(stats) {
                             const item = displayItems[ctx[0].dataIndex];
                             return [
                                 '',
-                                `TCV: $${formatCurrency(item.tcv)}`,
+                                `KTCV: $${formatCurrency(item.tcv)}`,
                                 `ARR: $${formatCurrency(item.arr)}`,
                                 `Gap: $${formatCurrency(item.gap)}`,
                                 item.isPerpetual ? '⚡ Perpetual License' : '🔄 Recurring Revenue'
