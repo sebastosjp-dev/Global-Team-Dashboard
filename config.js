@@ -7,7 +7,7 @@
 // (OAuth client ID, type "Web application"). Authorized JavaScript origins must
 // include every URL the dashboard is served from (GitHub Pages + localhost).
 export const AUTH = {
-    GOOGLE_CLIENT_ID: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+    GOOGLE_CLIENT_ID: '7266197012-iog9olr657n7p8b9v30vo285lnlprebg.apps.googleusercontent.com',
     ALLOWED_DOMAIN: 'whatap.io',
 };
 

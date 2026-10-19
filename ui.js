@@ -1241,7 +1241,7 @@ export function getQuarterlyForecastHTML(stats) {
                         <span style="width:4px; height:4px; border-radius:50%; background:${c.fg};"></span>${label}
                     </span>
                     <span style="font-size:0.62rem; font-weight:700; color:#374151; line-height:1; white-space:nowrap; font-variant-numeric:tabular-nums;">
-                        <span style="color:#0ea5e9; font-weight:800;">T</span>$${formatCurrency(b.tcv)}
+                        <span style="color:#0ea5e9; font-weight:800;" title="KTCV">KT</span>$${formatCurrency(b.tcv)}
                         <span style="color:#10b981; font-weight:800; margin-left:4px;">A</span>$${formatCurrency(b.arr)}
                     </span>
                 </div>
