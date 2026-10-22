@@ -41,6 +41,7 @@ import {
     getMaterialsHTML
 } from './ui.js';
 import { loadKPIQuarterlyTargets, renderKPISheetDashboard } from './kpi.js';
+import { renderProjectStatus } from './projectStatus.js';
 
 /* ═══════════════════════════════════════════════════════════════
    Metrics Router
@@ -61,7 +62,7 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
     const isGlobalTab = tabName && tabName.includes('Global(Contract Date)');
     const isMaterialsTab = String(tabName).trim().toUpperCase() === 'MATERIALS';
     const isCountryTab = tabName && filterCountry === null &&
-        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'DEAL LOST', 'TASK', 'KPI'].includes(tabName) &&
+        !['ORDER SHEET', 'PIPELINE', 'PARTNER', 'POC', 'EVENT', 'END USER (CSM)', 'COLLECTION', 'PROJECT', 'PROJECTS', 'DEAL LOST', 'TASK', 'KPI'].includes(tabName) &&
         !isGlobalTab && !isMaterialsTab;
 
     if (tabName === 'ORDER SHEET' || isGlobalTab) {
@@ -115,6 +116,15 @@ export function renderTabMetrics(data, tabName, filterCountry, workbookData, sea
 
     if (tabName === 'PROJECT' && workbookData['PROJECT']) {
         _renderProject(workbookData['PROJECT'], filterCountry, metricsGrid, searchInput, workbookData);
+        hasMetrics = true;
+    }
+
+    if (tabName === 'PROJECTS' && workbookData['PROJECTS']) {
+        const container = document.createElement('div');
+        container.style.gridColumn = '1 / -1';
+        container.style.minWidth = '0';
+        metricsGrid.appendChild(container);
+        renderProjectStatus(container, workbookData);
         hasMetrics = true;
     }
 

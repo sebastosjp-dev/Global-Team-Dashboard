@@ -28,6 +28,7 @@ export const APPROVED_SHEETS = [
     'COLLECTION',
     'PIPELINE',
     'POC',
+    'PROJECTS',
     'PARTNER',
     'EVENT',
     'END USER (CSM)',
